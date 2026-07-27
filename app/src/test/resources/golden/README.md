@@ -31,6 +31,8 @@ Fields per vector:
 | ------------------ | -------------------------------------------------------------- |
 | `sshKeyPem`        | Input OpenSSH v1 private key (PEM)                             |
 | `passphrase`       | Passphrase (null = unencrypted key)                           |
+
+`keys.encryptedEd25519Pem` is a separate OpenSSH-generated `aes256-ctr` / bcrypt_pbkdf fixture (one KDF round), using the test-only passphrase `phase1-test-passphrase`. It encrypts the same Ed25519 material as the unencrypted vector and is exercised by `SshKeyCodecTest`.
 | `seedHex`          | Raw 32-byte ed25519 seed extracted from the key (hex)         |
 | `ed25519PubkeyHex` | Raw 32-byte ed25519 public key (hex)                          |
 | `sshFingerprint`   | `SHA256:<base64>` — matches `ssh-keygen -E sha256 -lf`        |

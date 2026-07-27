@@ -102,6 +102,9 @@ dependencies {
     // BouncyCastle: SSH-side crypto only (OpenSSH v1 parse, bcrypt_pbkdf, AES-CTR,
     // Ed25519) — the non-standard half no library exposes the raw seed for.
     implementation(libs.bouncycastle.prov)
+    // Apache MINA provides the OpenSSH-compatible bcrypt_pbkdf primitive. We retain
+    // ownership of the container/decrypt parser so raw Ed25519 seed extraction is explicit.
+    implementation(libs.sshd.common)
     // Quartz Nostr KMP library: owns the standard Nostr half — NIP-06 (key
     // derivation), NIP-19 (bech32 npub/nsec), NIP-44 v2 (encryption), events.
     // Battle-tested (powers Amethyst); pulls secp256k1 JNI transitively.
