@@ -8,21 +8,24 @@ app. See the specs and plan:
 - [`ui-ux-flows.md`](ui-ux-flows.md) — screens & navigation
 - [`implementation-plan.md`](implementation-plan.md) — the phased build plan (PoC scope)
 
-## Status: Phase 0 — Project bootstrap ✅
+## Status: Phase 1 — Cryptographic core (in progress)
 
-Scaffold is in place and builds:
+Scaffold builds; the Nostr crypto library is chosen and parity-gated:
 
-- Gradle 8.9 wrapper, AGP 8.7.3, Kotlin 2.0.21, JDK 17
+- Gradle 8.13 wrapper, AGP 8.11.2, Kotlin 2.2.21, JDK 17
 - Jetpack Compose + Material 3, single-activity Navigation-Compose
 - Hilt (DI), Coroutines, kotlinx.serialization
 - DataStore, Security-Crypto (EncryptedSharedPreferences), WorkManager
-- OkHttp, BouncyCastle 1.79, `fr.acinq.secp256k1`
-- Placeholder screens for every PoC route; smoke unit test
+- OkHttp, BouncyCastle 1.79 (SSH side), `fr.acinq.secp256k1`
+- **Quartz** (`com.vitorpamplona.quartz`) owns the standard Nostr half
+  (NIP-06/19/44 + events), verified byte-for-byte in `QuartzParityTest`
+- Placeholder screens for every PoC route; smoke + parity unit tests
 
 ## Requirements
 
-- JDK 17
-- Android SDK with platform 35 + build-tools 35.0.0
+- JDK 17 (host unit tests auto-provision a JDK 21 toolchain — Quartz ships
+  JVM 21 bytecode; enabled via the Foojay resolver in `settings.gradle.kts`)
+- Android SDK with platform 36 + build-tools 36.0.0
 - `local.properties` with `sdk.dir=<your Android SDK path>` (not committed)
 
 ## Build & test
@@ -52,8 +55,9 @@ com.zenten.vault
 Later phases add `crypto/`, `data/`, `network/`, `domain/`, `background/`, and
 `state/` per `implementation-plan.md §3`.
 
-## Next: Phase 1 — Cryptographic core
+## Next: finish Phase 1 — Cryptographic core
 
-Highest-risk, highest-priority. Implement `SshKeyCodec`, `Seedify`,
-`NostrKeyDerivation`, and `Nip44` with golden test-vector parity before any
-downstream work depends on them. Note the PoC uses **bcrypt_pbkdf = 1 round**.
+The Nostr half is done (Quartz, parity-proven). Remaining: implement
+`SshKeyCodec` (the crux — raw 32-byte Ed25519 seed extraction) and `Seedify`,
+plus thin `NostrKeyDerivation`/`Nip44` adapters over Quartz, all gated on golden
+test vectors. Note the PoC uses **bcrypt_pbkdf = 1 round**.

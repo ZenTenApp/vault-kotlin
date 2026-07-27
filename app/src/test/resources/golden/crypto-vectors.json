@@ -1,0 +1,41 @@
+{
+  "_generatedBy": "tools/gen-golden-vectors.mjs",
+  "_sources": {
+    "seedify": "seedify-ts/dist",
+    "nostr": "nostr-tools (via ../vault)"
+  },
+  "_chain": "SSH+pass -> 32B seed -> Seedify.toMnemonic(24) -> NIP-06 m/44'/1237'/0'/0/0 -> npub/nsec",
+  "keys": {
+    "unencryptedEd25519Pem": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACDJQSoksziSwoefzN4O7jzRv6vJpyOW9CnGXgkUjVajHAAAAIgvWUstL1lL\nLQAAAAtzc2gtZWQyNTUxOQAAACDJQSoksziSwoefzN4O7jzRv6vJpyOW9CnGXgkUjVajHA\nAAAEAHa+hzPanJO/Ef7G03pLLub2KNYh+szqeY/1e7ADjdy8lBKiSzOJLCh5/M3g7uPNG/\nq8mnI5b0KcZeCRSNVqMcAAAAAAECAwQF\n-----END OPENSSH PRIVATE KEY-----",
+    "encryptedEd25519Pem": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABBmspXicJ\n4jGegEfhH7XJL4AAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIEB88EAE2ZbegKkK\nQHkWryJW725cojU6GJ8rAMjx7lKQAAAAoMr2Uq9ybH6oQGlZiiiUd0xDrPjTRtoxkTUVTC\nGYlCzWodcB0N8w+AzvHpYhjRridHK+QwJoaooJXNYcNF+amSoJm8BoPPnqPF1f5GBF/cc3\nIUQzBJEmktr0aTXUMVXKJffCejcHUpDR4QVfaSU3Sczuj3cv/iG+TWzjnw4ouOTdIWr/f8\nttX/inpncyZFV0Ddvm/IvIdd+ldRkskiV51Ko=\n-----END OPENSSH PRIVATE KEY-----"
+  },
+  "vectors": [
+    {
+      "label": "unencrypted-ed25519",
+      "sshKeyPem": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACDJQSoksziSwoefzN4O7jzRv6vJpyOW9CnGXgkUjVajHAAAAIgvWUstL1lL\nLQAAAAtzc2gtZWQyNTUxOQAAACDJQSoksziSwoefzN4O7jzRv6vJpyOW9CnGXgkUjVajHA\nAAAEAHa+hzPanJO/Ef7G03pLLub2KNYh+szqeY/1e7ADjdy8lBKiSzOJLCh5/M3g7uPNG/\nq8mnI5b0KcZeCRSNVqMcAAAAAAECAwQF\n-----END OPENSSH PRIVATE KEY-----",
+      "passphrase": null,
+      "seedHex": "076be8733da9c93bf11fec6d37a4b2ee6f628d621faccea798ff57bb0038ddcb",
+      "ed25519PubkeyHex": "c9412a24b33892c2879fccde0eee3cd1bfabc9a72396f429c65e09148d56a31c",
+      "sshFingerprint": "SHA256:tX0ZrsNLIB/ZlRK3vy/HsWIIkyBNhYhCSGmtqtxJcWo",
+      "mnemonic24": "alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady",
+      "mnemonic12": "judge skirt gown office scrap asthma improve pool end gesture reduce lyrics",
+      "nostrNip06": {
+        "pubkey": "94f66e97b117976cc8fed2314d5f5fc78b72414feec63df107dc41d18ca6423e",
+        "privkey": "1c6459a8e7c53935ea77a8c69f94a9fa0723cbe76e78bd5ed6d396e88fe791e4",
+        "npub": "npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w",
+        "nsec": "nsec1r3j9n288c5unt6nh4rrfl99flgrj8jl8deut6hkk6wtw3rl8j8jqp2wdzy"
+      }
+    }
+  ],
+  "nip44": {
+    "note": "NIP-44 v2. conversationKey is deterministic; encrypt uses a random nonce so ciphertext is NOT a golden — assert decrypt(ciphertext)==plaintext and reproduce conversationKey exactly. Use the official NIP-44 vectors (nip44.vectors.json) for full ChaCha20 parity.",
+    "conversationKey_sk1_pub2": "c41c775356fd92eadc63ff5a0dc1da211b268cbea22316767095b2871ea1412d",
+    "self": {
+      "privkey": "00000000000000000000000000000000000000000000000000000000deadbeef",
+      "pubkey": "76d2fdf1302d1fa9556f4df94ec84cefba6d482e54f47c6c2a238c1baa560f0e",
+      "conversationKey": "c742e10c8717de376e8842d6dc01d06e70f1ba69c2b6f88a1f4aa03cc9905af6",
+      "samplePlaintext": "{\"hello\":\"vault\"}",
+      "sampleCiphertext": "AgO08qoyfg/NygAyYAgDBAiV846iOPLUakBX4UDEA8DEEKudezYdMyI4zLb0wU3H5gd10jN0gNVJgeygiGYyo8Kv7IFFMIPfBb+jFoJziD3+nDnOQlU/wtrcgUgyUFLm4fS5"
+    }
+  }
+}

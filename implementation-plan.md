@@ -61,8 +61,10 @@ relevant invariants below hold.
 
 | Concern          | Choice                                                          |
 | ---------------- | --------------------------------------------------------------- |
-| Language         | Kotlin (2.x)                                                    |
-| Min / Target SDK | minSdk 26, targetSdk 35                                         |
+| Language         | Kotlin 2.2.x                                                    |
+| Min / Target SDK | minSdk 26, compileSdk/targetSdk 36                              |
+| Build            | AGP 8.11.x, Gradle 8.13, JDK 17 (host unit tests on JDK 21)     |
+| Nostr protocol   | **Quartz** (`com.vitorpamplona.quartz`) — NIP-06/19/44 + events |
 | UI               | Jetpack Compose + Material 3                                    |
 | Navigation       | Navigation-Compose (single-activity)                            |
 | DI               | Hilt                                                            |
@@ -77,9 +79,21 @@ relevant invariants below hold.
 
 ### Cryptography library mapping
 
-**Primary provider: BouncyCastle** (`org.bouncycastle:bcprov-jdk18on`, latest —
-use **1.79+**). It supplies Ed25519, bcrypt_pbkdf, AES-CTR, ChaCha20-Poly1305,
-and OpenSSH-v1 parsing from a single dependency, and works down to minSdk 26.
+The crypto chain splits cleanly into two halves, handled differently:
+
+- **Non-standard, ZenTen-specific (hand-rolled on BouncyCastle):** the SSH-key
+  side — OpenSSH-v1 parse, bcrypt_pbkdf, AES-CTR, raw 32-byte Ed25519 seed
+  extraction. No library exposes the *raw seed*, so this stays hand-rolled.
+- **Standard Nostr (delegated to Quartz):** NIP-06 key derivation, NIP-19
+  bech32 (npub/nsec), NIP-44 v2 encryption, and event build/sign/verify.
+  Quartz is the battle-tested Kotlin impl behind Amethyst and is **verified
+  byte-for-byte** against our golden vectors + the official NIP-44 vectors by
+  `QuartzParityTest` (the Phase-1 gate). This replaces the earlier plan to
+  hand-roll NIP-44 and vendor a bech32 encoder.
+
+**SSH-side provider: BouncyCastle** (`org.bouncycastle:bcprov-jdk18on`, **1.79+**).
+It supplies Ed25519, bcrypt_pbkdf, AES-CTR and OpenSSH-v1 parsing from a single
+dependency and works down to minSdk 26.
 
 > We do **not** rely on the JDK-native `EdDSA` provider: Ed25519 only ships in
 > the Android platform provider on API 33+, which is above our minSdk 26.
@@ -93,11 +107,11 @@ and OpenSSH-v1 parsing from a single dependency, and works down to minSdk 26.
 | AES-256-CTR (SSH key decrypt)                   | JCE (`Cipher` "AES/CTR/NoPadding")                                                |
 | **Raw 32-byte Ed25519 seed extraction**         | Custom OpenSSH decrypt path (see note below) using BC primitives                  |
 | SHA-256 fingerprint                             | `MessageDigest`                                                                   |
-| BIP39 (24 words)                                | Small vendored wordlist + BC HMAC-SHA512; or `NovaCrypto/BIP39`, tested           |
-| BIP32 HD derivation                             | `fr.acinq.secp256k1` bindings / BitcoinJ                                          |
-| secp256k1 / NIP-06                              | `fr.acinq.secp256k1` (kotlin bindings, bundled JNI)                               |
-| NIP-44 (ECDH + ChaCha20-Poly1305)               | BouncyCastle ChaCha20-Poly1305 + HKDF, follow NIP-44 v2 spec                      |
-| bech32 (npub/nsec)                              | Small vendored bech32 encoder                                                     |
+| BIP39 (24 words, seed==entropy)                 | Quartz `Nip06.privateKeyFromMnemonic` (BIP39 mnemonic→seed internally)            |
+| BIP32 HD derivation                             | Quartz NIP-06 (`m/44'/1237'/account'/0/0`), secp256k1 bundled                     |
+| secp256k1 / NIP-06                              | Quartz `Nip06` + `KeyPair` (secp256k1 JNI, transitive)                            |
+| NIP-44 v2 (ECDH + ChaCha20-Poly1305)            | Quartz `Nip44.v2` — verified vs official vectors, not hand-rolled                 |
+| bech32 (npub/nsec)                              | Quartz `ByteArray.toNpub()` / `.toNsec()` (NIP-19)                                |
 
 
 > ⚠️ **Encrypted-key seed extraction (the crux).** F-003 needs the *raw 32-byte
@@ -212,9 +226,14 @@ seed** (for BIP39), generate unencrypted sub-account keys with `createdAt`
 comment, SHA-256 fingerprint. Built on BouncyCastle primitives; cross-checked
 against BC `OpenSSHPrivateKeyUtil` / Apache MINA `sshd-common`.
 - `Seedify`: SSH+passphrase → 24-word BIP39 mnemonic (passphrase validation gate).
-- `NostrKeyDerivation`: NIP-06 `m/44'/1237'/0'/0/0`, npub/nsec bech32.
-- `Nip44`: encrypt/decrypt (self-encryption), against NIP-44 v2 test vectors.
+- `NostrKeyDerivation`: thin wrapper over Quartz `Nip06`/`KeyPair` — NIP-06
+`m/44'/1237'/0'/0/0`, npub/nsec via NIP-19 `toNpub()`/`toNsec()`.
+- `Nip44`: thin wrapper over Quartz `Nip44.v2` — self-encryption encrypt/decrypt.
 - **Milestone**: golden test vectors match the reference implementation exactly.
+  Already proven for the Nostr half by `QuartzParityTest` (NIP-06 npub/nsec/hex
+  vs `nostr-tools` golden; NIP-44 conversation-key + full fixed-nonce ciphertext
+  vs the 35 + 10 official `paulmillr/nip44` vectors). Remaining gate work is the
+  SSH-side seed extraction.
 - **Gate**: no downstream work merges until parity tests pass.
 
 ### Phase 2 — Storage Layer
@@ -341,8 +360,10 @@ WorkManager retry behavior.
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Raw Ed25519 seed extraction from encrypted OpenSSH key | Custom decrypt path (bcrypt_pbkdf → AES-CTR → parse) on BC primitives; libraries expose opaque keys, not the seed. Cross-check vs BC `OpenSSHPrivateKeyUtil` / MINA sshd. |
 | `bcrypt_pbkdf` + OpenSSH KDF parity                    | Vendor & unit-test against known OpenSSH keys first; requires BouncyCastle 1.79+ for encrypted-key support.                                                               |
-| NIP-44 v2 correctness                                  | Use official NIP-44 test vectors; independent decrypt check.                                                                                                              |
-| secp256k1 native bindings on all ABIs                  | Use `fr.acinq.secp256k1` with bundled JNI; verify arm64/x86_64.                                                                                                           |
+| NIP-44 v2 correctness                                  | **Resolved** — delegated to Quartz `Nip44.v2`, verified byte-for-byte vs the official `paulmillr/nip44` vectors (conv-key + fixed-nonce ciphertext) in `QuartzParityTest`. |
+| NIP-06 parity vs `nostr-tools` reference               | **Resolved** — Quartz `Nip06` reproduces the golden npub/nsec/hex exactly (`QuartzParityTest`).                                                                            |
+| secp256k1 native bindings on all ABIs                  | Bundled JNI via Quartz (transitive `fr.acinq.secp256k1`); host unit tests use `secp256k1-kmp-jni-jvm`; verify arm64/x86_64 on device.                                     |
+| Quartz ships JVM 21 bytecode (host tests)              | **Resolved** — run unit tests on an auto-provisioned JDK 21 toolchain; app itself stays on JVM 17. Quartz 1.08.0 pinned (newest needing only stable compileSdk 36).       |
 | Microsecond timestamp precision on Android             | Emulate µs = `epochMs*1000 + random3digits` per `architecture-overview.md §5`.                                                                                            |
 
 
@@ -369,8 +390,14 @@ Critical path is **Phase 1 (crypto)** → everything else depends on parity.
 
 ## 11. Immediate Next Steps
 
-1. Scaffold the Gradle project (Phase 0) with the package structure in §3.
-2. Collect reference test vectors (SSH key, passphrase, expected mnemonic, npub,
-  sample NIP-78 event) from the existing implementation.
-3. Implement `SshKeyCodec` + `Seedify` first and prove parity before proceeding.
+1. ~~Scaffold the Gradle project (Phase 0)~~ — done.
+2. ~~Collect reference test vectors~~ — done (`app/src/test/resources/golden/`).
+3. ~~Settle the Nostr library question~~ — done: Quartz adopted, parity proven by
+  `QuartzParityTest`. Toolchain migrated (AGP 8.11 / Gradle 8.13 / Kotlin 2.2.21 /
+  compileSdk 36; unit tests on JDK 21).
+4. Implement `SshKeyCodec` (the crux: raw 32-byte seed extraction) + `Seedify`,
+  and add an **encrypted** SSH-key golden vector with a known passphrase at
+  1-round bcrypt_pbkdf. This is the last open parity item for Phase 1.
+5. Wrap Quartz behind thin `NostrKeyDerivation` / `Nip44` adapters so the rest
+  of the app depends on our interfaces, not Quartz types directly.
 

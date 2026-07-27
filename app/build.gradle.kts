@@ -9,12 +9,12 @@ plugins {
 
 android {
     namespace = "com.zenten.vault"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.zenten.vault"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-poc"
 
@@ -59,7 +59,16 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
-            all { it.useJUnitPlatform() }
+            all {
+                it.useJUnitPlatform()
+                // Quartz ships JVM 21 bytecode; run host-side unit tests on a JDK 21
+                // runtime (auto-provisioned) even though the app itself targets JVM 17.
+                it.javaLauncher.set(
+                    javaToolchains.launcherFor {
+                        languageVersion.set(JavaLanguageVersion.of(21))
+                    },
+                )
+            }
         }
     }
 }
@@ -90,10 +99,21 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.okhttp)
+    // BouncyCastle: SSH-side crypto only (OpenSSH v1 parse, bcrypt_pbkdf, AES-CTR,
+    // Ed25519) — the non-standard half no library exposes the raw seed for.
     implementation(libs.bouncycastle.prov)
+    // Quartz Nostr KMP library: owns the standard Nostr half — NIP-06 (key
+    // derivation), NIP-19 (bech32 npub/nsec), NIP-44 v2 (encryption), events.
+    // Battle-tested (powers Amethyst); pulls secp256k1 JNI transitively.
+    // Parity proven byte-for-byte in QuartzParityTest.
+    implementation(libs.quartz)
+    // Pin the secp256k1 android JNI ABI explicitly (also a Quartz transitive).
     implementation(libs.secp256k1.kmp.jni.android)
 
     // Unit tests
+    // secp256k1 (Schnorr, NIP-44 ECDH) needs the JVM JNI artifact to run in host-side
+    // (Robolectric/JUnit) tests; the -jni-android artifact only loads on a device/emulator.
+    testImplementation(libs.secp256k1.kmp.jni.jvm)
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)

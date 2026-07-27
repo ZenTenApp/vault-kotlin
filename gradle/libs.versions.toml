@@ -1,13 +1,13 @@
 [versions]
-agp = "8.7.3"
-kotlin = "2.1.21"
-ksp = "2.1.21-2.0.2"
-coreKtx = "1.15.0"
-lifecycle = "2.8.7"
-activityCompose = "1.9.3"
-composeBom = "2024.12.01"
-navigationCompose = "2.8.5"
-hilt = "2.56.2" # KSP2 support (required with Kotlin 2.1.x)
+agp = "8.11.2" # AGP 8.11 -> requires Gradle 8.13, JDK 17, max compileSdk 36
+kotlin = "2.2.21"
+ksp = "2.2.21-2.0.5"
+coreKtx = "1.18.0" # Quartz transitive floor; needs compileSdk 36 + AGP 8.9.1+
+lifecycle = "2.9.4"
+activityCompose = "1.11.0"
+composeBom = "2026.06.01"
+navigationCompose = "2.9.5"
+hilt = "2.57.2" # latest Hilt compatible with AGP 8 (2.58 broken, 2.59 requires AGP 9)
 hiltNavigationCompose = "1.2.0"
 coroutines = "1.9.0"
 serialization = "1.7.3"
@@ -15,8 +15,9 @@ datastore = "1.1.1"
 securityCrypto = "1.1.0-alpha06"
 workManager = "2.10.0"
 okhttp = "4.12.0"
+quartz = "1.08.0" # Nostr KMP lib (NIP-06/19/44 + events). Newest version needing only stable compileSdk 36 (1.09+ requires SDK 37 beta).
 bouncycastle = "1.79"
-secp256k1 = "0.19.0" # 0.19.0+ aligns native libs to 16 KB page size (ACINQ/secp256k1-kmp#124); built with Kotlin 2.1.x
+secp256k1 = "0.23.0" # aligned with Quartz's transitive; 16 KB page-size native libs
 junit = "4.13.2"
 junitJupiter = "5.11.3"
 androidxTestExtJunit = "1.2.1"
@@ -53,8 +54,10 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+quartz = { group = "com.vitorpamplona.quartz", name = "quartz", version.ref = "quartz" }
 bouncycastle-prov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 secp256k1-kmp-jni-android = { group = "fr.acinq.secp256k1", name = "secp256k1-kmp-jni-android", version.ref = "secp256k1" }
+secp256k1-kmp-jni-jvm = { group = "fr.acinq.secp256k1", name = "secp256k1-kmp-jni-jvm", version.ref = "secp256k1" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junitJupiter" }
