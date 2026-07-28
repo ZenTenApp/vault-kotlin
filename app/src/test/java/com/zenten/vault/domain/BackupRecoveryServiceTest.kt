@@ -3,9 +3,12 @@ package com.zenten.vault.domain
 import com.zenten.vault.crypto.NostrKeyDerivation
 import com.zenten.vault.data.model.Account
 import com.zenten.vault.data.model.NostrKeyPair
+import com.zenten.vault.data.kv.AppStorageService
+import com.zenten.vault.data.secure.SecureStorageService
 import com.zenten.vault.network.nostr.NostrEvent
 import com.zenten.vault.network.nostr.NostrRelayGateway
 import com.zenten.vault.network.nostr.PublishResult
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -63,11 +66,30 @@ class BackupRecoveryServiceTest {
         assertEquals(37_802, gateway.requestedKind)
         assertEquals(listOf(Account(20, "key")), result.recovered)
         assertEquals(listOf(invalid.id), result.skippedEventIds)
+        assertEquals(2, result.discoveredEventCount)
         assertEquals(Account(20, "key"), recovery.decodeSubAccount(valid, master))
         assertNull(recovery.decodeSubAccount(invalid, master))
     }
 
-    private fun storage(): com.zenten.vault.data.secure.SecureStorageService = mockk(relaxed = true)
+    @Test
+    fun recovery_discovers_and_persists_existing_sub_accounts_after_reinstall() = runTest {
+        val sub = Account(20, "key")
+        gateway.fetched = listOf(service.buildBackupEvent(master, sub, "20", 37_802))
+        val storage = storage()
+        io.mockk.every { storage.getMasterAccount() } returns master
+        val appStorage = mockk<AppStorageService>(relaxed = true)
+        val recovery = RecoveryService(gateway, storage)
+        val setup = SetupService(storage, appStorage, service, recovery)
+
+        val result = setup.recoverExistingAccounts().getOrThrow()
+
+        assertEquals(listOf(sub), result.recovered)
+        assertEquals(1, result.discoveredEventCount)
+        coVerify { storage.addAccount(sub) }
+        assertEquals(37_802, gateway.requestedKind)
+    }
+
+    private fun storage(): SecureStorageService = mockk(relaxed = true)
 
     private class FakeRelayGateway : NostrRelayGateway {
         val published = mutableListOf<NostrEvent>()

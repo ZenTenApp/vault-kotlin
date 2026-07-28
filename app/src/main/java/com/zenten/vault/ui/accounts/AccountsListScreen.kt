@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -55,6 +57,19 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
         ) {
             Text("My Accounts", style = MaterialTheme.typography.headlineMedium)
             Text("Your generated SSH accounts", style = MaterialTheme.typography.bodyMedium)
+            if (state.recoveryInProgress) {
+                Row(
+                    modifier = Modifier.padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text(state.recoveryMessage ?: "Recovering accounts from backup…", style = MaterialTheme.typography.bodyMedium)
+                }
+            } else {
+                state.recoveryMessage?.let { message ->
+                    Text(message, modifier = Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             if (state.loading) Text("Loading…", modifier = Modifier.padding(top = 24.dp))
             else if (state.accounts.isEmpty()) {
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {

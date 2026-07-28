@@ -4,6 +4,7 @@ import com.zenten.vault.data.kv.AppStorageService
 import com.zenten.vault.data.secure.SecureStorageService
 import com.zenten.vault.domain.AccountService
 import com.zenten.vault.domain.BackupService
+import com.zenten.vault.domain.RecoveryService
 import com.zenten.vault.domain.RelayBackupRetryService
 import com.zenten.vault.domain.RelayBackupRetryScheduler
 import com.zenten.vault.domain.StartupRetryScheduler
@@ -25,6 +26,12 @@ object DomainModule {
     fun backupService(gateway: NostrRelayGateway, clock: Clock) = BackupService(gateway, clock)
 
     @Provides @Singleton
+    fun recoveryService(
+        gateway: NostrRelayGateway,
+        secureStorage: SecureStorageService,
+    ) = RecoveryService(gateway, secureStorage)
+
+    @Provides @Singleton
     fun retryService(
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
@@ -42,8 +49,9 @@ object DomainModule {
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
         backupService: BackupService,
+        recoveryService: RecoveryService,
         retryScheduler: RelayBackupRetryScheduler,
-    ) = SetupService(secureStorage, appStorage, backupService, retryScheduler)
+    ) = SetupService(secureStorage, appStorage, backupService, recoveryService, retryScheduler)
 
     @Provides @Singleton
     fun accountService(

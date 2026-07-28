@@ -24,7 +24,7 @@ class RecoveryService(
                 recovered += account
             }
         }
-        return RecoveryResult(recovered, skipped)
+        return RecoveryResult(recovered, skipped, events.size)
     }
 
     fun decodeSubAccount(event: NostrEvent, master: Account): Account? = runCatching {
@@ -39,5 +39,9 @@ class RecoveryService(
         Account(createdAt = createdAt, zenTenKey = sshPrivateKey)
     }.getOrNull()
 
-    data class RecoveryResult(val recovered: List<Account>, val skippedEventIds: List<String>)
+    data class RecoveryResult(
+        val recovered: List<Account>,
+        val skippedEventIds: List<String>,
+        val discoveredEventCount: Int,
+    )
 }

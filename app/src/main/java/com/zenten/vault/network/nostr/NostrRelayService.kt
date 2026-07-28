@@ -59,7 +59,14 @@ class NostrRelayService(
         val filter = Filter(authors = listOf(authorPubkey), kinds = listOf(kind))
         return withClient { client ->
             withTimeoutOrNull(timeoutMillis) {
-                client.fetchAll(UUID.randomUUID().toString(), filter, timeoutMillis)
+                // The String overload treats its first argument as a *relay URL*, not a
+                // subscription ID. Pass the complete relay-to-filter map so Quartz sends
+                // the REQ to every configured relay under one generated subscription.
+                client.fetchAll(
+                    subscriptionId = UUID.randomUUID().toString(),
+                    filters = relays.associateWith { listOf(filter) },
+                    timeoutMs = timeoutMillis,
+                )
                     .map { it.toAppEvent() }
                     .filter { it.kind == kind && it.pubkey == authorPubkey && NostrEventCodec.isValid(it) }
                     .distinctBy { it.id }
