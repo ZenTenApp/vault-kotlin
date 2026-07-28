@@ -20,7 +20,7 @@ that backup. Anything not required to demonstrate that chain is deferred.
 - SSH key import + passphrase validation (master account).
 - Deterministic derivation: SSH + passphrase → BIP39 (24 words) → Nostr keys (NIP-06).
 - Sub-account creation (fresh, unencrypted SSH key pairs).
-- **Single-source backup**: Nostr relays only (NIP-78, kind 30078).
+- **Single-source backup**: Nostr relays only (custom kinds `37801` and `37802`).
 - Account recovery from Nostr relays.
 - Encrypted-at-rest storage of accounts.
 - Minimal UI: onboarding, accounts list, account detail, new account.
@@ -48,7 +48,7 @@ reported/skipped in the PoC, no locked state).
 
 - Reproduce the deterministic key hierarchy: SSH key + passphrase → BIP39 → Nostr
 (NIP-06) — see `architecture-overview.md §4`.
-- Single-source redundant backup to Nostr relays via NIP-78.
+- Single-source redundant backup to Nostr relays using the custom backup event contract.
 - Account secrets stored encrypted at rest (Android Keystore-backed).
 - **Definition of done for the PoC**: import master → create sub-account → back
 both up to relays → wipe local storage → fully recover from relays. The
@@ -252,9 +252,9 @@ Implements F-009 (transport).
 
 - `NostrRelayService`: OkHttp WebSocket, event build + Schnorr sign + verify,
 publish quorum (min 1 ack, ≤3 retries, 8s timeout), REQ/EVENT/EOSE handling,
-fetch kind-30078 by author.
+generic fetch by author and kind.
 - Hardcoded default relay list (no editing UI in the PoC).
-- **Milestone**: publish + read back a 30078 event against a test relay.
+- **Milestone**: publish and read back a `37802` sub-account event against a test relay.
 
 ### Phase 4 — Domain Services
 
@@ -264,8 +264,9 @@ Implements F-001, F-006, F-009, F-011, F-012, F-013.
 then mark setup complete + sub-account discovery. (No config lock, no 10002/10050,
 no Brave.)
 - `SetupService.addAccount()` — sub-account creation + enqueue relay backup.
-- `BackupService` — NIP-78 event content (dTag/createdAt/encryptedContent),
-master `d` tag = `"masterKey"` (invariant 5), NIP-44 self-encryption (invariant 6).
+- `BackupService` — master backups use kind `37801` and exact `d` tag `"masterkey"`;
+sub-account backups use kind `37802` and `d = createdAt` (decimal microseconds).
+The NIP-44 plaintext is exactly the single-line base64 OpenSSH private key.
 - `BackupSyncService` — discover pending restores + backfill relay gaps,
 5-min cooldown, single-flight, never deletes locally. (Relays only.)
 - `RecoveryService` — relay recovery; on import failure, **skip + report** (no locked state).
@@ -318,7 +319,7 @@ From `architecture-overview.md §12`; Brave/locked invariants (8, 10) are deferr
 - 1. Passphrase validated by successful SSH decrypt.
 - 1. Relay backup failure during setup is fatal → rollback.
 - 1. `createdAt` (µs) is canonical account ID everywhere.
-- 1. Master backup identifier = literal `"masterKey"`.
+- 1. Master backup identifier = literal lowercase `"masterkey"`; its event kind is `37801`.
 - 1. NIP-44 self-encryption (sender = recipient = master).
 - 1. Mnemonic always re-derivable from key+pass.
 - 1. Sub-account backups signed by master Nostr key.

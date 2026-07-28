@@ -13,7 +13,7 @@ This document provides a complete, implementation-agnostic specification of ever
 7. [F-006: Sub-Account Creation](#f-006-sub-account-creation)
 8. [F-007: SSH Key Generation (Sub-Accounts)](#f-007-ssh-key-generation-sub-accounts)
 9. [F-008: Account Secure Storage](#f-008-account-secure-storage)
-10. [F-009: Relay Backup (NIP-78)](#f-009-relay-backup-nip-78)
+10. [F-009: Relay Backup](#f-009-relay-backup)
 11. [F-010: Brave Sync Backup](#f-010-brave-sync-backup)
 12. [F-011: Background Backup Jobs](#f-011-background-backup-jobs)
 13. [F-012: Backup Sync (Two-Source Reconciliation)](#f-012-backup-sync-two-source-reconciliation)
@@ -41,7 +41,7 @@ This document provides a complete, implementation-agnostic specification of ever
 | F-006 | Sub-Account Creation              | Critical | Both     |
 | F-007 | SSH Key Generation (Sub-Accounts) | Critical | Both     |
 | F-008 | Account Secure Storage            | Critical | Both     |
-| F-009 | Relay Backup (NIP-78)             | Critical | Both     |
+| F-009 | Relay Backup                      | Critical | Both     |
 | F-010 | Brave Sync Backup                 | High     | Both     |
 | F-011 | Background Backup Jobs            | High     | Both     |
 | F-012 | Backup Sync                       | High     | Both     |
@@ -362,64 +362,55 @@ All account data is stored in platform-secure storage (iOS Keychain / Android Ke
 
 ---
 
-## F-009: Relay Backup (NIP-78)
+## F-009: Relay Backup
 
 ### Description
 
-Backs up SSH private keys to Nostr relays as NIP-78 (kind 30078) application-specific data events.
+Backs up SSH private keys to Nostr relays using signed custom backup events.
+Every event is authored and signed by the master Nostr identity and is NIP-44
+self-encrypted to that same identity.
 
 ### Event Structure
 
-```
-Kind: 30078
-Author: master Nostr pubkey
-Tags:
-  ["d", "<backupIdentifier>"]   // "masterKey" or "<createdAt>"
-  ["t", "ssh-key-backup"]
-Content: NIP-44 encrypted JSON
-```
+The NIP-44 plaintext is **only** the single-line base64 OpenSSH private key.
+It is not JSON and contains no duplicate metadata. `created_at` is the Nostr
+publish-time Unix timestamp in seconds, distinct from an account's microsecond
+`createdAt` value.
 
-### Encrypted Content
+| Account | Kind | Tags | Recovery scope |
+| --- | ---: | --- | --- |
+| Master | `37801` | `[["d", "masterkey"]]` | Published during setup; never queried in this PoC |
+| Sub-account | `37802` | `[["d", "<createdAt decimal microseconds>"]]` | Queried and restored |
 
-```json
-{
-  "dTag": "<backupIdentifier>",
-  "createdAt": <accountCreatedAt>,
-  "encryptedContent": "<single-line-base64-ssh-private-key>"
-}
-```
+There is no `t` tag.
 
 ### Encryption
 
 - Algorithm: NIP-44 (ECDH + ChaCha20-Poly1305)
 - Sender private key: master Nostr private key
 - Recipient public key: master Nostr public key (self-encryption)
+- Plaintext: the account's single-line base64 OpenSSH private key
 - Only the master Nostr private key can decrypt
 
 ### Publishing
 
-- Connects to all configured relays
-- Publishes with quorum: minimum 1 relay must acknowledge
-- Up to 3 retry attempts per publish
-- 8-second timeout per attempt
+- Connects to the fixed PoC relay set.
+- Publishes with quorum: minimum 1 relay must acknowledge.
+- Up to 3 retry attempts per publish, with an 8-second attempt timeout.
+- Master backup acknowledgement is mandatory during setup; failure rolls setup
+  back. Sub-account failures are non-fatal and are persisted for background retry.
 
-### Backup Identifiers
+### Validation on Sub-Account Recovery
 
-| Account        | d tag value                                                      |
-| -------------- | ---------------------------------------------------------------- |
-| Master account | `"masterKey"`                                                    |
-| Sub-account    | `"<createdAt>"` (string representation of microsecond timestamp) |
+1. Event ID and signature must be valid.
+2. Event kind must be `37802`.
+3. Event author must be the master pubkey.
+4. There must be one usable decimal `d` tag.
+5. Content must decrypt successfully with the master key.
+6. The decrypted plaintext must be a non-blank single-line base64 OpenSSH private key.
+7. The account `createdAt` is reconstructed from `d.toLong()`.
 
-### Validation on Recovery
-
-1. Event kind must be 30078
-2. Event author must be master pubkey
-3. Must have `d` tag
-4. Must have `t` = `"ssh-key-backup"` tag
-5. Content must decrypt successfully with master key
-6. Decrypted `dTag` must match event `d` tag
-
----
+Master events (`37801`) are never queried for recovery or sync in this PoC.
 
 ## F-010: Brave Sync Backup
 
@@ -469,7 +460,7 @@ Manages asynchronous backup jobs that run after account creation.
 
 ### Job Types
 
-1. **Relay backup**: Publishes NIP-78 event to Nostr relays
+1. **Relay backup**: Publishes a custom kind-`37802` sub-account event to Nostr relays
 2. **Brave Sync backup**: Uploads SSH key to Brave Sync
 
 ### Job Lifecycle
@@ -514,7 +505,7 @@ UI subscribes to job status changes via `subscribe()` method.
 
 ### Description
 
-Periodically reconciles local accounts with remote backups (relays + Brave Sync) to discover new accounts and fill backup gaps.
+Periodically discovers sub-account backups from relays. Brave Sync reconciliation is deferred outside the PoC.
 
 ### Trigger Conditions
 
@@ -533,18 +524,15 @@ Periodically reconciles local accounts with remote backups (relays + Brave Sync)
 #### Phase 1: Snapshot and Fetch
 
 ```
-Parallel:
-  ├── Snapshot local account IDs (full + locked)
-  ├── Fetch relay catalogs (per relay, 8s timeout each)
-  └── Fetch Brave Sync catalog
+Fetch kind-`37802` relay events authored by the master Nostr pubkey.
 ```
 
 #### Phase 2: Discover Pending Restores
 
 ```
-For each remote backup:
-  If not in local IDs AND not master account:
-    Add to pendingRestores list
+For each valid decrypted sub-account event:
+  If its `d`-tag-derived ID is not local:
+    Add it to pending restores.
 ```
 
 #### Phase 3: Backfill Gaps
@@ -591,15 +579,14 @@ Recovers sub-accounts from Nostr relay backups. Triggered automatically after ma
 
 ### Algorithm
 
-1. Query all configured relays for kind 30078 events by master pubkey
+1. Query all configured relays for kind `37802` events by master pubkey.
 2. For each event:
-   a. Validate event structure
-   b. Decrypt content with master Nostr key (NIP-44)
-   c. Extract SSH private key
-   d. Skip if already exists locally
-   e. Skip if it's the master account backup (`d` tag = `"masterKey"`)
-   f. Import as full account (sub-accounts have no passphrase)
-   g. If import fails: import as locked account
+   a. Validate its ID/signature, kind, master author, and usable decimal `d` tag.
+   b. Decrypt content with the master Nostr key (NIP-44).
+   c. Treat plaintext as the single-line base64 SSH private key.
+   d. Reconstruct `createdAt` from the `d` tag and skip if it already exists locally.
+   e. Import as a full sub-account (sub-accounts have no passphrase).
+   f. If import fails, skip and report the event; locked-account handling is deferred.
 
 ### Full Account Import
 
@@ -607,12 +594,11 @@ Recovers sub-accounts from Nostr relay backups. Triggered automatically after ma
 2. Create `Account` object with `createdAt` from backup
 3. Save to secure storage
 
-### Locked Account Import
+### Import Failure Handling
 
-1. Cannot fully restore (unexpected error or data corruption)
-2. Create `LockedAccount` with SSH key
-3. Save to locked accounts storage
-4. User must unlock manually later
+If a candidate event cannot be validated, decrypted, or persisted, recovery skips it
+and reports the failure. It does not delete local accounts or create a locked account;
+locked-account handling is deferred outside the PoC.
 
 ### Progress Reporting
 
@@ -877,7 +863,8 @@ Allows users to configure custom relay URLs before setup completes.
 | ----- | ---------------------------------- | -------------- |
 | 10002 | Relay list metadata (NIP-65)       | Master account |
 | 10050 | DM relay list (NIP-17)             | Master account |
-| 30078 | Application-specific data (NIP-78) | Master account |
+| 37801 | Master SSH key backup (custom) | Master account |
+| 37802 | Sub-account SSH key backup (custom) | Master account |
 
 ## Appendix C: Storage Keys Reference
 

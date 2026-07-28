@@ -25,7 +25,7 @@ ZenTen Vault is a key-management application. Its primary function is to:
 - **Derive a 24-word BIP39 mnemonic** from the SSH key + passphrase
 - **Generate a 25-word Brave Sync code** derived from the 24-word mnemonic
 - **Derive a Nostr key pair** (secp256k1) from the mnemonic via NIP-06
-- **Back up SSH keys redundantly** to Nostr relays (NIP-78 events) and Brave Sync
+- **Back up SSH keys redundantly** to Nostr relays (custom backup events) and Brave Sync
 - **Manage associated (sub) accounts** — each a fresh SSH key pair backed up to all sources
 
 The app is designed so that a user's cryptographic identity is always recoverable from their SSH key + passphrase, even if the device is lost.
@@ -56,7 +56,7 @@ The app is designed so that a user's cryptographic identity is always recoverabl
          ▼                    ▼
   ┌─────────────┐    ┌──────────────┐
   │Nostr Relays │    │  Brave Sync  │
-  │(NIP-78      │    │  Server      │
+  │(custom      │    │  Server      │
   │  Backup)    │    │  (Backup)    │
   └─────────────┘    └──────────────┘
 ```
@@ -103,7 +103,7 @@ The app is designed so that a user's cryptographic identity is always recoverabl
 
 | Library / Protocol | Purpose                                   |
 | ------------------ | ----------------------------------------- |
-| Nostr (WebSocket)  | Nostr relay connections (NIP-78 backup)   |
+| Nostr (WebSocket)  | Nostr relay connections (custom backup events)   |
 | Brave Sync         | Brave Sync client (password entry backup) |
 
 ---
@@ -176,7 +176,7 @@ The master account is created once at first app launch. It is the root identity 
 | Storage key       | `master_account`                                 |
 | SSH key source    | Provided by the user at onboarding               |
 | Nostr key pair    | Derived from mnemonic via NIP-06                 |
-| Backup identifier | `"masterKey"`                                    |
+| Backup identifier | `"masterkey"`                                    |
 | Backup signing    | Signs its own backup and all sub-account backups |
 | Relay events      | Publishes kind 10002 + 10050 after setup         |
 | Creation flow     | `SetupService.performSetup()`                    |
@@ -250,7 +250,7 @@ Every account is backed up to two independent remote sources:
 ```
 Account SSH Key
       │
-      ├──▶ [1] Nostr Relays (NIP-78 kind 30078 events)
+      ├──▶ [1] Nostr Relays (custom backup events)
       │         Signed by master Nostr key
       │         Content: NIP-44 encrypted SSH private key
       │
@@ -259,30 +259,38 @@ Account SSH Key
                 Sync code derived from master mnemonic (25-word Brave Sync code)
 ```
 
-### Relay Backup Event Structure (NIP-78)
+### Relay Backup Event Structure
+
+All backup events are signed by the master Nostr private key and NIP-44
+self-encrypted to the master Nostr public key. The NIP-44 plaintext is exactly
+one value: the single-line base64 OpenSSH private key. It is not JSON.
+
+**Master backup** (published during setup; never queried by PoC recovery):
 
 ```json
 {
-  "kind": 30078,
+  "kind": 37801,
   "pubkey": "<master_nostr_pubkey>",
-  "tags": [
-    ["d", "<createdAt_or_masterKey>"],
-    ["t", "ssh-key-backup"]
-  ],
-  "content": "<NIP-44 encrypted JSON>",
-  "created_at": <unix_timestamp>
+  "tags": [["d", "masterkey"]],
+  "content": "<NIP-44 encrypted single-line base64 OpenSSH private key>",
+  "created_at": "<publish-time Unix seconds>"
 }
 ```
 
-Encrypted content:
+**Sub-account backup** (the only backup event queried for sync/recovery):
 
 ```json
 {
-  "dTag": "<createdAt_or_masterKey>",
-  "createdAt": <account_createdAt>,
-  "encryptedContent": "<base64_ssh_private_key>"
+  "kind": 37802,
+  "pubkey": "<master_nostr_pubkey>",
+  "tags": [["d", "<createdAt microsecond timestamp>"]],
+  "content": "<NIP-44 encrypted single-line base64 OpenSSH private key>",
+  "created_at": "<publish-time Unix seconds>"
 }
 ```
+
+There is no `t` tag. For sub-accounts, the decimal `d` tag is the canonical
+`createdAt`; it is reconstructed during recovery.
 
 ### Backup Sync Algorithm
 
@@ -315,7 +323,8 @@ Each account's backup health is computed as:
 **Event types published**:
 | Kind | Purpose |
 |------|---------|
-| 30078 | NIP-78 SSH key backup (application-specific data) |
+| 37801 | Master SSH key backup (custom) |
+| 37802 | Sub-account SSH key backup (custom) |
 | 10002 | Relay list metadata (master account) |
 | 10050 | DM relay list (master account) |
 
@@ -440,7 +449,7 @@ These invariants must be maintained in any reimplementation:
 
 4. **Account ID is the canonical identity** — `createdAt` (microsecond timestamp) is the primary key used across all storage, routing, and backup systems.
 
-5. **Backup identifier for master = `"masterKey"`** — The NIP-78 `d` tag and Brave Sync URL for the master account use the literal string `"masterKey"`, not the createdAt timestamp.
+5. **Backup identifier for master = `"masterkey"`** — The master backup `d` tag uses the exact literal string `"masterkey"`; its event kind is `37801`. The Brave Sync URL convention is separate.
 
 6. **NIP-44 self-encryption** — Backup content is encrypted with master's private key to master's public key (sender = recipient = master).
 
@@ -448,7 +457,7 @@ These invariants must be maintained in any reimplementation:
 
 8. **Locked accounts have no mnemonic** — A locked account only stores the SSH key; the mnemonic cannot be derived without the passphrase.
 
-9. **Sub-account backups are signed by master** — The master Nostr key signs all NIP-78 backup events, including sub-account backups.
+9. **Sub-account backups are signed by master** — The master Nostr key signs all custom backup events, including sub-account backups.
 
 10. **Brave Sync code = 25 words derived from 24-word mnemonic** — The Brave Sync sync code is derived deterministically from the master account's BIP39 mnemonic.
 
