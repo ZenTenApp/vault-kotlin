@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -27,7 +26,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
-import com.zenten.vault.crypto.SshKeyCodec
 import com.zenten.vault.data.model.Account
 import com.zenten.vault.ui.VaultDestinations
 
@@ -75,13 +73,11 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
 
 @Composable
 private fun AccountCard(account: Account, onClick: () -> Unit) {
-    val fingerprint = remember(account.pubkey) {
-        account.pubkey?.let { line -> runCatching { SshKeyCodec.fingerprint(java.util.Base64.getDecoder().decode(line.split(" ")[1]).takeLast(32).toByteArray()) }.getOrNull() }
-    }
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Column(Modifier.padding(16.dp)) {
-            Text(account.createdAt.toString(), style = MaterialTheme.typography.titleMedium)
-            Text(fingerprint ?: "SSH account", style = MaterialTheme.typography.bodySmall)
-        }
+        Text(
+            account.createdAt.toString(),
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.titleMedium,
+        )
     }
 }
