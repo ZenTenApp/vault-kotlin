@@ -21,13 +21,18 @@ import java.util.concurrent.TimeUnit
  * One-shot relay transport backed by Quartz's Nostr client and OkHttp websocket implementation.
  * This owns our quorum/retry policy; Quartz owns wire protocol, OK handling, REQ/EVENT/EOSE.
  */
+interface NostrRelayGateway {
+    suspend fun publish(event: NostrEvent): PublishResult
+    suspend fun fetchByAuthorAndKind(authorPubkey: String, kind: Int): List<NostrEvent>
+}
+
 class NostrRelayService(
     private val relayUrls: List<String> = DEFAULT_RELAYS,
     private val clientFactory: (CoroutineScope) -> NostrClient = { scope -> newQuartzClient(scope) },
     private val timeoutMillis: Long = ATTEMPT_TIMEOUT_MILLIS,
     private val maxAttempts: Int = MAX_ATTEMPTS,
-) {
-    suspend fun publish(event: NostrEvent): PublishResult {
+) : NostrRelayGateway {
+    override suspend fun publish(event: NostrEvent): PublishResult {
         require(NostrEventCodec.isValid(event)) { "Refusing to publish an invalid Nostr event" }
         val relays = normalizedRelays()
         require(relays.isNotEmpty()) { "At least one relay is required" }
@@ -47,16 +52,16 @@ class NostrRelayService(
         return PublishResult(event.id, successful, relayUrls.toSet() - successful, attempts)
     }
 
-    /** Fetches only valid kind-30078 events authored by [authorPubkey]. */
-    suspend fun fetchKind30078ByAuthor(authorPubkey: String): List<NostrEvent> {
+    /** Fetches only locally-valid events with the requested author and kind. */
+    override suspend fun fetchByAuthorAndKind(authorPubkey: String, kind: Int): List<NostrEvent> {
         val relays = normalizedRelays()
         if (relays.isEmpty()) return emptyList()
-        val filter = Filter(authors = listOf(authorPubkey), kinds = listOf(BACKUP_KIND))
+        val filter = Filter(authors = listOf(authorPubkey), kinds = listOf(kind))
         return withClient { client ->
             withTimeoutOrNull(timeoutMillis) {
                 client.fetchAll(UUID.randomUUID().toString(), filter, timeoutMillis)
                     .map { it.toAppEvent() }
-                    .filter { it.kind == BACKUP_KIND && it.pubkey == authorPubkey && NostrEventCodec.isValid(it) }
+                    .filter { it.kind == kind && it.pubkey == authorPubkey && NostrEventCodec.isValid(it) }
                     .distinctBy { it.id }
             }.orEmpty()
         }
@@ -81,7 +86,6 @@ class NostrRelayService(
             "wss://relay.primal.net",
             "wss://nos.lol",
         )
-        const val BACKUP_KIND = 30_078
         const val ATTEMPT_TIMEOUT_MILLIS = 8_000L
         const val MAX_ATTEMPTS = 3
         const val RETRY_DELAY_MILLIS = 250L

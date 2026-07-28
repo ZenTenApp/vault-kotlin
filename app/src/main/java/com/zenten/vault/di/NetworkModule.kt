@@ -1,5 +1,6 @@
 package com.zenten.vault.di
 
+import com.zenten.vault.network.nostr.NostrRelayGateway
 import com.zenten.vault.network.nostr.NostrRelayService
 import dagger.Module
 import dagger.Provides
@@ -12,5 +13,5 @@ import javax.inject.Singleton
 object NetworkModule {
     /** PoC relay set is deliberately fixed; relay configuration UI is deferred. */
     @Provides @Singleton
-    fun nostrRelayService() = NostrRelayService()
+    fun nostrRelayService(): NostrRelayGateway = NostrRelayService()
 }

@@ -16,14 +16,14 @@ class NostrEventCodecTest {
         val event = NostrEventCodec.sign(
             privateKey = keys.privateKey,
             publicKey = keys.publicKey,
-            kind = NostrRelayService.BACKUP_KIND,
+            kind = 37_801,
             tags = listOf(listOf("d", "masterKey"), listOf("t", "ssh-key-backup")),
             content = "encrypted-content",
             createdAtSeconds = 1_700_000_000L,
         )
 
         assertEquals(keys.publicKey.hex(), event.pubkey)
-        assertEquals(NostrRelayService.BACKUP_KIND, event.kind)
+        assertEquals(37_801, event.kind)
         assertTrue(NostrEventCodec.isValid(event))
         assertFalse(NostrEventCodec.isValid(event.copy(content = "tampered")))
     }
