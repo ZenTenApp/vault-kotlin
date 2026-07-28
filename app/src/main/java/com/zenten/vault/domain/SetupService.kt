@@ -9,6 +9,7 @@ class SetupService(
     private val secureStorage: SecureStorageService,
     private val appStorage: AppStorageService,
     private val backupService: BackupService,
+    private val retryScheduler: RelayBackupRetryScheduler? = null,
 ) {
     suspend fun performSetup(master: Account): Result<Unit> = runCatching {
         require(master.nostr != null) { "Master account must have a Nostr identity" }
@@ -24,7 +25,12 @@ class SetupService(
 
     suspend fun addAccount(master: Account, account: Account): Result<Unit> = runCatching {
         secureStorage.addAccount(account)
-        // Sub-account backups are intentionally non-fatal; Phase 5 adds durable retry scheduling.
-        backupService.backupSubAccount(master, account)
+        val result = backupService.backupSubAccount(master, account)
+        if (!result.acknowledged) {
+            appStorage.addFailedBackupAccountId(account.createdAt)
+            retryScheduler?.schedule()
+        } else {
+            appStorage.removeFailedBackupAccountId(account.createdAt)
+        }
     }
 }

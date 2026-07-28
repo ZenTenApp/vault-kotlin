@@ -32,6 +32,12 @@ class AppStorageServiceTest {
             assertEquals(listOf("wss://relay.example"), service.appServerConfig.first()!!.relays)
             assertEquals(listOf(9L, 3L), service.failedBackupAccountIds.first())
 
+            service.removeFailedBackupAccountId(9)
+            assertEquals(listOf(3L), service.failedBackupAccountIds.first())
+            service.addFailedBackupAccountId(3)
+            service.addFailedBackupAccountId(12)
+            assertEquals(listOf(3L, 12L), service.failedBackupAccountIds.first())
+
             service.clearSetupComplete()
             service.clearFailedBackupAccountIds()
             assertFalse(service.setupComplete.first())

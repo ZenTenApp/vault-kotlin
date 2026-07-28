@@ -28,6 +28,22 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     suspend fun setFailedBackupAccountIds(ids: Collection<Long>) = dataStore.edit {
         it[FAILED_BACKUP_ACCOUNT_IDS] = json.encodeToString(ids.distinct())
     }
+    suspend fun addFailedBackupAccountId(createdAt: Long) = dataStore.edit { preferences ->
+        val current = preferences[FAILED_BACKUP_ACCOUNT_IDS]?.let {
+            runCatching { json.decodeFromString<List<Long>>(it) }.getOrDefault(emptyList())
+        }.orEmpty()
+        preferences[FAILED_BACKUP_ACCOUNT_IDS] = json.encodeToString((current + createdAt).distinct())
+    }
+
+    suspend fun removeFailedBackupAccountId(createdAt: Long) = dataStore.edit { preferences ->
+        val current = preferences[FAILED_BACKUP_ACCOUNT_IDS]?.let {
+            runCatching { json.decodeFromString<List<Long>>(it) }.getOrDefault(emptyList())
+        }.orEmpty()
+        val remaining = current.filterNot { it == createdAt }
+        if (remaining.isEmpty()) preferences.remove(FAILED_BACKUP_ACCOUNT_IDS)
+        else preferences[FAILED_BACKUP_ACCOUNT_IDS] = json.encodeToString(remaining)
+    }
+
     suspend fun clearFailedBackupAccountIds() = dataStore.edit { it.remove(FAILED_BACKUP_ACCOUNT_IDS) }
 
     companion object {
