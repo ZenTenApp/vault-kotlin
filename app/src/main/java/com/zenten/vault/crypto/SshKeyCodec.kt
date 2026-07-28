@@ -54,6 +54,15 @@ object SshKeyCodec {
         return parsePrivateBlob(privateBlob, outerPublic, cipherName != "none")
     }
 
+    /** Converts PEM, raw base64, or {"OPENSSH PRIVATE KEY":"..."} input to canonical single-line base64. */
+    fun normalizeToSingleLineBase64(input: String): String = Base64.getEncoder().encodeToString(decodePem(input))
+
+    fun publicKeyLine(publicKey: ByteArray, comment: String): String {
+        require(publicKey.size == 32) { "Ed25519 public key must be 32 bytes" }
+        val blob = sshString(Ed25519.toByteArray(StandardCharsets.US_ASCII)) + sshString(publicKey)
+        return "$Ed25519 ${Base64.getEncoder().encodeToString(blob)} $comment"
+    }
+
     /** Fingerprint the SSH public-key wire blob, as ssh-keygen -E sha256 does. */
     fun fingerprint(publicKey: ByteArray): String {
         require(publicKey.size == 32) { "Ed25519 public key must be 32 bytes" }
@@ -75,7 +84,7 @@ object SshKeyCodec {
         val container = magic + sshString("none".toByteArray()) + sshString("none".toByteArray()) + sshString(ByteArray(0)) +
             uint(1) + sshString(publicBlob) + sshString(padded)
         val pem = pemEncode(container)
-        val publicLine = "$Ed25519 ${Base64.getEncoder().encodeToString(publicBlob)} $comment"
+        val publicLine = publicKeyLine(public, comment)
         return GeneratedKey(pem, publicLine, createdAt)
     }
 
@@ -127,8 +136,13 @@ object SshKeyCodec {
         return input + ByteArray(count) { (it + 1).toByte() }
     }
 
-    private fun decodePem(pem: String): ByteArray {
-        val body = pem.lineSequence().filterNot { it.startsWith("-----") }.joinToString("").trim()
+    private fun decodePem(input: String): ByteArray {
+        val trimmed = input.trim()
+        val jsonValue = if (trimmed.startsWith("{")) {
+            Regex("\\\"OPENSSH PRIVATE KEY\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(trimmed)?.groupValues?.get(1)
+                ?: throw IllegalArgumentException("Invalid OpenSSH key JSON")
+        } else trimmed
+        val body = jsonValue.lineSequence().filterNot { it.startsWith("-----") }.joinToString("").trim()
         require(body.isNotEmpty()) { "Empty OpenSSH private key" }
         return try { Base64.getDecoder().decode(body) } catch (e: IllegalArgumentException) { throw IllegalArgumentException("Invalid OpenSSH PEM encoding", e) }
     }

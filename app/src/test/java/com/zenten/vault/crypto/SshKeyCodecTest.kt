@@ -28,6 +28,16 @@ class SshKeyCodecTest {
     }
 
     @Test
+    fun normalizes_pem_raw_base64_and_json_key_input_to_single_line_base64() {
+        val pem = value(vector("unencrypted-ed25519"), "sshKeyPem")
+        val canonical = SshKeyCodec.normalizeToSingleLineBase64(pem)
+        assertFalse(canonical.contains('\n'))
+        assertEquals(canonical, SshKeyCodec.normalizeToSingleLineBase64(canonical))
+        assertEquals(canonical, SshKeyCodec.normalizeToSingleLineBase64("{\"OPENSSH PRIVATE KEY\":\"$canonical\"}"))
+        assertEquals(canonical, SshKeyCodec.normalizeToSingleLineBase64("  $canonical\n"))
+    }
+
+    @Test
     fun decrypts_bcrypt_aes_ctr_key_and_rejects_wrong_passphrase() {
         val root = root()
         val pem = root["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content

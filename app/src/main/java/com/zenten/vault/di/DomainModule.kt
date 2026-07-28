@@ -6,6 +6,7 @@ import com.zenten.vault.domain.BackupService
 import com.zenten.vault.domain.RelayBackupRetryService
 import com.zenten.vault.domain.RelayBackupRetryScheduler
 import com.zenten.vault.domain.StartupRetryScheduler
+import com.zenten.vault.domain.SetupService
 import com.zenten.vault.network.nostr.NostrRelayGateway
 import dagger.Module
 import dagger.Provides
@@ -34,4 +35,12 @@ object DomainModule {
         appStorage: AppStorageService,
         retryScheduler: RelayBackupRetryScheduler,
     ) = StartupRetryScheduler(appStorage, retryScheduler)
+
+    @Provides @Singleton
+    fun setupService(
+        secureStorage: SecureStorageService,
+        appStorage: AppStorageService,
+        backupService: BackupService,
+        retryScheduler: RelayBackupRetryScheduler,
+    ) = SetupService(secureStorage, appStorage, backupService, retryScheduler)
 }
