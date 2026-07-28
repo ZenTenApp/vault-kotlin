@@ -31,7 +31,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     val account = remember(accountId) { viewModel.account(accountId) }
     var showPrivate by remember { mutableStateOf(false) }
     var confirmReveal by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     if (account == null) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
@@ -52,7 +51,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             Text("Fingerprint: ${fingerprint ?: "Unavailable"}", modifier = Modifier.padding(top = 12.dp))
         }
         Button(onClick = { confirmReveal = true }, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) { Text("Show private key") }
-        TextButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) { Text("Delete local account") }
         TextButton(onClick = { navController.popBackStack() }, modifier = Modifier.fillMaxWidth()) { Text("Back") }
     }
     if (confirmReveal) AlertDialog(
@@ -63,13 +61,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         dismissButton = { TextButton(onClick = { confirmReveal = false }) { Text("Cancel") } },
     )
     if (showPrivate) PrivateKeyDialog(account.zenTenKey, onCopy = { clipboard.setText(AnnotatedString(account.zenTenKey)) }, onDismiss = { showPrivate = false })
-    if (confirmDelete) AlertDialog(
-        onDismissRequest = { confirmDelete = false },
-        title = { Text("Delete account?") },
-        text = { Text("This removes the account only from this device. Remote backups remain.") },
-        confirmButton = { TextButton(onClick = { viewModel.delete(accountId); navController.popBackStack() }) { Text("Delete") } },
-        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
-    )
 }
 
 @Composable

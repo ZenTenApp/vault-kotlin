@@ -1,7 +1,6 @@
 package com.zenten.vault.domain
 
 import com.zenten.vault.crypto.SshKeyCodec
-import com.zenten.vault.data.kv.AppStorageService
 import com.zenten.vault.data.model.Account
 import com.zenten.vault.data.secure.SecureStorageService
 import java.util.concurrent.atomic.AtomicLong
@@ -9,7 +8,6 @@ import java.util.concurrent.atomic.AtomicLong
 /** User-facing sub-account lifecycle. The master remains an internal-only identity. */
 class AccountService(
     private val secureStorage: SecureStorageService,
-    private val appStorage: AppStorageService,
     private val setupService: SetupService,
 ) {
     private val lastCreatedAt = AtomicLong(0)
@@ -30,13 +28,6 @@ class AccountService(
         account
     }
 
-    fun deleteSubAccount(id: Long) = secureStorage.removeAccount(id)
-
-    suspend fun resetVault() {
-        secureStorage.clearAll()
-        appStorage.clearSetupComplete()
-        appStorage.clearFailedBackupAccountIds()
-    }
 
     private fun nextCreatedAt(): Long {
         while (true) {

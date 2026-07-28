@@ -48,7 +48,6 @@ object DomainModule {
     @Provides @Singleton
     fun accountService(
         secureStorage: SecureStorageService,
-        appStorage: AppStorageService,
         setupService: SetupService,
-    ) = AccountService(secureStorage, appStorage, setupService)
+    ) = AccountService(secureStorage, setupService)
 }

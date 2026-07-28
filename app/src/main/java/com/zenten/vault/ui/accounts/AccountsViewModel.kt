@@ -25,15 +25,6 @@ class AccountsViewModel @Inject constructor(private val accountService: AccountS
         }
     }
 
-    fun delete(id: Long) {
-        accountService.deleteSubAccount(id)
-        refresh()
-    }
-
-    fun reset(onComplete: () -> Unit) = viewModelScope.launch {
-        accountService.resetVault()
-        onComplete()
-    }
 }
 
 data class AccountsState(val loading: Boolean = false, val accounts: List<Account> = emptyList())

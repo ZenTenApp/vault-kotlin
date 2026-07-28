@@ -9,5 +9,4 @@ import javax.inject.Inject
 @HiltViewModel
 class AccountDetailViewModel @Inject constructor(private val accountService: AccountService) : ViewModel() {
     fun account(id: Long): Account? = accountService.getAccount(id)
-    fun delete(id: Long) = accountService.deleteSubAccount(id)
 }

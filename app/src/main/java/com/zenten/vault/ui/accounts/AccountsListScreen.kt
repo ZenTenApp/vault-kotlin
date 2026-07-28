@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
@@ -19,10 +18,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -38,8 +35,6 @@ import com.zenten.vault.ui.VaultDestinations
 fun AccountsListScreen(navController: NavHostController, viewModel: AccountsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
-    var resetConfirmation by remember { mutableStateOf(false) }
-
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
@@ -74,18 +69,8 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
                     AccountCard(account) { navController.navigate(VaultDestinations.accountDetail(account.createdAt)) }
                 }
             }
-            TextButton(onClick = { resetConfirmation = true }) { Text("Reset vault") }
         }
     }
-    if (resetConfirmation) AlertDialog(
-        onDismissRequest = { resetConfirmation = false },
-        title = { Text("Reset vault?") },
-        text = { Text("This deletes all locally stored accounts. Remote backups are unchanged.") },
-        confirmButton = { TextButton(onClick = { viewModel.reset {
-            navController.navigate(VaultDestinations.GET_STARTED) { popUpTo(VaultDestinations.ACCOUNTS) { inclusive = true } }
-        } }) { Text("Reset") } },
-        dismissButton = { TextButton(onClick = { resetConfirmation = false }) { Text("Cancel") } },
-    )
 }
 
 @Composable
