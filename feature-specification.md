@@ -697,12 +697,15 @@ Users can retry backup for accounts with `partial` or `missing` health.
 
 Operations for accounts after initial creation.
 
-### View Account
+### View Sub-Account
 
 - SSH key fingerprint
 - Public key
 - `createdAt` timestamp (label)
 - Backup status per source
+
+The master account is a hidden signing and recovery identity. It is not included in
+account lists, has no detail route, and its SSH/Nostr material is not displayed.
 
 ### Delete Account
 
@@ -712,7 +715,7 @@ Operations for accounts after initial creation.
 
 **Note**: Deleting an account does NOT delete its remote backups (relay events or Brave Sync entries). Remote backups remain until they expire or are manually deleted.
 
-### Delete Master Account (Full Reset)
+### Full Reset (App-Level Action)
 
 1. Remove master account from secure storage
 2. Remove all sub-accounts from secure storage

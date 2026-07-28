@@ -196,7 +196,6 @@ isSetupComplete()?
 │  └─────────────────────────────┘    │
 │                                     │
 │  ┌─────────────────────────────┐    │
-│  │ Account Card (Master)       │    │
 │  │ Account Card (Sub 1)        │    │
 │  │ Account Card (Sub 2)        │    │
 │  │ ...                         │    │
@@ -221,7 +220,8 @@ isSetupComplete()?
 ### Account Card
 
 - Avatar with account initials (colored)
-- Account label (the `createdAt` timestamp for sub-accounts; custom label for master)
+- Account label (the `createdAt` timestamp for a sub-account)
+- The master account is a hidden signing/recovery identity and is never listed.
 - SSH key fingerprint (truncated)
 - Backup status indicator (healthy / partial / missing)
 - Chevron icon
@@ -280,12 +280,6 @@ isSetupComplete()?
 │  │ Public Key (truncated)      │    │
 │  │ [Copy Fingerprint]          │    │
 │  │ [Show Private Key]          │    │
-│  └─────────────────────────────┘    │
-│                                     │
-│  [Nostr Section] (master only)      │
-│  ┌─────────────────────────────┐    │
-│  │ npub: npub1...              │    │
-│  │ [Copy npub]                 │    │
 │  └─────────────────────────────┘    │
 │                                     │
 │  [Backup Status Section]            │
@@ -617,7 +611,7 @@ Dialogs and modals are presented as overlays using the platform's native dialog/
 
 ### Deep Linking
 
-Account detail screen supports deep linking via `/accounts/[id]` where `id` is the `createdAt` microsecond timestamp.
+Sub-account detail supports deep linking via `/accounts/[id]` where `id` is the `createdAt` microsecond timestamp. The master identity has no detail route.
 
 ### Tab Navigation
 

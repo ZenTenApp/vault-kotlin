@@ -1,19 +1,79 @@
 package com.zenten.vault.ui.accounts
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.zenten.vault.crypto.SshKeyCodec
+import com.zenten.vault.data.model.Account
 import com.zenten.vault.ui.VaultDestinations
-import com.zenten.vault.ui.components.PlaceholderScreen
 
 @Composable
-fun AccountsListScreen(navController: NavHostController) {
-    // TODO(Phase 8): master + sub-account cards, pending restores, FAB.
-    PlaceholderScreen(
-        title = "My Accounts",
-        subtitle = "No accounts yet (Phase 8).",
-        primaryLabel = "Add Account",
-        onPrimary = { navController.navigate(VaultDestinations.NEW_ACCOUNT) },
-        secondaryLabel = "Open sample detail",
-        onSecondary = { navController.navigate(VaultDestinations.accountDetail(0L)) },
+fun AccountsListScreen(navController: NavHostController, viewModel: AccountsViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsState()
+    var resetConfirmation by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().padding(20.dp)) {
+        Text("My Accounts", style = MaterialTheme.typography.headlineMedium)
+        Text("Your generated SSH accounts", style = MaterialTheme.typography.bodyMedium)
+        if (state.loading) Text("Loading…", modifier = Modifier.padding(top = 24.dp))
+        else if (state.accounts.isEmpty()) {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                Text("No accounts yet", style = MaterialTheme.typography.titleLarge)
+                Text("Create a new SSH account to get started.")
+                Button(onClick = { navController.navigate(VaultDestinations.NEW_ACCOUNT) }, modifier = Modifier.padding(top = 16.dp)) { Text("Add Account") }
+            }
+        } else LazyColumn(modifier = Modifier.weight(1f).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(state.accounts, key = { it.createdAt }) { account ->
+                AccountCard(account) { navController.navigate(VaultDestinations.accountDetail(account.createdAt)) }
+            }
+        }
+        TextButton(onClick = { resetConfirmation = true }) { Text("Reset vault") }
+    }
+    FloatingActionButton(
+        onClick = { navController.navigate(VaultDestinations.NEW_ACCOUNT) },
+        modifier = Modifier.padding(24.dp),
+    ) { Text("+") }
+    if (resetConfirmation) AlertDialog(
+        onDismissRequest = { resetConfirmation = false },
+        title = { Text("Reset vault?") },
+        text = { Text("This deletes all locally stored accounts. Remote backups are unchanged.") },
+        confirmButton = { TextButton(onClick = { viewModel.reset {
+            navController.navigate(VaultDestinations.GET_STARTED) { popUpTo(VaultDestinations.ACCOUNTS) { inclusive = true } }
+        } }) { Text("Reset") } },
+        dismissButton = { TextButton(onClick = { resetConfirmation = false }) { Text("Cancel") } },
     )
+}
+
+@Composable
+private fun AccountCard(account: Account, onClick: () -> Unit) {
+    val fingerprint = remember(account.pubkey) {
+        account.pubkey?.let { line -> runCatching { SshKeyCodec.fingerprint(java.util.Base64.getDecoder().decode(line.split(" ")[1]).takeLast(32).toByteArray()) }.getOrNull() }
+    }
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(account.createdAt.toString(), style = MaterialTheme.typography.titleMedium)
+            Text(fingerprint ?: "SSH account", style = MaterialTheme.typography.bodySmall)
+        }
+    }
 }

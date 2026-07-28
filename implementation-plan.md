@@ -35,7 +35,7 @@ reported/skipped in the PoC, no locked state).
 - ❌ **Kind 10002 / 10050** relay-metadata events.
 - ❌ **Config locking** & pre-setup relay editing UI — relays are a hardcoded/default list.
 - ❌ **Backup-status health screen** — F-016 (a simple per-account "backed up?" flag is enough).
-- ❌ **Custom master label** — the master, like sub-accounts, is keyed by `createdAt`.
+- ❌ **Master account display/detail** — the master is a hidden signing and recovery identity, not a user-visible account.
 - ❌ QR scan / file import — **paste only** for the PoC.
 
 > The master-account **passphrase stays in** — it is the gate that validates the
@@ -295,10 +295,11 @@ screen, fatal-error retry.
 
 Implements F-006, F-017 (subset).
 
-- Accounts list: header, account cards, pending-restore section, FAB, empty state,
-optimistic updates. (No locked section.)
-- Account detail: fingerprint/pubkey, npub (master), simple backup flag,
-`PrivateDataModal` (confirm + copy), delete (local only), full reset.
+- Accounts list: header, **sub-account-only** cards, pending-restore section, FAB,
+empty state, optimistic updates. The master identity is never displayed. (No locked section.)
+- Account detail: sub-account fingerprint/pubkey and simple backup flag,
+`PrivateDataModal` (confirm + copy), local-only deletion. Full reset is available
+as an app-level action, not through a master-account detail screen.
 - New-account flow (`AccountCreationShell`, confirm → progress → back).
 - Pending-restore dialog (`RestoreAccountDialog`).
 - **Milestone**: view, create, reveal (guarded), delete, restore, and reset flows work.
