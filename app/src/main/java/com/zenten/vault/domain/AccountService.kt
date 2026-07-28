@@ -3,6 +3,7 @@ package com.zenten.vault.domain
 import com.zenten.vault.crypto.SshKeyCodec
 import com.zenten.vault.data.model.Account
 import com.zenten.vault.data.secure.SecureStorageService
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
 
 /** User-facing sub-account lifecycle. The master remains an internal-only identity. */
@@ -31,7 +32,7 @@ class AccountService(
 
     private fun nextCreatedAt(): Long {
         while (true) {
-            val candidate = System.currentTimeMillis() * 1_000L
+            val candidate = System.currentTimeMillis() * 1_000L + ThreadLocalRandom.current().nextLong(1, 1_000)
             val previous = lastCreatedAt.get()
             val next = maxOf(candidate, previous + 1)
             if (lastCreatedAt.compareAndSet(previous, next)) return next

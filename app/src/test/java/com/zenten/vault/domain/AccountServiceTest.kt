@@ -26,6 +26,7 @@ class AccountServiceTest {
         val created = AccountService(storage, setup).createSubAccount().getOrThrow()
 
         assertTrue(created.createdAt > 1_000_000_000_000_000L)
+        assertTrue(created.createdAt % 1_000L in 1L..999L)
         assertEquals(created.createdAt.toString(), SshKeyCodec.parse(created.zenTenKey).comment)
         assertTrue(created.pubkey!!.endsWith(" ${created.createdAt}"))
         coVerify(exactly = 1) { setup.addAccount(any(), created) }
