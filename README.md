@@ -1,25 +1,25 @@
 # ZenTen Vault (Android, Kotlin) — Proof of Concept
 
-Native Android reimplementation of ZenTen Vault, a deterministic key-management
-app. See the specs and plan:
+Native Android proof of concept for ZenTen Vault, a deterministic key-management
+app.
+
+## Cross-platform product handoff
+
+The implementation-agnostic product documentation for iOS, Android, or any other
+client is in [`docs/`](docs/README.md):
+
+- [`docs/product-brief.md`](docs/product-brief.md) — product purpose, users, scope, and vocabulary
+- [`docs/product-requirements.md`](docs/product-requirements.md) — complete product behavior
+- [`docs/user-experience.md`](docs/user-experience.md) — screens, flows, states, and accessibility
+- [`docs/data-and-backup-contract.md`](docs/data-and-backup-contract.md) — portable data and remote-backup contract
+- [`docs/security-privacy-quality.md`](docs/security-privacy-quality.md) — security, reliability, and acceptance requirements
+
+The files below document this Android PoC and its implementation history:
 
 - [`architecture-overview.md`](architecture-overview.md) — architecture & invariants
-- [`feature-specification.md`](feature-specification.md) — features F-001…F-021
-- [`ui-ux-flows.md`](ui-ux-flows.md) — screens & navigation
-- [`implementation-plan.md`](implementation-plan.md) — the phased build plan (PoC scope)
-
-## Status: Phase 1 — Cryptographic core (in progress)
-
-Scaffold builds; the Nostr crypto library is chosen and parity-gated:
-
-- Gradle 8.13 wrapper, AGP 8.11.2, Kotlin 2.2.21, JDK 17
-- Jetpack Compose + Material 3, single-activity Navigation-Compose
-- Hilt (DI), Coroutines, kotlinx.serialization
-- DataStore, Security-Crypto (EncryptedSharedPreferences), WorkManager
-- OkHttp, BouncyCastle 1.79 (SSH side), `fr.acinq.secp256k1`
-- **Quartz** (`com.vitorpamplona.quartz`) owns the standard Nostr half
-  (NIP-06/19/44 + events), verified byte-for-byte in `QuartzParityTest`
-- Placeholder screens for every PoC route; smoke + parity unit tests
+- [`feature-specification.md`](feature-specification.md) — feature source material F-001…F-021
+- [`ui-ux-flows.md`](ui-ux-flows.md) — UI source material
+- [`implementation-plan.md`](implementation-plan.md) — phased Android PoC plan
 
 ## Requirements
 
@@ -54,10 +54,3 @@ com.zenten.vault
 
 Later phases add `crypto/`, `data/`, `network/`, `domain/`, `background/`, and
 `state/` per `implementation-plan.md §3`.
-
-## Next: finish Phase 1 — Cryptographic core
-
-The Nostr half is done (Quartz, parity-proven). Remaining: implement
-`SshKeyCodec` (the crux — raw 32-byte Ed25519 seed extraction) and `Seedify`,
-plus thin `NostrKeyDerivation`/`Nip44` adapters over Quartz, all gated on golden
-test vectors. Note the PoC uses **bcrypt_pbkdf = 1 round**.
