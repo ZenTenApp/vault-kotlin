@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 class SshKeyCodecTest {
     private val json = Json
@@ -25,6 +26,19 @@ class SshKeyCodecTest {
         assertEquals(value(vector, "sshFingerprint"), SshKeyCodec.fingerprint(parsed.publicKey))
         assertEquals(value(vector, "mnemonic24"), Seedify.toMnemonic(parsed.seed))
         assertEquals(value(vector, "mnemonic24"), Seedify.fromSshKey(value(vector, "sshKeyPem")))
+    }
+
+    @Test
+    fun generates_brave_sync_code_from_brave_sub_account_and_daily_word() {
+        val seed = SshKeyCodec.parse(value(vector("unencrypted-ed25519"), "sshKeyPem")).seed
+
+        val code = Seedify.toBraveSyncCode(seed, Instant.parse("2026-01-01T00:00:00Z"))
+
+        assertEquals(
+            "jacket mutual dry guard cat ribbon wasp police plug absurd add police face rack alcohol palm absorb long pumpkin dizzy odor job crush dial pledge",
+            code,
+        )
+        assertEquals(25, code.split(" ").size)
     }
 
     @Test
