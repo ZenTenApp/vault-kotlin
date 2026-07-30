@@ -11,20 +11,31 @@ import app.zenten.vault.network.nostr.NostrRelayGateway
 class RecoveryService(
     private val relayGateway: NostrRelayGateway,
     private val secureStorage: SecureStorageService,
+    private val braveSyncBackupService: BraveSyncBackupService? = null,
 ) {
     suspend fun discoverSubAccounts(master: Account): RecoveryResult {
         val nostr = requireNotNull(master.nostr) { "Master Nostr identity is required for recovery" }
         val events = relayGateway.fetchByAuthorAndKind(nostr.pubkey, BackupService.SUB_ACCOUNT_BACKUP_KIND)
         val recovered = mutableListOf<Account>()
         val skipped = mutableListOf<String>()
+        val knownAccountIds = secureStorage.getAccounts().mapTo(mutableSetOf()) { it.createdAt }
         events.forEach { event ->
             val account = decodeSubAccount(event, master)
-            if (account == null) skipped += event.id else {
+            if (account == null) skipped += event.id
+            else if (knownAccountIds.add(account.createdAt)) {
                 secureStorage.addAccount(account)
                 recovered += account
             }
         }
-        return RecoveryResult(recovered, skipped, events.size)
+        val brave = braveSyncBackupService?.let { service -> runCatching { service.discoverSubAccounts(master) }.getOrNull() }
+        brave?.accounts.orEmpty().forEach { account ->
+            if (knownAccountIds.add(account.createdAt)) {
+                secureStorage.addAccount(account)
+                recovered += account
+            }
+        }
+        skipped += brave?.skippedEntryIds.orEmpty()
+        return RecoveryResult(recovered, skipped, events.size, brave?.discoveredEntryCount ?: 0, brave?.decryptionFailures ?: 0)
     }
 
     fun decodeSubAccount(event: NostrEvent, master: Account): Account? = runCatching {
@@ -43,5 +54,7 @@ class RecoveryService(
         val recovered: List<Account>,
         val skippedEventIds: List<String>,
         val discoveredEventCount: Int,
+        val discoveredBraveEntryCount: Int = 0,
+        val braveDecryptionFailures: Int = 0,
     )
 }

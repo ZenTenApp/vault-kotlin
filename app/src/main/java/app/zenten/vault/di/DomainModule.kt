@@ -3,7 +3,11 @@ package app.zenten.vault.di
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountService
+import app.zenten.vault.domain.AccountBackupCoordinator
+import app.zenten.vault.domain.AccountBackupTarget
 import app.zenten.vault.domain.BackupService
+import app.zenten.vault.domain.NostrAccountBackupTarget
+import app.zenten.vault.domain.BraveSyncBackupService
 import app.zenten.vault.domain.RecoveryService
 import app.zenten.vault.domain.RelayBackupRetryService
 import app.zenten.vault.domain.RelayBackupRetryScheduler
@@ -26,17 +30,29 @@ object DomainModule {
     fun backupService(gateway: NostrRelayGateway, clock: Clock) = BackupService(gateway, clock)
 
     @Provides @Singleton
+    fun braveSyncBackupService() = BraveSyncBackupService()
+
+    @Provides @Singleton
+    fun backupCoordinator(
+        backupService: BackupService,
+        braveSyncBackupService: BraveSyncBackupService,
+    ): AccountBackupCoordinator = AccountBackupCoordinator(
+        setOf(NostrAccountBackupTarget(backupService), braveSyncBackupService),
+    )
+
+    @Provides @Singleton
     fun recoveryService(
         gateway: NostrRelayGateway,
         secureStorage: SecureStorageService,
-    ) = RecoveryService(gateway, secureStorage)
+        braveSyncBackupService: BraveSyncBackupService,
+    ) = RecoveryService(gateway, secureStorage, braveSyncBackupService)
 
     @Provides @Singleton
     fun retryService(
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
-        backupService: BackupService,
-    ) = RelayBackupRetryService(secureStorage, appStorage, backupService)
+        backupCoordinator: AccountBackupCoordinator,
+    ) = RelayBackupRetryService(secureStorage, appStorage, backupCoordinator)
 
     @Provides @Singleton
     fun startupRetryScheduler(
@@ -48,10 +64,10 @@ object DomainModule {
     fun setupService(
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
-        backupService: BackupService,
+        backupCoordinator: AccountBackupCoordinator,
         recoveryService: RecoveryService,
         retryScheduler: RelayBackupRetryScheduler,
-    ) = SetupService(secureStorage, appStorage, backupService, recoveryService, retryScheduler)
+    ) = SetupService(secureStorage, appStorage, backupCoordinator, recoveryService, retryScheduler)
 
     @Provides @Singleton
     fun accountService(

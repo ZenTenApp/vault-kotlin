@@ -8,15 +8,29 @@ import app.zenten.vault.data.secure.SecureStorageService
 class SetupService(
     private val secureStorage: SecureStorageService,
     private val appStorage: AppStorageService,
-    private val backupService: BackupService,
+    private val backupCoordinator: AccountBackupCoordinator,
     private val recoveryService: RecoveryService,
     private val retryScheduler: RelayBackupRetryScheduler? = null,
 ) {
+    /** Compatibility constructor for Nostr-only callers/tests. */
+    constructor(
+        secureStorage: SecureStorageService,
+        appStorage: AppStorageService,
+        backupService: BackupService,
+        recoveryService: RecoveryService,
+        retryScheduler: RelayBackupRetryScheduler? = null,
+    ) : this(
+        secureStorage,
+        appStorage,
+        AccountBackupCoordinator(setOf(NostrAccountBackupTarget(backupService))),
+        recoveryService,
+        retryScheduler,
+    )
     suspend fun performSetup(master: Account): Result<Unit> = runCatching {
         require(master.nostr != null) { "Master account must have a Nostr identity" }
         secureStorage.addMasterAccount(master)
-        val result = backupService.backupMaster(master)
-        check(result.acknowledged) { "Master relay backup was not acknowledged" }
+        val report = backupCoordinator.backupMaster(master)
+        check(report.isSuccess) { "Master backup failed for: ${report.failedTargets.joinToString()}" }
         appStorage.setSetupComplete()
 
         Unit
@@ -38,12 +52,10 @@ class SetupService(
 
     suspend fun addAccount(master: Account, account: Account): Result<Unit> = runCatching {
         secureStorage.addAccount(account)
-        val result = backupService.backupSubAccount(master, account)
-        if (!result.acknowledged) {
-            appStorage.addFailedBackupAccountId(account.createdAt)
+        val report = backupCoordinator.backupSubAccount(master, account)
+        if (!report.isSuccess) {
+            appStorage.markPendingAccountBackup(account.createdAt, report.failedTargets)
             retryScheduler?.schedule()
-        } else {
-            appStorage.removeFailedBackupAccountId(account.createdAt)
         }
     }
 }

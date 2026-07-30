@@ -9,6 +9,6 @@ class StartupRetryScheduler(
     private val retryScheduler: RelayBackupRetryScheduler,
 ) {
     suspend fun runStartupRetries() {
-        if (appStorage.failedBackupAccountIds.first().isNotEmpty()) retryScheduler.schedule()
+        if (appStorage.pendingAccountBackups.first().isNotEmpty() || appStorage.failedBackupAccountIds.first().isNotEmpty()) retryScheduler.schedule()
     }
 }
