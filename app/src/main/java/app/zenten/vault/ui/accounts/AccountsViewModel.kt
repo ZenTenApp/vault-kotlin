@@ -6,6 +6,8 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.domain.AccountService
 import app.zenten.vault.domain.SetupService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +21,7 @@ class AccountsViewModel @Inject constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(AccountsState())
     val state: StateFlow<AccountsState> = _state.asStateFlow()
+    private var recoveryMessageDismissal: Job? = null
 
     init {
         refresh()
@@ -34,27 +37,35 @@ class AccountsViewModel @Inject constructor(
 
     fun recoverFromBackup() {
         if (_state.value.recoveryInProgress) return
+        recoveryMessageDismissal?.cancel()
         viewModelScope.launch {
             _state.value = _state.value.copy(recoveryInProgress = true, recoveryMessage = "Connecting to backup relays…")
             setupService.recoverExistingAccounts()
                 .onSuccess { result ->
-                    _state.value = _state.value.copy(
-                        recoveryInProgress = false,
-                        recoveryMessage = when {
-                            result.recovered.isNotEmpty() -> "Recovered ${result.recovered.size} account(s)."
-                            result.discoveredEventCount == 0 -> "No backup events found on the configured relays."
-                            else -> "Found ${result.discoveredEventCount} backup event(s), but none could be decrypted or validated."
-                        },
-                    )
+                    _state.value = _state.value.copy(recoveryInProgress = false, recoveryMessage = null)
+                    result.recovered.takeIf { it.isNotEmpty() }?.let { recovered ->
+                        showRecoveryMessage("Recovered ${recovered.size} account(s).")
+                    }
                     refresh()
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        recoveryInProgress = false,
-                        recoveryMessage = "Recovery failed: ${error.message ?: "Unable to query backup relays."}",
-                    )
+                    _state.value = _state.value.copy(recoveryInProgress = false, recoveryMessage = null)
+                    showRecoveryMessage("Recovery failed: ${error.message ?: "Unable to query backup relays."}")
                 }
         }
+    }
+
+    private fun showRecoveryMessage(message: String) {
+        recoveryMessageDismissal?.cancel()
+        _state.value = _state.value.copy(recoveryMessage = message)
+        recoveryMessageDismissal = viewModelScope.launch {
+            delay(RECOVERY_MESSAGE_DURATION_MS)
+            _state.value = _state.value.copy(recoveryMessage = null)
+        }
+    }
+
+    private companion object {
+        const val RECOVERY_MESSAGE_DURATION_MS = 5_000L
     }
 }
 
