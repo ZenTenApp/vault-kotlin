@@ -8,10 +8,10 @@
 # kotlinx.serialization generated serializers.
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**
--keep,includedescriptorclasses class com.zenten.vault.**$$serializer { *; }
--keepclassmembers class com.zenten.vault.** {
+-keep,includedescriptorclasses class app.zenten.vault.**$$serializer { *; }
+-keepclassmembers class app.zenten.vault.** {
     *** Companion;
 }
--keepclasseswithmembers class com.zenten.vault.** {
+-keepclasseswithmembers class app.zenten.vault.** {
     kotlinx.serialization.KSerializer serializer(...);
 }

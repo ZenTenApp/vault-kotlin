@@ -40,7 +40,7 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 ## Package layout
 
 ```
-com.zenten.vault
+app.zenten.vault
 ├── VaultApplication / MainActivity
 └── ui/
     ├── VaultDestinations / VaultNavGraph

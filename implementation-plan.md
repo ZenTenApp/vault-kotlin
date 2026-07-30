@@ -135,7 +135,7 @@ dependency and works down to minSdk 26.
 Single Gradle module (`:app`), organized by clean-ish layering.
 
 ```
-com.zenten.vault
+app.zenten.vault
 ├── crypto/            # ssh, bip39, nip06, nip44, fingerprint
 │   ├── SshKeyCodec
 │   ├── Seedify           # SSH+pass → 24-word mnemonic

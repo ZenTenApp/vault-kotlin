@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.zenten.vault"
+    namespace = "app.zenten.vault"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.zenten.vault"
+        applicationId = "app.zenten.vault"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

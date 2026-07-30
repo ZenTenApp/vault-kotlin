@@ -1,7 +1,7 @@
 # Golden Crypto Test Vectors (Phase 1)
 
 These fixtures are the **parity gate** for the cryptographic core
-(`com.zenten.vault.crypto`). Every primitive must reproduce these values
+(`app.zenten.vault.crypto`). Every primitive must reproduce these values
 byte-for-byte before any downstream phase merges (see `implementation-plan.md`
 §5 Phase 1 and §7 Testing Strategy).
 
