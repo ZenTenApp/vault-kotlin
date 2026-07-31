@@ -6,6 +6,7 @@ import app.zenten.vault.domain.AccountService
 import app.zenten.vault.domain.AccountBackupCoordinator
 import app.zenten.vault.domain.AccountBackupTarget
 import app.zenten.vault.domain.BackupService
+import app.zenten.vault.domain.BackupSyncService
 import app.zenten.vault.domain.NostrAccountBackupTarget
 import app.zenten.vault.domain.BraveSyncBackupService
 import app.zenten.vault.domain.RecoveryService
@@ -46,6 +47,16 @@ object DomainModule {
         secureStorage: SecureStorageService,
         braveSyncBackupService: BraveSyncBackupService,
     ) = RecoveryService(gateway, secureStorage, braveSyncBackupService)
+
+    @Provides @Singleton
+    fun backupSyncService(
+        gateway: NostrRelayGateway,
+        backupService: BackupService,
+        braveSyncBackupService: BraveSyncBackupService,
+        secureStorage: SecureStorageService,
+        appStorage: AppStorageService,
+        clock: Clock,
+    ) = BackupSyncService(gateway, backupService, braveSyncBackupService, secureStorage, appStorage, clock)
 
     @Provides @Singleton
     fun retryService(

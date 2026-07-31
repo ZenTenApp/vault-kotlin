@@ -22,12 +22,22 @@ import java.util.concurrent.TimeUnit
  * This owns our quorum/retry policy; Quartz owns wire protocol, OK handling, REQ/EVENT/EOSE.
  */
 interface NostrRelayGateway {
+    /** Individually-addressable relays used by backup reconciliation. */
+    val relayUrls: List<String> get() = emptyList()
     suspend fun publish(event: NostrEvent): PublishResult
     suspend fun fetchByAuthorAndKind(authorPubkey: String, kind: Int): List<NostrEvent>
+
+    suspend fun publishToRelay(relayUrl: String, event: NostrEvent): Result<Unit> = runCatching {
+        check(publish(event).acknowledged)
+    }
+
+    /** Failure is distinct from a successfully checked relay with no matching events. */
+    suspend fun fetchByRelay(relayUrl: String, authorPubkey: String, kind: Int): Result<List<NostrEvent>> =
+        runCatching { fetchByAuthorAndKind(authorPubkey, kind) }
 }
 
 class NostrRelayService(
-    private val relayUrls: List<String> = DEFAULT_RELAYS,
+    override val relayUrls: List<String> = DEFAULT_RELAYS,
     private val clientFactory: (CoroutineScope) -> NostrClient = { scope -> newQuartzClient(scope) },
     private val timeoutMillis: Long = ATTEMPT_TIMEOUT_MILLIS,
     private val maxAttempts: Int = MAX_ATTEMPTS,
@@ -50,6 +60,33 @@ class NostrRelayService(
             if (successful.isEmpty() && attempts < maxAttempts) delay(RETRY_DELAY_MILLIS)
         }
         return PublishResult(event.id, successful, relayUrls.toSet() - successful, attempts)
+    }
+
+    override suspend fun publishToRelay(relayUrl: String, event: NostrEvent): Result<Unit> = runCatching {
+        require(NostrEventCodec.isValid(event)) { "Refusing to publish an invalid Nostr event" }
+        val relay = NormalizedRelayUrl(relayUrl)
+        val accepted = withClient { client ->
+            withTimeoutOrNull(timeoutMillis) {
+                client.publishAndConfirmDetailed(event.toQuartzEvent(), setOf(relay), timeoutMillis)[relay] == true
+            } ?: false
+        }
+        check(accepted) { "Relay did not acknowledge backup: $relayUrl" }
+    }
+
+    override suspend fun fetchByRelay(relayUrl: String, authorPubkey: String, kind: Int): Result<List<NostrEvent>> = runCatching {
+        val relay = NormalizedRelayUrl(relayUrl)
+        withClient { client ->
+            val result = withTimeoutOrNull(timeoutMillis) {
+                client.fetchAll(
+                    subscriptionId = UUID.randomUUID().toString(),
+                    filters = mapOf(relay to listOf(Filter(authors = listOf(authorPubkey), kinds = listOf(kind)))),
+                    timeoutMs = timeoutMillis,
+                )
+            } ?: throw java.io.IOException("Timed out checking $relayUrl")
+            result.map { it.toAppEvent() }.filter {
+                it.kind == kind && it.pubkey == authorPubkey && NostrEventCodec.isValid(it)
+            }.distinctBy { it.id }
+        }
     }
 
     /** Fetches only locally-valid events with the requested author and kind. */

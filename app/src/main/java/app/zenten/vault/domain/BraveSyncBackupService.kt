@@ -22,6 +22,16 @@ class BraveSyncBackupService(
     override suspend fun backupSubAccount(master: Account, account: Account): Result<Unit> =
         backup(master, account.createdAt.toString(), account)
 
+    /** Checks the master record separately because normal recovery deliberately restores sub-accounts only. */
+    suspend fun hasMasterBackup(master: Account): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            passwordService.list(syncCode(master)).passwords.any { entry ->
+                entry.username == MASTER_ACCOUNT_ID && entry.url == accountUrl(MASTER_ACCOUNT_ID) &&
+                    entry.notes.isEmpty() && runCatching { canonicalKey(entry.password) }.isSuccess
+            }
+        }
+    }
+
     suspend fun discoverSubAccounts(master: Account): RecoveryResult = withContext(Dispatchers.IO) {
         val syncCode = syncCode(master)
         val discovered = passwordService.list(syncCode)

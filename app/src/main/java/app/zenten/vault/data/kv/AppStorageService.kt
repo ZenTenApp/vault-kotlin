@@ -28,6 +28,10 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         preferences[PENDING_ACCOUNT_BACKUPS]?.let { runCatching { json.decodeFromString<List<PendingAccountBackup>>(it) }.getOrDefault(emptyList()) }
             ?: emptyList()
     }
+    val backupStatuses: Flow<List<AccountBackupStatus>> = dataStore.data.map { preferences ->
+        preferences[BACKUP_STATUSES]?.let { runCatching { json.decodeFromString<List<AccountBackupStatus>>(it) }.getOrDefault(emptyList()) }
+            ?: emptyList()
+    }
 
     suspend fun setSetupComplete() = dataStore.edit { it[SETUP_COMPLETE] = true }
     suspend fun clearSetupComplete() = dataStore.edit { it.remove(SETUP_COMPLETE) }
@@ -61,6 +65,10 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         preferences[PENDING_ACCOUNT_BACKUPS] = json.encodeToString(current.values.toList())
     }
 
+    suspend fun setBackupStatuses(statuses: List<AccountBackupStatus>) = dataStore.edit {
+        it[BACKUP_STATUSES] = json.encodeToString(statuses)
+    }
+
     suspend fun clearPendingAccountBackupTargets(accountId: Long, targets: Set<BackupTargetId>) = dataStore.edit { preferences ->
         val current = preferences[PENDING_ACCOUNT_BACKUPS]?.let {
             runCatching { json.decodeFromString<List<PendingAccountBackup>>(it) }.getOrDefault(emptyList())
@@ -78,6 +86,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val APP_SERVER_CONFIG = stringPreferencesKey("app_server_config")
         val FAILED_BACKUP_ACCOUNT_IDS = stringPreferencesKey("failed_backup_account_ids")
         val PENDING_ACCOUNT_BACKUPS = stringPreferencesKey("pending_account_backups")
+        val BACKUP_STATUSES = stringPreferencesKey("backup_statuses")
     }
 }
 
@@ -86,3 +95,21 @@ data class PendingAccountBackup(
     val accountId: Long,
     val targets: Set<BackupTargetId>,
 )
+
+/** Cached, non-secret reconciliation coverage used by the Backup Status screen. */
+@Serializable
+data class AccountBackupStatus(
+    val accountId: String,
+    val destinations: List<DestinationBackupStatus>,
+    val checkedAtMillis: Long,
+)
+
+@Serializable
+data class DestinationBackupStatus(
+    val id: String,
+    val label: String,
+    val state: BackupCoverageState,
+)
+
+@Serializable
+enum class BackupCoverageState { PRESENT, MISSING, UNKNOWN, REPAIR_FAILED }

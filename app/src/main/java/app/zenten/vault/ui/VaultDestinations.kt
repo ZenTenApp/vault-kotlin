@@ -25,5 +25,8 @@ object VaultDestinations {
     /** Create new sub-account. */
     const val NEW_ACCOUNT = "new-accounts"
 
+    /** Per-account coverage across relays and backup providers. */
+    const val BACKUP_STATUS = "backup-status"
+
     fun accountDetail(id: Long): String = "accounts/$id"
 }

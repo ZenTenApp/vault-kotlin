@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import app.zenten.vault.ui.accounts.AccountDetailScreen
 import app.zenten.vault.ui.accounts.AccountsListScreen
+import app.zenten.vault.ui.backup.BackupStatusScreen
 import app.zenten.vault.ui.newaccount.NewAccountScreen
 import app.zenten.vault.ui.onboarding.GetStartedScreen
 import app.zenten.vault.ui.onboarding.SshSetupScreen
@@ -50,6 +51,10 @@ fun VaultNavGraph(
 
         composable(VaultDestinations.NEW_ACCOUNT) {
             NewAccountScreen(navController)
+        }
+
+        composable(VaultDestinations.BACKUP_STATUS) {
+            BackupStatusScreen()
         }
     }
 }
