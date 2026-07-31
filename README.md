@@ -1,56 +1,32 @@
-# ZenTen Vault (Android, Kotlin) — Proof of Concept
+# ZenTen Vault
 
-Native Android proof of concept for ZenTen Vault, a deterministic key-management
-app.
+ZenTen Vault is an Android proof of concept for managing SSH credentials with user-held recovery material and redundant encrypted backups. A user begins with the private key and passphrase for an existing master account, then creates associated accounts that are automatically restored when discovered on another device.
 
-## Cross-platform product handoff
+> **Proof of concept — not production-ready.** Key-management software requires independent security review, release hardening, and operational controls before it should be trusted with real credentials.
 
-The implementation-agnostic product documentation for iOS, Android, or any other
-client is in [`docs/`](docs/README.md):
+## Documentation
 
-- [`docs/product-brief.md`](docs/product-brief.md) — product purpose, users, scope, and vocabulary
-- [`docs/product-requirements.md`](docs/product-requirements.md) — complete product behavior
-- [`docs/user-experience.md`](docs/user-experience.md) — screens, flows, states, and accessibility
-- [`docs/data-and-backup-contract.md`](docs/data-and-backup-contract.md) — portable data and remote-backup contract
-- [`docs/security-privacy-quality.md`](docs/security-privacy-quality.md) — security, reliability, and acceptance requirements
-
-The files below document this Android PoC and its implementation history:
-
-- [`architecture-overview.md`](architecture-overview.md) — architecture & invariants
-- [`feature-specification.md`](feature-specification.md) — feature source material F-001…F-021
-- [`ui-ux-flows.md`](ui-ux-flows.md) — UI source material
-- [`implementation-plan.md`](implementation-plan.md) — phased Android PoC plan
+- [Documentation index](docs/README.md)
+- [Feature documentation](docs/features/README.md) — behavior, safeguards, limitations, and source locations for every current app feature.
+- [Stakeholder product guide](docs/stakeholder/README.md) — feature flows, recovery expectations, and scope for product, design, and client review.
+- [Technical documentation](docs/technical/README.md) — developer setup and implementation references.
 
 ## Requirements
 
-- JDK 17 (host unit tests auto-provision a JDK 21 toolchain — Quartz ships
-  JVM 21 bytecode; enabled via the Foojay resolver in `settings.gradle.kts`)
-- Android SDK with platform 36 + build-tools 36.0.0
-- `local.properties` with `sdk.dir=<your Android SDK path>` (not committed)
+- JDK 17 for Android builds
+- JDK 21 available to Gradle for host-side unit tests (provisioned through the Foojay toolchain resolver when needed)
+- Android SDK platform 36 and build-tools 36.0.0
+- `local.properties` containing `sdk.dir=<your Android SDK path>`; do not commit this file
 
-## Build & test
+## Build and test
 
 ```bash
-./gradlew :app:testDebugUnitTest   # unit tests (JUnit 5)
-./gradlew :app:assembleDebug       # build debug APK
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
 ```
 
-APK output: `app/build/outputs/apk/debug/app-debug.apk`
+The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Package layout
+## Current implementation scope
 
-```
-app.zenten.vault
-├── VaultApplication / MainActivity
-└── ui/
-    ├── VaultDestinations / VaultNavGraph
-    ├── theme/            Material 3 theme
-    ├── components/       shared UI (PlaceholderScreen for now)
-    ├── root/             entry + setup-state routing (stub)
-    ├── onboarding/       welcome + ssh setup (stub)
-    ├── accounts/         list + detail (stub)
-    └── newaccount/       create sub-account (stub)
-```
-
-Later phases add `crypto/`, `data/`, `network/`, `domain/`, `background/`, and
-`state/` per `implementation-plan.md §3`.
+The repository contains Android UI, secure local-storage, SSH-key handling, encrypted Nostr relay backup, Brave Sync integration, backup reconciliation, and automated tests. See the [implementation status](docs/technical/product-status.md) for a feature-level view and its limitations.
