@@ -7,7 +7,7 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 ## Current behavior
 
 1. The user opens **Get started** and proceeds to **Set up your master account**.
-2. The user pastes an OpenSSH private key and enters its passphrase.
+2. The user pastes a passphrase-protected OpenSSH private key and enters its passphrase. Unencrypted private keys are rejected.
 3. The app validates the material locally and derives the vault identity.
 4. The app stores the master account securely, creates the required master backup, and marks setup complete only when that required backup succeeds.
 5. The app then starts automatic discovery and recovery of associated accounts.

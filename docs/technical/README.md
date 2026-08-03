@@ -9,6 +9,7 @@ This area is for developers, security reviewers, and release engineers. It docum
 - [Implementation status](product-status.md)
 - [Architecture overview](architecture.md)
 - [Security model](security-model.md)
+- [SSH key generation and recovery-seed derivation](ssh-key-seed-derivation.md)
 
 ## Feature-level implementation references
 

@@ -27,7 +27,9 @@ class BraveSyncBackupService(
         runCatching {
             passwordService.list(syncCode(master)).passwords.any { entry ->
                 entry.username == MASTER_ACCOUNT_ID && entry.url == accountUrl(MASTER_ACCOUNT_ID) &&
-                    entry.notes.isEmpty() && runCatching { canonicalKey(entry.password) }.isSuccess
+                    entry.notes.isEmpty() && master.zenTenPass?.let { passphrase ->
+                        runCatching { canonicalKey(entry.password, passphrase.toCharArray()) }.isSuccess
+                    } == true
             }
         }
     }
@@ -43,12 +45,22 @@ class BraveSyncBackupService(
                 skipped += entry.id
                 return@forEach
             }
-            val key = runCatching { canonicalKey(entry.password) }.getOrNull()
+            val passphrase = master.zenTenPass ?: run {
+                skipped += entry.id
+                return@forEach
+            }
+            val key = runCatching { canonicalKey(entry.password, passphrase.toCharArray()) }.getOrNull()
             if (key == null) {
                 skipped += entry.id
                 return@forEach
             }
-            valid += Account(createdAt = accountId, zenTenKey = key)
+            val parsed = SshKeyCodec.parse(key, passphrase.toCharArray())
+            valid += Account(
+                createdAt = accountId,
+                zenTenKey = key,
+                zenTenPass = passphrase,
+                pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
+            )
         }
         RecoveryResult(valid, skipped, discovered.decryptionFailures, discovered.passwords.size)
     }
@@ -58,7 +70,8 @@ class BraveSyncBackupService(
             runCatching {
                 val syncCode = syncCode(master)
                 val url = accountUrl(accountId)
-                val key = canonicalKey(account.zenTenKey, account.zenTenPass?.toCharArray())
+                val passphrase = requireNotNull(account.zenTenPass) { "Account passphrase is unavailable" }
+                val key = canonicalKey(account.zenTenKey, passphrase.toCharArray())
                 // Retrying a previous successful write must not create a duplicate client tag.
                 val existing = passwordService.list(syncCode).passwords.firstOrNull {
                     it.url == url && it.username == accountId
@@ -72,11 +85,12 @@ class BraveSyncBackupService(
         }
 
     private fun syncCode(master: Account): String {
-        val seed = SshKeyCodec.parse(master.zenTenKey, master.zenTenPass?.toCharArray()).seed
+        val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
+        val seed = SshKeyCodec.parse(master.zenTenKey, passphrase.toCharArray()).seed
         return Seedify.toBraveSyncCode(seed)
     }
 
-    private fun canonicalKey(value: String, passphrase: CharArray? = null): String {
+    private fun canonicalKey(value: String, passphrase: CharArray): String {
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(value)
         SshKeyCodec.parse(normalized, passphrase) // require a valid Ed25519 OpenSSH key
         return normalized

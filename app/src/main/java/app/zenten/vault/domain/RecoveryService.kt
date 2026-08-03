@@ -47,7 +47,14 @@ class RecoveryService(
         val createdAt = dTag.toLong()
         val sshPrivateKey = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
         require(sshPrivateKey.isNotBlank())
-        Account(createdAt = createdAt, zenTenKey = sshPrivateKey)
+        val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
+        val parsed = app.zenten.vault.crypto.SshKeyCodec.parse(sshPrivateKey, passphrase.toCharArray())
+        Account(
+            createdAt = createdAt,
+            zenTenKey = app.zenten.vault.crypto.SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
+            zenTenPass = passphrase,
+            pubkey = app.zenten.vault.crypto.SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
+        )
     }.getOrNull()
 
     data class RecoveryResult(

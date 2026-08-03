@@ -7,7 +7,7 @@ This document specifies the current backup write path for the master account and
 - **Nostr relays** — encrypted and signed Nostr events; and
 - **Brave Sync** — password records reached using a sync code derived from the master account.
 
-The account private-key payload is normalized before it is sent to either target. Backup is not a substitute for retaining the master account private key and passphrase.
+The account private-key payload is normalized before it is sent to either target. Only passphrase-protected OpenSSH private keys are accepted; unencrypted keys are rejected. Backup is not a substitute for retaining the master account private key and passphrase.
 
 ## Write lifecycle
 
@@ -23,7 +23,7 @@ At present the coordinator is configured for Nostr and Brave Sync. A Nostr write
 
 ### Associated account after creation
 
-1. `AccountService` allocates a unique `createdAt` identifier and generates an unencrypted Ed25519 OpenSSH key pair.
+1. `AccountService` allocates a unique `createdAt` identifier and generates an Ed25519 OpenSSH key pair encrypted with the master account passphrase (`aes256-ctr` with `bcrypt_pbkdf`).
 2. `SetupService.addAccount` persists the associated account in secure storage **before** remote work begins.
 3. `AccountBackupCoordinator.backupSubAccount` attempts every target.
 4. If one or more targets fail, `AppStorageService` records the account ID and only the failed target IDs in `pendingAccountBackups`.
@@ -49,7 +49,7 @@ The pending queue is target-aware. A later retry writes only destinations that f
 | Backup             | Nostr kind | `d` tag             | Plaintext before encryption                       |
 | ------------------ | ---------: | ------------------- | ------------------------------------------------- |
 | Master account     |    `37801` | `masterkey`         | normalized master-account OpenSSH private key     |
-| Associated account |    `37802` | decimal `createdAt` | normalized associated-account OpenSSH private key |
+| Associated account |    `37802` | decimal `createdAt` | normalized passphrase-encrypted associated-account OpenSSH private key |
 
 `created_at` on the Nostr event is the publication time in seconds; it is not an associated-account identifier. The event has one `d` tag and is signed by the Nostr identity derived from the master account.
 
@@ -75,7 +75,7 @@ Brave Sync stores a password record with no notes:
 | Backup             | URL                           | Username            | Password                                  |
 | ------------------ | ----------------------------- | ------------------- | ----------------------------------------- |
 | Master account     | `https://masterkey.zenten/`   | `masterkey`         | normalized master-account private key     |
-| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized associated-account private key |
+| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized passphrase-encrypted associated-account private key |
 
 The sync code is derived from the parsed master account seed by `Seedify.toBraveSyncCode`.
 
@@ -101,7 +101,8 @@ Periodic reconciliation can also repair confirmed backup gaps; see [Backup statu
 
 ## Persistence and secret handling
 
-- Account records, including private keys, are stored in `SecureStorageService` using `EncryptedSharedPreferences` and an Android Keystore-backed `MasterKey`.
+- Account records, including private keys and the passphrase retained for their OpenSSH encryption, are stored in `SecureStorageService` using `EncryptedSharedPreferences` and an Android Keystore-backed `MasterKey`.
+- Associated-account OpenSSH private keys are encrypted with the master account passphrase before local or remote storage; Nostr additionally encrypts the complete key payload with NIP-44.
 - Retry queues and backup-status cache are non-secret DataStore preferences. They store account IDs, target IDs, status, and timestamps—not private-key payloads.
 - Do not add private-key material, passphrases, derived sync codes, or encrypted event plaintext to logs, analytics, work input data, errors, or status storage.
 

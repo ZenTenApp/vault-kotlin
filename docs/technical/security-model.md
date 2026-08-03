@@ -6,7 +6,7 @@
 
 - User-provided master account private key and its passphrase.
 - Derived recovery material and master-account Nostr identity.
-- Generated associated-account SSH private keys.
+- Generated associated-account SSH private keys, encrypted in their OpenSSH containers with the master account passphrase.
 - Brave Sync recovery/access material.
 - Remote backup payloads and local backup-status metadata.
 
@@ -26,6 +26,7 @@
 - Private-key/passphrase setup screen sets Android's secure-window flag.
 - Private-key disclosure requires user confirmation and its dialog sets the secure-window flag.
 - OpenSSH parsing, Nostr derivation/encryption, and remote record codecs have automated tests; crypto test vectors are in `app/src/test/resources/golden/`.
+- Generated associated-account OpenSSH keys use `aes256-ctr` with `bcrypt_pbkdf` and the retained master-account passphrase; Nostr backups add NIP-44 encryption around that encrypted key payload.
 - Local secure storage, relay backup, sync backup, retry, and reconciliation have distinct implementation areas.
 
 ## Required production review topics

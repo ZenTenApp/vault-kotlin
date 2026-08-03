@@ -18,11 +18,14 @@ class AccountService(
 
     suspend fun createSubAccount(): Result<Account> = runCatching {
         val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
+        val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
+        require(passphrase.isNotBlank()) { "Master account passphrase is required to create an associated account" }
         val createdAt = nextCreatedAt()
-        val generated = SshKeyCodec.generateUnencrypted(createdAt)
+        val generated = SshKeyCodec.generateEncrypted(createdAt, passphrase.toCharArray())
         val account = Account(
             createdAt = createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
+            zenTenPass = passphrase,
             pubkey = generated.publicKey,
         )
         setupService.addAccount(master, account).getOrThrow()

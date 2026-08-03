@@ -23,6 +23,7 @@ class BackupService(
     fun buildBackupEvent(master: Account, account: Account, dTag: String, kind: Int): NostrEvent {
         val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
         validateContract(account, dTag, kind)
+        if (kind == SUB_ACCOUNT_BACKUP_KIND) requireEncryptedAssociatedKey(account)
         // The NIP-44 plaintext is exactly the single-line base64 OpenSSH private key.
         val encrypted = Nip44.encryptSelf(account.zenTenKey, nostr.privateKey(), nostr.publicKey())
         return NostrEventCodec.sign(
@@ -33,6 +34,14 @@ class BackupService(
             content = encrypted,
             createdAtSeconds = clock.instant().epochSecond,
         )
+    }
+
+    private fun requireEncryptedAssociatedKey(account: Account) {
+        val passphrase = requireNotNull(account.zenTenPass) { "Associated-account passphrase is unavailable" }
+        require(passphrase.isNotBlank()) { "Associated-account passphrase is required" }
+        require(app.zenten.vault.crypto.SshKeyCodec.parse(account.zenTenKey, passphrase.toCharArray()).encrypted) {
+            "Associated-account SSH key must be passphrase-encrypted"
+        }
     }
 
     private fun validateContract(account: Account, dTag: String, kind: Int) = when (kind) {

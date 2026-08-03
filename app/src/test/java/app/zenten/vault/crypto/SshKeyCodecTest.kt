@@ -16,21 +16,26 @@ class SshKeyCodecTest {
     private val json = Json
 
     @Test
-    fun extracts_ed25519_seed_fingerprint_and_mnemonic_from_golden_key() {
+    fun extracts_ed25519_seed_fingerprint_and_mnemonic_from_encrypted_golden_key() {
         val vector = vector("unencrypted-ed25519")
-        val parsed = SshKeyCodec.parse(value(vector, "sshKeyPem"))
+        val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
+        val passphrase = "phase1-test-passphrase".toCharArray()
+        val parsed = SshKeyCodec.parse(pem, passphrase)
 
-        assertFalse(parsed.encrypted)
+        assertTrue(parsed.encrypted)
         assertEquals(value(vector, "seedHex"), parsed.seed.hex())
         assertEquals(value(vector, "ed25519PubkeyHex"), parsed.publicKey.hex())
         assertEquals(value(vector, "sshFingerprint"), SshKeyCodec.fingerprint(parsed.publicKey))
         assertEquals(value(vector, "mnemonic24"), Seedify.toMnemonic(parsed.seed))
-        assertEquals(value(vector, "mnemonic24"), Seedify.fromSshKey(value(vector, "sshKeyPem")))
+        assertEquals(value(vector, "mnemonic24"), Seedify.fromSshKey(pem, passphrase))
     }
 
     @Test
     fun generates_brave_sync_code_from_brave_sub_account_and_daily_word() {
-        val seed = SshKeyCodec.parse(value(vector("unencrypted-ed25519"), "sshKeyPem")).seed
+        val seed = SshKeyCodec.parse(
+            root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content,
+            "phase1-test-passphrase".toCharArray(),
+        ).seed
 
         val code = Seedify.toBraveSyncCode(seed, Instant.parse("2026-01-01T00:00:00Z"))
 
@@ -43,7 +48,7 @@ class SshKeyCodecTest {
 
     @Test
     fun normalizes_pem_raw_base64_and_json_key_input_to_single_line_base64() {
-        val pem = value(vector("unencrypted-ed25519"), "sshKeyPem")
+        val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
         val canonical = SshKeyCodec.normalizeToSingleLineBase64(pem)
         assertFalse(canonical.contains('\n'))
         assertEquals(canonical, SshKeyCodec.normalizeToSingleLineBase64(canonical))
@@ -61,19 +66,26 @@ class SshKeyCodecTest {
         assertTrue(parsed.encrypted)
         assertEquals("076be8733da9c93bf11fec6d37a4b2ee6f628d621faccea798ff57bb0038ddcb", parsed.seed.hex())
         assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(pem, "wrong".toCharArray()) }
-        assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(pem) }
+        assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(pem, CharArray(0)) }
     }
 
     @Test
-    fun generated_sub_account_is_unencrypted_and_has_created_at_comment() {
-        val createdAt = 1_700_000_000_123_456L
-        val generated = SshKeyCodec.generateUnencrypted(createdAt)
-        val parsed = SshKeyCodec.parse(generated.privateKeyPem)
+    fun rejects_unencrypted_keys_and_generates_passphrase_encrypted_sub_accounts() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.parse(value(vector("unencrypted-ed25519"), "sshKeyPem"), "any-passphrase".toCharArray())
+        }
 
-        assertFalse(parsed.encrypted)
+        val createdAt = 1_700_000_000_123_456L
+        val passphrase = "master-passphrase".toCharArray()
+        val generated = SshKeyCodec.generateEncrypted(createdAt, passphrase)
+        val parsed = SshKeyCodec.parse(generated.privateKeyPem, passphrase)
+
+        assertTrue(parsed.encrypted)
         assertEquals(createdAt.toString(), parsed.comment)
         assertTrue(generated.publicKey.endsWith(" $createdAt"))
-        assertArrayEquals(parsed.publicKey, SshKeyCodec.parse(generated.privateKeyPem).publicKey)
+        assertArrayEquals(parsed.publicKey, SshKeyCodec.parse(generated.privateKeyPem, passphrase).publicKey)
+        assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(generated.privateKeyPem, CharArray(0)) }
+        assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(generated.privateKeyPem, "wrong".toCharArray()) }
     }
 
     @Test

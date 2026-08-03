@@ -30,7 +30,7 @@ object Seedify {
         return "${toMnemonic(braveSeed)} ${braveSync25thWord(now)}"
     }
 
-    fun fromSshKey(privateKeyPem: String, passphrase: CharArray? = null): String =
+    fun fromSshKey(privateKeyPem: String, passphrase: CharArray): String =
         toMnemonic(SshKeyCodec.parse(privateKeyPem, passphrase).seed)
 
     private fun deriveSubAccountSeed(seed: ByteArray, subAccount: String): ByteArray {

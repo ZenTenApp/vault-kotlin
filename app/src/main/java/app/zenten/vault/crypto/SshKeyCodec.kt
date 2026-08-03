@@ -31,7 +31,8 @@ object SshKeyCodec {
         val createdAt: Long,
     )
 
-    fun parse(privateKeyPem: String, passphrase: CharArray? = null): ParsedKey {
+    /** Parses only passphrase-protected OpenSSH-v1 Ed25519 private keys. */
+    fun parse(privateKeyPem: String, passphrase: CharArray): ParsedKey {
         val container = decodePem(privateKeyPem)
         require(container.take(magic.size).toByteArray().contentEquals(magic)) { "Not an OpenSSH v1 private key" }
         val reader = SshReader(container, magic.size)
@@ -43,15 +44,9 @@ object SshKeyCodec {
         val encryptedPrivate = reader.bytes()
         require(reader.atEnd()) { "Trailing OpenSSH container data" }
 
-        val privateBlob = when (cipherName) {
-            "none" -> {
-                require(kdfName == "none" && kdfOptions.isEmpty()) { "Invalid unencrypted OpenSSH KDF" }
-                encryptedPrivate
-            }
-            Aes256Ctr -> decryptBcrypt(encryptedPrivate, kdfName, kdfOptions, requireNotNull(passphrase) { "Passphrase required" })
-            else -> throw IllegalArgumentException("Unsupported OpenSSH cipher: $cipherName")
-        }
-        return parsePrivateBlob(privateBlob, outerPublic, cipherName != "none")
+        require(cipherName == Aes256Ctr) { "Unencrypted OpenSSH private keys are not supported" }
+        val privateBlob = decryptBcrypt(encryptedPrivate, kdfName, kdfOptions, passphrase)
+        return parsePrivateBlob(privateBlob, outerPublic, encrypted = true)
     }
 
     /** Converts PEM, raw base64, or {"OPENSSH PRIVATE KEY":"..."} input to canonical single-line base64. */
@@ -70,7 +65,9 @@ object SshKeyCodec {
         return "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256").digest(wire))
     }
 
-    fun generateUnencrypted(createdAt: Long, random: SecureRandom = SecureRandom()): GeneratedKey {
+    /** Generates an OpenSSH-v1 Ed25519 key encrypted with aes256-ctr and bcrypt_pbkdf. */
+    fun generateEncrypted(createdAt: Long, passphrase: CharArray, random: SecureRandom = SecureRandom()): GeneratedKey {
+        require(passphrase.isNotEmpty()) { "A passphrase is required to encrypt an SSH key" }
         val private = Ed25519PrivateKeyParameters(random)
         val seed = private.encoded
         val public = private.generatePublicKey().encoded
@@ -80,13 +77,29 @@ object SshKeyCodec {
         val privateBlob = check + check +
             sshString(Ed25519.toByteArray(StandardCharsets.US_ASCII)) + sshString(public) + sshString(seed + public) +
             sshString(comment.toByteArray(StandardCharsets.UTF_8))
-        val padded = pad(privateBlob, 8)
-        val container = magic + sshString("none".toByteArray()) + sshString("none".toByteArray()) + sshString(ByteArray(0)) +
-            uint(1) + sshString(publicBlob) + sshString(padded)
-        val pem = pemEncode(container)
-        val publicLine = publicKeyLine(public, comment)
-        return GeneratedKey(pem, publicLine, createdAt)
+        val salt = ByteArray(16).also(random::nextBytes)
+        val rounds = 16
+        val options = sshString(salt) + uint(rounds)
+        val containerFields = OpenSshEncryption(
+            Aes256Ctr.toByteArray(),
+            Bcrypt.toByteArray(),
+            options,
+            encryptBcrypt(pad(privateBlob, 16), salt, rounds, passphrase),
+        )
+        val container = magic + sshString(containerFields.cipherName) + sshString(containerFields.kdfName) + sshString(containerFields.kdfOptions) +
+            uint(1) + sshString(publicBlob) + sshString(containerFields.privateSection)
+        return GeneratedKey(pemEncode(container), publicKeyLine(public, comment), createdAt)
     }
+
+    private data class OpenSshEncryption(
+        val cipherName: ByteArray,
+        val kdfName: ByteArray,
+        val kdfOptions: ByteArray,
+        val privateSection: ByteArray,
+    )
+
+    private fun encryptBcrypt(plaintext: ByteArray, salt: ByteArray, rounds: Int, passphrase: CharArray): ByteArray =
+        cryptBcrypt(Cipher.ENCRYPT_MODE, plaintext, salt, rounds, passphrase)
 
     private fun decryptBcrypt(ciphertext: ByteArray, kdfName: String, options: ByteArray, passphrase: CharArray): ByteArray {
         require(kdfName == Bcrypt) { "Unsupported OpenSSH KDF: $kdfName" }
@@ -94,12 +107,16 @@ object SshKeyCodec {
         val salt = optionsReader.bytes()
         val rounds = optionsReader.uInt().toInt()
         require(rounds > 0 && optionsReader.atEnd()) { "Invalid bcrypt KDF options" }
+        return cryptBcrypt(Cipher.DECRYPT_MODE, ciphertext, salt, rounds, passphrase)
+    }
+
+    private fun cryptBcrypt(mode: Int, input: ByteArray, salt: ByteArray, rounds: Int, passphrase: CharArray): ByteArray {
         val derived = ByteArray(48)
         BCrypt().pbkdf(String(passphrase).toByteArray(StandardCharsets.UTF_8), salt, rounds, derived)
         try {
             val cipher = Cipher.getInstance("AES/CTR/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(derived.copyOfRange(0, 32), "AES"), IvParameterSpec(derived.copyOfRange(32, 48)))
-            return cipher.doFinal(ciphertext)
+            cipher.init(mode, SecretKeySpec(derived.copyOfRange(0, 32), "AES"), IvParameterSpec(derived.copyOfRange(32, 48)))
+            return cipher.doFinal(input)
         } finally {
             derived.fill(0)
         }
