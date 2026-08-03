@@ -17,13 +17,13 @@ class BackupService(
     suspend fun backupMaster(master: Account): PublishResult =
         relayGateway.publish(buildBackupEvent(master, master, MASTER_D_TAG, MASTER_BACKUP_KIND))
 
-    suspend fun backupSubAccount(master: Account, account: Account): PublishResult =
-        relayGateway.publish(buildBackupEvent(master, account, account.createdAt.toString(), SUB_ACCOUNT_BACKUP_KIND))
+    suspend fun backupAssociatedAccount(master: Account, account: Account): PublishResult =
+        relayGateway.publish(buildBackupEvent(master, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND))
 
     fun buildBackupEvent(master: Account, account: Account, dTag: String, kind: Int): NostrEvent {
         val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
         validateContract(account, dTag, kind)
-        if (kind == SUB_ACCOUNT_BACKUP_KIND) requireEncryptedAssociatedKey(account)
+        if (kind == ASSOCIATED_ACCOUNT_BACKUP_KIND) requireEncryptedAssociatedKey(account)
         // The NIP-44 plaintext is exactly the single-line base64 OpenSSH private key.
         val encrypted = Nip44.encryptSelf(account.zenTenKey, nostr.privateKey(), nostr.publicKey())
         return NostrEventCodec.sign(
@@ -46,13 +46,13 @@ class BackupService(
 
     private fun validateContract(account: Account, dTag: String, kind: Int) = when (kind) {
         MASTER_BACKUP_KIND -> require(dTag == MASTER_D_TAG) { "Master backup d tag must be $MASTER_D_TAG" }
-        SUB_ACCOUNT_BACKUP_KIND -> require(dTag == account.createdAt.toString()) { "Sub-account d tag must be its createdAt timestamp" }
+        ASSOCIATED_ACCOUNT_BACKUP_KIND -> require(dTag == account.createdAt.toString()) { "Associated account d tag must be its createdAt timestamp" }
         else -> throw IllegalArgumentException("Unsupported backup kind: $kind")
     }
 
     companion object {
         const val MASTER_BACKUP_KIND = 37_801
-        const val SUB_ACCOUNT_BACKUP_KIND = 37_802
+        const val ASSOCIATED_ACCOUNT_BACKUP_KIND = 37_802
         const val MASTER_D_TAG = "masterkey"
     }
 }

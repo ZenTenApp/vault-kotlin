@@ -15,7 +15,7 @@ It is intentionally more accessible than the technical documentation, but it is 
 ## Terminology used here
 
 - **Master account:** the existing SSH account that the user supplies during setup. Its private key and passphrase are the root of recovery.
-- **Associated account:** a new SSH account generated and managed by ZenTen Vault. Technical material may call this a *sub-account*.
+- **Associated account:** a new SSH account generated and managed by ZenTen Vault. Technical material may call this a *associated account*.
 - **Backup destination:** a configured remote place where the app attempts to keep an encrypted backup copy.
 - **Backup status:** the app's latest view of whether backup copies are available; it is not a promise that a remote service will always be reachable.
 

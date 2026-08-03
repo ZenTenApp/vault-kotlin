@@ -7,7 +7,7 @@ import java.time.Instant
 /** ZenTen's no-prefix path: the raw 32-byte Ed25519 seed is BIP-39 entropy. */
 object Seedify {
     private const val SEED_SIZE_BYTES = 32
-    private const val BRAVE_SUB_ACCOUNT = "brave"
+    private const val BRAVE_ASSOCIATED_ACCOUNT = "brave"
     private const val MILLIS_PER_DAY = 24L * 60 * 60 * 1_000
     private val braveSyncEpoch = Instant.parse("2022-05-10T00:00:00Z")
 
@@ -17,7 +17,7 @@ object Seedify {
     }
 
     /**
-     * Generates a Brave Sync code by deriving Seedify's `brave` sub-account,
+     * Generates a Brave Sync code by deriving Seedify's `brave` associated account,
      * encoding its seed as a normal 24-word BIP-39 mnemonic, then appending
      * Brave's date-derived 25th word.
      *
@@ -26,17 +26,17 @@ object Seedify {
      * for a particular Brave Sync day.
      */
     fun toBraveSyncCode(seed: ByteArray, now: Instant = Instant.now()): String {
-        val braveSeed = deriveSubAccountSeed(seed, BRAVE_SUB_ACCOUNT)
+        val braveSeed = deriveAssociatedAccountSeed(seed, BRAVE_ASSOCIATED_ACCOUNT)
         return "${toMnemonic(braveSeed)} ${braveSync25thWord(now)}"
     }
 
     fun fromSshKey(privateKeyPem: String, passphrase: CharArray): String =
         toMnemonic(SshKeyCodec.parse(privateKeyPem, passphrase).seed)
 
-    private fun deriveSubAccountSeed(seed: ByteArray, subAccount: String): ByteArray {
+    private fun deriveAssociatedAccountSeed(seed: ByteArray, associatedAccount: String): ByteArray {
         require(seed.size == SEED_SIZE_BYTES) { "Seedify requires a 32-byte Ed25519 seed" }
-        val subAccountHash = sha256(subAccount.encodeToByteArray())
-        return sha256(subAccountHash + seed)
+        val associatedAccountHash = sha256(associatedAccount.encodeToByteArray())
+        return sha256(associatedAccountHash + seed)
     }
 
     private fun braveSync25thWord(now: Instant): String {

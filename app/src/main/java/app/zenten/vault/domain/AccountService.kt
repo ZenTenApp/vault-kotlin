@@ -6,7 +6,7 @@ import app.zenten.vault.data.secure.SecureStorageService
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
 
-/** User-facing sub-account lifecycle. The master remains an internal-only identity. */
+/** User-facing associated account lifecycle. The master remains an internal-only identity. */
 class AccountService(
     private val secureStorage: SecureStorageService,
     private val setupService: SetupService,
@@ -16,7 +16,7 @@ class AccountService(
     fun getAccounts(): List<Account> = secureStorage.getAccounts()
     fun getAccount(id: Long): Account? = secureStorage.getAccountById(id)
 
-    suspend fun createSubAccount(): Result<Account> = runCatching {
+    suspend fun createAssociatedAccount(): Result<Account> = runCatching {
         val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
         val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
         require(passphrase.isNotBlank()) { "Master account passphrase is required to create an associated account" }

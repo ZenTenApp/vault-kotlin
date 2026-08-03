@@ -7,27 +7,27 @@ import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
 import app.zenten.vault.network.nostr.NostrRelayGateway
 
-/** Restores only sub-account events. Master recovery remains user SSH-key onboarding. */
+/** Restores only associated account events. Master recovery remains user SSH-key onboarding. */
 class RecoveryService(
     private val relayGateway: NostrRelayGateway,
     private val secureStorage: SecureStorageService,
     private val braveSyncBackupService: BraveSyncBackupService? = null,
 ) {
-    suspend fun discoverSubAccounts(master: Account): RecoveryResult {
+    suspend fun discoverAssociatedAccounts(master: Account): RecoveryResult {
         val nostr = requireNotNull(master.nostr) { "Master Nostr identity is required for recovery" }
-        val events = relayGateway.fetchByAuthorAndKind(nostr.pubkey, BackupService.SUB_ACCOUNT_BACKUP_KIND)
+        val events = relayGateway.fetchByAuthorAndKind(nostr.pubkey, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
         val recovered = mutableListOf<Account>()
         val skipped = mutableListOf<String>()
         val knownAccountIds = secureStorage.getAccounts().mapTo(mutableSetOf()) { it.createdAt }
         events.forEach { event ->
-            val account = decodeSubAccount(event, master)
+            val account = decodeAssociatedAccount(event, master)
             if (account == null) skipped += event.id
             else if (knownAccountIds.add(account.createdAt)) {
                 secureStorage.addAccount(account)
                 recovered += account
             }
         }
-        val brave = braveSyncBackupService?.let { service -> runCatching { service.discoverSubAccounts(master) }.getOrNull() }
+        val brave = braveSyncBackupService?.let { service -> runCatching { service.discoverAssociatedAccounts(master) }.getOrNull() }
         brave?.accounts.orEmpty().forEach { account ->
             if (knownAccountIds.add(account.createdAt)) {
                 secureStorage.addAccount(account)
@@ -38,10 +38,10 @@ class RecoveryService(
         return RecoveryResult(recovered, skipped, events.size, brave?.discoveredEntryCount ?: 0, brave?.decryptionFailures ?: 0)
     }
 
-    fun decodeSubAccount(event: NostrEvent, master: Account): Account? = runCatching {
+    fun decodeAssociatedAccount(event: NostrEvent, master: Account): Account? = runCatching {
         val nostr = requireNotNull(master.nostr)
         require(NostrEventCodec.isValid(event))
-        require(event.kind == BackupService.SUB_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
+        require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
         val dTag = event.tags.single { it.firstOrNull() == "d" }.getOrNull(1)
         require(!dTag.isNullOrBlank() && dTag.all(Char::isDigit))
         val createdAt = dTag.toLong()

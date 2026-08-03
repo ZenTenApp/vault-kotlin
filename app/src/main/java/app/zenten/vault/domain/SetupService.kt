@@ -47,12 +47,12 @@ class SetupService(
         val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
         // A recovery error is returned to the UI rather than silently converted to an empty
         // result. The master remains available and the user can retry.
-        recoveryService.discoverSubAccounts(master)
+        recoveryService.discoverAssociatedAccounts(master)
     }
 
     suspend fun addAccount(master: Account, account: Account): Result<Unit> = runCatching {
         secureStorage.addAccount(account)
-        val report = backupCoordinator.backupSubAccount(master, account)
+        val report = backupCoordinator.backupAssociatedAccount(master, account)
         if (!report.isSuccess) {
             appStorage.markPendingAccountBackup(account.createdAt, report.failedTargets)
             retryScheduler?.schedule()

@@ -12,7 +12,7 @@ class NostrAccountBackupTarget(
         check(nostrBackupService.backupMaster(master).acknowledged) { "Master relay backup was not acknowledged" }
     }
 
-    override suspend fun backupSubAccount(master: Account, account: Account): Result<Unit> = runCatching {
-        check(nostrBackupService.backupSubAccount(master, account).acknowledged) { "Sub-account relay backup was not acknowledged" }
+    override suspend fun backupAssociatedAccount(master: Account, account: Account): Result<Unit> = runCatching {
+        check(nostrBackupService.backupAssociatedAccount(master, account).acknowledged) { "Associated account relay backup was not acknowledged" }
     }
 }

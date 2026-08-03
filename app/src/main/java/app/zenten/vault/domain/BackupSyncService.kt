@@ -13,9 +13,9 @@ import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 
 /**
- * Discovers every backup destination, restores unknown sub-accounts locally, and repairs
+ * Discovers every backup destination, restores unknown associated accounts locally, and repairs
  * destinations that were successfully checked but did not contain an account. Presence is based
- * solely on the canonical backup ID: masterkey for the master and createdAt for sub-accounts.
+ * solely on the canonical backup ID: masterkey for the master and createdAt for associated accounts.
  */
 class BackupSyncService(
     private val relayGateway: NostrRelayGateway,
@@ -44,7 +44,7 @@ class BackupSyncService(
         relayGateway.relayUrls.forEach { relay ->
             val destination = relayDestination(relay)
             val masterEvents = relayGateway.fetchByRelay(relay, masterPubkey, BackupService.MASTER_BACKUP_KIND)
-            val subEvents = relayGateway.fetchByRelay(relay, masterPubkey, BackupService.SUB_ACCOUNT_BACKUP_KIND)
+            val subEvents = relayGateway.fetchByRelay(relay, masterPubkey, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
             if (masterEvents.isFailure || subEvents.isFailure) {
                 relayPresence[destination] = null
                 coverage.values.forEach { it[destination] = status(destination, relay, BackupCoverageState.UNKNOWN) }
@@ -52,7 +52,7 @@ class BackupSyncService(
                 val present = linkedSetOf<String>()
                 masterEvents.getOrThrow().firstOrNull { it.isMasterBackup() }?.let { present += MASTER_ID }
                 subEvents.getOrThrow().forEach { event ->
-                    event.subAccountId()?.let { id ->
+                    event.associatedAccountId()?.let { id ->
                         present += id
                         if (id !in ids) recoveryAccount(event, master)?.let { account ->
                             ids[id] = account
@@ -71,7 +71,7 @@ class BackupSyncService(
 
         val braveDestination = BRAVE_DESTINATION
         val braveMaster = braveSync.hasMasterBackup(master)
-        val braveSubs = runCatching { braveSync.discoverSubAccounts(master) }
+        val braveSubs = runCatching { braveSync.discoverAssociatedAccounts(master) }
         if (braveMaster.isFailure || braveSubs.isFailure) {
             bravePresence = null
             coverage.values.forEach { it[braveDestination] = status(braveDestination, "Brave Sync", BackupCoverageState.UNKNOWN) }
@@ -116,11 +116,11 @@ class BackupSyncService(
         ids.forEach { (id, account) ->
             coverage.getValue(id).values.filter { it.state == BackupCoverageState.MISSING }.forEach { missing ->
                 val repaired = if (missing.id == BRAVE_DESTINATION) {
-                    if (id == MASTER_ID) braveSync.backupMaster(master) else braveSync.backupSubAccount(master, account)
+                    if (id == MASTER_ID) braveSync.backupMaster(master) else braveSync.backupAssociatedAccount(master, account)
                 } else {
                     val relay = missing.id.removePrefix(RELAY_PREFIX)
                     relayGateway.publishToRelay(relay, if (id == MASTER_ID) backupService.buildBackupEvent(master, master, MASTER_ID, BackupService.MASTER_BACKUP_KIND)
-                    else backupService.buildBackupEvent(master, account, id, BackupService.SUB_ACCOUNT_BACKUP_KIND))
+                    else backupService.buildBackupEvent(master, account, id, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND))
                 }
                 if (repaired.isSuccess) coverage.getValue(id)[missing.id] = missing.copy(state = BackupCoverageState.PRESENT)
                 else coverage.getValue(id)[missing.id] = missing.copy(state = BackupCoverageState.REPAIR_FAILED)
@@ -139,9 +139,9 @@ class BackupSyncService(
         SyncResult(statuses)
     }
 
-    private fun recoveryAccount(event: NostrEvent, master: Account): Account? = RecoveryService(relayGateway, secureStorage).decodeSubAccount(event, master)
+    private fun recoveryAccount(event: NostrEvent, master: Account): Account? = RecoveryService(relayGateway, secureStorage).decodeAssociatedAccount(event, master)
     private fun NostrEvent.isMasterBackup() = tags.singleOrNull { it.firstOrNull() == "d" }?.getOrNull(1) == MASTER_ID
-    private fun NostrEvent.subAccountId(): String? = tags.singleOrNull { it.firstOrNull() == "d" }?.getOrNull(1)?.takeIf { it.all(Char::isDigit) }
+    private fun NostrEvent.associatedAccountId(): String? = tags.singleOrNull { it.firstOrNull() == "d" }?.getOrNull(1)?.takeIf { it.all(Char::isDigit) }
     private fun status(id: String, label: String, state: BackupCoverageState) = DestinationBackupStatus(id, label, state)
     private fun relayDestination(url: String) = RELAY_PREFIX + url
 

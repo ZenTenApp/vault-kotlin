@@ -8,5 +8,5 @@ enum class BackupTargetId { NOSTR, BRAVE_SYNC }
 interface AccountBackupTarget {
     val id: BackupTargetId
     suspend fun backupMaster(master: Account): Result<Unit>
-    suspend fun backupSubAccount(master: Account, account: Account): Result<Unit>
+    suspend fun backupAssociatedAccount(master: Account, account: Account): Result<Unit>
 }

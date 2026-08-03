@@ -35,7 +35,7 @@ class RelayBackupRetryService(
                 return@forEach
             }
             attempted++
-            val report = backupCoordinator.retrySubAccount(master, account, pending.targets)
+            val report = backupCoordinator.retryAssociatedAccount(master, account, pending.targets)
             val succeededTargets = pending.targets - report.failedTargets
             if (succeededTargets.isNotEmpty()) {
                 appStorage.clearPendingAccountBackupTargets(pending.accountId, succeededTargets)

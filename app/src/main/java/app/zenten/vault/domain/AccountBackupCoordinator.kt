@@ -9,10 +9,10 @@ class AccountBackupCoordinator(
     init { require(targets.map { it.id }.distinct().size == targets.size) { "Backup target IDs must be unique" } }
 
     suspend fun backupMaster(master: Account): BackupReport = backup { it.backupMaster(master) }
-    suspend fun backupSubAccount(master: Account, account: Account): BackupReport = backup { it.backupSubAccount(master, account) }
+    suspend fun backupAssociatedAccount(master: Account, account: Account): BackupReport = backup { it.backupAssociatedAccount(master, account) }
 
-    suspend fun retrySubAccount(master: Account, account: Account, targetIds: Set<BackupTargetId>): BackupReport =
-        backup(targetIds) { it.backupSubAccount(master, account) }
+    suspend fun retryAssociatedAccount(master: Account, account: Account, targetIds: Set<BackupTargetId>): BackupReport =
+        backup(targetIds) { it.backupAssociatedAccount(master, account) }
 
     private suspend fun backup(
         targetIds: Set<BackupTargetId> = targets.mapTo(mutableSetOf()) { it.id },

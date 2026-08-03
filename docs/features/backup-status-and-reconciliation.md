@@ -56,7 +56,7 @@ The service preserves each relay's raw presence set during the run. When a new a
 
 ## Brave Sync reconciliation algorithm
 
-The service checks the master record with `hasMasterBackup(master)` and discovers associated accounts with `discoverSubAccounts(master)`.
+The service checks the master record with `hasMasterBackup(master)` and discovers associated accounts with `discoverAssociatedAccounts(master)`.
 
 - If either operation fails, all account statuses at `brave-sync` are `UNKNOWN`.
 - If both succeed, the master record contributes `masterkey` when present.

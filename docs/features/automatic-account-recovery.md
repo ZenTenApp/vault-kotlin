@@ -10,7 +10,7 @@ All valid discovered associated accounts are restored automatically. There is no
 
 Recovery is invoked in two places:
 
-1. **After successful master-account setup.** `SetupService.recoverExistingAccounts()` loads the stored master account and delegates to `RecoveryService.discoverSubAccounts`. It is intentionally separate from the setup transaction so the account-list UI can report progress while remote services respond.
+1. **After successful master-account setup.** `SetupService.recoverExistingAccounts()` loads the stored master account and delegates to `RecoveryService.discoverAssociatedAccounts`. It is intentionally separate from the setup transaction so the account-list UI can report progress while remote services respond.
 2. **During backup reconciliation.** `BackupSyncService.sync()` discovers associated accounts while inspecting each remote destination and stores any valid account that is not already local.
 
 A recovery failure does not remove the already-established master account or mark setup incomplete. It is returned to the UI/worker path so a later sync can retry.
@@ -28,14 +28,14 @@ The original master account private key and its passphrase remain mandatory user
 
 ## Direct discovery flow
 
-`RecoveryService.discoverSubAccounts(master)` performs the post-setup discovery path:
+`RecoveryService.discoverAssociatedAccounts(master)` performs the post-setup discovery path:
 
 1. It requires the master account's Nostr identity.
 2. It fetches Nostr events authored by the master Nostr public key with kind `37802`.
 3. It loads existing associated-account IDs from secure storage.
 4. It validates and decodes each relay event.
 5. For each valid account ID not already local, it writes the account to secure storage and records it in the recovery result.
-6. If Brave Sync is configured, it independently calls `BraveSyncBackupService.discoverSubAccounts`.
+6. If Brave Sync is configured, it independently calls `BraveSyncBackupService.discoverAssociatedAccounts`.
 7. Valid Brave Sync accounts not already local are stored; duplicate IDs are ignored.
 8. The result reports recovered accounts, invalid/skipped record IDs, relay event count, Brave record count, and Brave decryption-failure count.
 
@@ -58,7 +58,7 @@ The resulting local record uses the numeric `d` tag as `createdAt` and the decry
 
 ## Brave Sync candidate validation
 
-`BraveSyncBackupService.discoverSubAccounts` considers each password record valid only when:
+`BraveSyncBackupService.discoverAssociatedAccounts` considers each password record valid only when:
 
 1. its username parses as a numeric account ID;
 2. its URL is exactly `https://<accountId>.zenten/`;

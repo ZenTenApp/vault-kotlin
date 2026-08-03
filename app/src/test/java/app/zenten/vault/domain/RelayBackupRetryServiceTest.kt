@@ -2,6 +2,7 @@ package app.zenten.vault.domain
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
@@ -27,14 +28,14 @@ class RelayBackupRetryServiceTest {
     private val keyPair = NostrKeyDerivation.derive(
         "alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady",
     ).let { NostrKeyPair(it.publicKey.hex(), it.privateKey.hex()) }
-    private val master = Account(1, "master", nostr = keyPair)
+    private val master = Account(1, "master", zenTenPass = "master-passphrase", nostr = keyPair)
 
     @Test
     fun successful_retry_removes_only_acknowledged_ids() = runTest {
         fixture { storage, app, gateway, retry ->
             every { storage.getMasterAccount() } returns master
-            every { storage.getAccountById(10) } returns Account(10, "one")
-            every { storage.getAccountById(20) } returns Account(20, "two")
+            every { storage.getAccountById(10) } returns associatedAccount(10)
+            every { storage.getAccountById(20) } returns associatedAccount(20)
             app.setFailedBackupAccountIds(listOf(10, 20))
             gateway.results += true
             gateway.results += false
@@ -44,7 +45,7 @@ class RelayBackupRetryServiceTest {
             assertEquals(RelayBackupRetryService.RetrySummary(2, 1, 0), summary)
             assertEquals(listOf(20L), app.failedBackupAccountIds.first())
             assertEquals(2, gateway.published.size)
-            assertTrue(gateway.published.all { it.kind == BackupService.SUB_ACCOUNT_BACKUP_KIND })
+            assertTrue(gateway.published.all { it.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND })
         }
     }
 
@@ -90,6 +91,15 @@ class RelayBackupRetryServiceTest {
         } finally {
             directory.deleteRecursively()
         }
+    }
+
+    private fun associatedAccount(createdAt: Long): Account {
+        val generated = SshKeyCodec.generateEncrypted(createdAt, "master-passphrase".toCharArray())
+        return Account(
+            createdAt = createdAt,
+            zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
+            zenTenPass = "master-passphrase",
+        )
     }
 
     private class FakeGateway : NostrRelayGateway {

@@ -22,7 +22,7 @@ object VaultDestinations {
     /** Account detail. Arg: {id} = createdAt microsecond timestamp. */
     const val ACCOUNT_DETAIL = "accounts/{id}"
 
-    /** Create new sub-account. */
+    /** Create new associated account. */
     const val NEW_ACCOUNT = "new-accounts"
 
     /** Per-account coverage across relays and backup providers. */

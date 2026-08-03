@@ -20,7 +20,7 @@ class NewAccountViewModel @Inject constructor(private val accountService: Accoun
         if (_state.value.creating) return
         _state.value = NewAccountState(creating = true)
         viewModelScope.launch {
-            accountService.createSubAccount()
+            accountService.createAssociatedAccount()
                 .onSuccess { _state.value = NewAccountState(created = it) }
                 .onFailure { _state.value = NewAccountState(error = it.message ?: "Could not create account") }
         }
