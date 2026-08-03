@@ -23,7 +23,7 @@ At present the coordinator is configured for Nostr and Brave Sync. A Nostr write
 
 ### Associated account after creation
 
-1. `AccountService` allocates a unique `createdAt` identifier and generates an Ed25519 OpenSSH key pair encrypted with the master account passphrase (`aes256-ctr` with `bcrypt_pbkdf`).
+1. `AccountService` allocates a unique `createdAt` identifier and generates an Ed25519 OpenSSH key pair encrypted with the master account passphrase (`aes256-ctr` with `bcrypt_pbkdf`). Generated keys use the configurable `SshKeyCodec.BCRYPT_PBKDF_ROUNDS` constant, currently set to one round.
 2. `SetupService.addAccount` persists the associated account in secure storage **before** remote work begins.
 3. `AccountBackupCoordinator.backupAssociatedAccount` attempts every target.
 4. If one or more targets fail, `AppStorageService` records the account ID and only the failed target IDs in `pendingAccountBackups`.

@@ -18,6 +18,9 @@ object SshKeyCodec {
     private const val Aes256Ctr = "aes256-ctr"
     private const val Bcrypt = "bcrypt"
 
+    /** OpenSSH bcrypt_pbkdf work factor for generated private keys. */
+    const val BCRYPT_PBKDF_ROUNDS = 1
+
     data class ParsedKey(
         val seed: ByteArray,
         val publicKey: ByteArray,
@@ -78,7 +81,7 @@ object SshKeyCodec {
             sshString(Ed25519.toByteArray(StandardCharsets.US_ASCII)) + sshString(public) + sshString(seed + public) +
             sshString(comment.toByteArray(StandardCharsets.UTF_8))
         val salt = ByteArray(16).also(random::nextBytes)
-        val rounds = 16
+        val rounds = BCRYPT_PBKDF_ROUNDS
         val options = sshString(salt) + uint(rounds)
         val containerFields = OpenSshEncryption(
             Aes256Ctr.toByteArray(),
