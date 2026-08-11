@@ -15,7 +15,11 @@ class RecoveryService(
 ) {
     suspend fun discoverAssociatedAccounts(master: Account): RecoveryResult {
         val nostr = requireNotNull(master.nostr) { "Master Nostr identity is required for recovery" }
-        val events = relayGateway.fetchByAuthorAndKind(nostr.pubkey, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
+        val events = relayGateway.fetchAuthenticatedByAuthorAndKind(
+            nostr.pubkey,
+            BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+            nostr.privateKey(),
+        )
         val recovered = mutableListOf<Account>()
         val skipped = mutableListOf<String>()
         val knownAccountIds = secureStorage.getAccounts().mapTo(mutableSetOf()) { it.createdAt }

@@ -14,12 +14,23 @@ class BackupService(
     private val relayGateway: NostrRelayGateway,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    suspend fun backupMaster(master: Account): PublishResult =
-        relayGateway.publish(buildBackupEvent(master, master, MASTER_D_TAG, MASTER_BACKUP_KIND))
+    suspend fun backupMaster(master: Account): PublishResult {
+        val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
+        return relayGateway.publishAuthenticated(
+            buildBackupEvent(master, master, MASTER_D_TAG, MASTER_BACKUP_KIND),
+            nostr.privateKey(),
+        )
+    }
 
-    suspend fun backupAssociatedAccount(master: Account, account: Account): PublishResult =
-        relayGateway.publish(buildBackupEvent(master, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND))
+    suspend fun backupAssociatedAccount(master: Account, account: Account): PublishResult {
+        val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
+        return relayGateway.publishAuthenticated(
+            buildBackupEvent(master, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND),
+            nostr.privateKey(),
+        )
+    }
 
+    /** Builds the signed backup event; the same master key signs an optional NIP-42 challenge. */
     fun buildBackupEvent(master: Account, account: Account, dTag: String, kind: Int): NostrEvent {
         val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
         validateContract(account, dTag, kind)

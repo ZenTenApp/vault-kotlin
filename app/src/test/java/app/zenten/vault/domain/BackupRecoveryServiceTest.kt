@@ -44,6 +44,7 @@ class BackupRecoveryServiceTest {
         assertEquals(listOf(listOf("d", "masterkey")), event.tags)
         assertEquals(1_700_000_000, event.createdAt)
         assertTrue(event.content.startsWith("A")) // NIP-44 v2 payload version
+        assertEquals(keys.privateKey.hex(), gateway.authPrivateKey?.hex())
     }
 
     @Test
@@ -108,13 +109,22 @@ class BackupRecoveryServiceTest {
         val published = mutableListOf<NostrEvent>()
         var fetched = emptyList<NostrEvent>()
         var requestedKind: Int? = null
+        var authPrivateKey: ByteArray? = null
         override suspend fun publish(event: NostrEvent): PublishResult {
             published += event
             return PublishResult(event.id, setOf("test"), emptySet(), 1)
         }
+        override suspend fun publishAuthenticated(event: NostrEvent, privateKey: ByteArray): PublishResult {
+            authPrivateKey = privateKey
+            return publish(event)
+        }
         override suspend fun fetchByAuthorAndKind(authorPubkey: String, kind: Int): List<NostrEvent> {
             requestedKind = kind
             return fetched
+        }
+        override suspend fun fetchAuthenticatedByAuthorAndKind(authorPubkey: String, kind: Int, privateKey: ByteArray): List<NostrEvent> {
+            authPrivateKey = privateKey
+            return fetchByAuthorAndKind(authorPubkey, kind)
         }
     }
 

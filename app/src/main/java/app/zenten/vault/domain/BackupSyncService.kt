@@ -33,7 +33,9 @@ class BackupSyncService(
         if (!force && now - lastSyncMillis < COOLDOWN_MILLIS) return null
         lastSyncMillis = now
         val master = secureStorage.getMasterAccount() ?: return null
-        val masterPubkey = requireNotNull(master.nostr) { "Master Nostr identity is required for reconciliation" }.pubkey
+        val masterNostr = requireNotNull(master.nostr) { "Master Nostr identity is required for reconciliation" }
+        val masterPubkey = masterNostr.pubkey
+        val masterPrivateKey = masterNostr.privateKey()
         val ids = linkedMapOf(MASTER_ID to master)
         secureStorage.getAccounts().forEach { ids[it.createdAt.toString()] = it }
         val coverage = ids.keys.associateWith { linkedMapOf<String, DestinationBackupStatus>() }.toMutableMap()
@@ -43,8 +45,8 @@ class BackupSyncService(
         // Each relay is independently checked. A failed request is UNKNOWN, never MISSING.
         relayGateway.relayUrls.forEach { relay ->
             val destination = relayDestination(relay)
-            val masterEvents = relayGateway.fetchByRelay(relay, masterPubkey, BackupService.MASTER_BACKUP_KIND)
-            val subEvents = relayGateway.fetchByRelay(relay, masterPubkey, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
+            val masterEvents = relayGateway.fetchAuthenticatedByRelay(relay, masterPubkey, BackupService.MASTER_BACKUP_KIND, masterPrivateKey)
+            val subEvents = relayGateway.fetchAuthenticatedByRelay(relay, masterPubkey, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND, masterPrivateKey)
             if (masterEvents.isFailure || subEvents.isFailure) {
                 relayPresence[destination] = null
                 coverage.values.forEach { it[destination] = status(destination, relay, BackupCoverageState.UNKNOWN) }
@@ -119,8 +121,8 @@ class BackupSyncService(
                     if (id == MASTER_ID) braveSync.backupMaster(master) else braveSync.backupAssociatedAccount(master, account)
                 } else {
                     val relay = missing.id.removePrefix(RELAY_PREFIX)
-                    relayGateway.publishToRelay(relay, if (id == MASTER_ID) backupService.buildBackupEvent(master, master, MASTER_ID, BackupService.MASTER_BACKUP_KIND)
-                    else backupService.buildBackupEvent(master, account, id, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND))
+                    relayGateway.publishAuthenticatedToRelay(relay, if (id == MASTER_ID) backupService.buildBackupEvent(master, master, MASTER_ID, BackupService.MASTER_BACKUP_KIND)
+                    else backupService.buildBackupEvent(master, account, id, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND), masterPrivateKey)
                 }
                 if (repaired.isSuccess) coverage.getValue(id)[missing.id] = missing.copy(state = BackupCoverageState.PRESENT)
                 else coverage.getValue(id)[missing.id] = missing.copy(state = BackupCoverageState.REPAIR_FAILED)

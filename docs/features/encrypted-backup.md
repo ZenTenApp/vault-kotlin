@@ -58,6 +58,7 @@ The pending queue is target-aware. A later retry writes only destinations that f
 - The exact plaintext is the single-line Base64 OpenSSH private-key value; it is not PEM and is not wrapped in metadata JSON.
 - `BackupService` uses NIP-44 self-encryption with the master account's derived Nostr private/public key pair.
 - `NostrEventCodec.sign` signs the encrypted event with the same derived Nostr identity.
+- When a relay sends a NIP-42 `AUTH` challenge, the relay transport signs and sends the required kind `22242` challenge response with that same identity, then Quartz resends the pending request or publication after the relay acknowledges it. For an authenticated operation it briefly waits for an immediate challenge after connecting, so a protected relay does not reject the queued event before authentication completes. Relays that do not request authentication continue without an auth event.
 - The relay transport rejects invalid events before publishing.
 - `NostrRelayService.publish` tries up to three times, with an eight-second attempt timeout and a short delay between attempts.
 - A publish is acknowledged when at least one configured relay confirms it. The result retains successful and failed relay URLs for observability.
@@ -113,6 +114,7 @@ Periodic reconciliation can also repair confirmed backup gaps; see [Backup statu
 | Master backup target fails during setup       | Roll back local master setup and leave setup incomplete.             |
 | Associated-account target fails               | Preserve local account, record failed target(s), and schedule retry. |
 | Existing Brave record conflicts               | Fail that target; do not overwrite it.                               |
+| Relay rejects or does not complete NIP-42 authentication | Treat that relay as unacknowledged; do not claim a confirmed backup there. |
 | Relay has no acknowledgement after attempts   | Fail Nostr target; do not claim a confirmed relay backup.            |
 | Remote payload cannot be normalized/validated | Fail the operation; never publish malformed private-key material.    |
 
