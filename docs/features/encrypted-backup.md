@@ -47,9 +47,10 @@ The event author/signature identity is derived from the master account. The plai
 2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the master-derived Nostr key.
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
 4. Keep the connection alive while waiting for AUTH acknowledgement and retry the requested publication on that authenticated connection when necessary.
-5. Require the target relay's `OK` acknowledgement before reporting a confirmed write.
+5. Observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.
+6. Require the target relay's successful `OK` acknowledgement before reporting a confirmed write. An exact-ID `event already exists` response is also accepted as idempotent confirmation because it proves that relay already stores the same signed event; other duplicate or blocked responses remain failures.
 
-A relay that does not request NIP-42 proceeds normally. Timeout, rejection, or incomplete authentication is a source failure and cannot satisfy quorum. The two default relay endpoints are `wss://appdata1.zentext.me` and `wss://appdata2.nostr.box`.
+A relay that does not request NIP-42 proceeds normally. Authentication rejection, network failure, timeout, and event rejection remain distinct source error categories and cannot satisfy quorum. The two default relay endpoints are `wss://appdata1.zentext.me` and `wss://appdata2.nostr.box`.
 
 ## Brave Sync format
 
@@ -80,7 +81,9 @@ Errors, logs, analytics, WorkManager input, and UI status must follow the same r
 | Associated write fails everywhere | Preserve usable local account and pending source writes. |
 | Initial source index fails | Mark `UNKNOWN`; do not infer absence or write that source in the cycle. |
 | Existing Brave record conflicts | Fail that source; do not overwrite. |
-| NIP-42/relay acknowledgement fails | Fail that relay and do not count it toward quorum. |
+| NIP-42 authentication fails | Report authentication failure; fail that relay and do not count it toward quorum. |
+| Relay connection, timeout, or event rejection | Report the corresponding network, timeout, or remote-rejection category rather than authentication failure. |
+| Relay reports the exact event ID already exists | Treat the retry as an idempotently confirmed write. |
 | Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local accounts. |
 
 ## Key locations
