@@ -52,7 +52,7 @@ flowchart TD
 
 ### Account detail and Master Account
 
-Each fixed source has its own row and live state: present, write confirmed, missing, checking, backing up, failed, or unknown. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
+Each fixed source has its own row and live state: backed up, missing, checking, backing up, failed, or unknown. Internally, both a source-acknowledged write and a later read-confirmed copy display as **Backed up**; read-back is a reconciliation detail rather than a pending user action. Backed-up rows show the last successful backup time. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
 
 ### Sensitive private-key access
 

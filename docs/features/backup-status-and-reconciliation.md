@@ -45,14 +45,14 @@ Only after all phase-1 source reads finish:
 5. Update the retained in-memory presence set after each acknowledgement.
 6. Perform one final read-back for each successfully indexed source after its writes.
 
-An acknowledged write is `WRITE_CONFIRMED`. For Nostr, acknowledgement includes a successful relay `OK` or an exact-event-ID `already exists` response to an idempotent retry; arbitrary blocked responses are failures. Network, timeout, authentication, and remote-rejection failures retain separate error categories. A successful final read-back upgrades returned IDs to `PRESENT`. A source whose initial index failed remains `UNKNOWN` and is not written in that cycle.
+An acknowledged write is internally `WRITE_CONFIRMED`. For Nostr, acknowledgement includes a successful relay `OK` or an exact-event-ID `already exists` response to an idempotent retry; arbitrary blocked responses are failures. Network, timeout, authentication, and remote-rejection failures retain separate error categories. A successful final read-back upgrades returned IDs to `PRESENT`. Both states are displayed to users as **Backed up** because read-back is an internal reconciliation detail, not incomplete backup work; backed-up rows show the last successful backup time. A source whose initial index failed remains `UNKNOWN` and is not written in that cycle.
 
 ## Per-source states
 
 | State | Meaning |
 | --- | --- |
 | `PRESENT` | A successful source read confirmed the canonical ID. |
-| `WRITE_CONFIRMED` | The source acknowledged a write; later read-back has not confirmed it. |
+| `WRITE_CONFIRMED` | The source acknowledged a write; displayed as **Backed up** while internal read-back remains pending. |
 | `MISSING` | A successful source read did not contain the canonical ID. |
 | `CHECKING` | Source indexing is in progress. |
 | `BACKING_UP` | A write is in progress. |

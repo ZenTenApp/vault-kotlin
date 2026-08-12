@@ -36,8 +36,7 @@ Status appears per source in associated-account details and on a dedicated Maste
 
 | Status | Meaning | Suggested action |
 | --- | --- | --- |
-| Present | A read confirmed this account ID at this source. | None. |
-| Write confirmed | The source acknowledged a write; read-back may still be pending. | Usually none; refresh later. |
+| Backed up | The source acknowledged the write. The app may separately perform an internal read-back without presenting the backup as incomplete. | None. |
 | Missing | A successful check did not find this account ID. | Retry/consolidate. |
 | Checking / Backing up | Work is currently in progress. | Wait. |
 | Backup failed | The latest write failed. | Check connectivity and retry. |

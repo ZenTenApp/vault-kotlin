@@ -75,9 +75,9 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
 
 @Composable
 fun SourceStatusRow(source: BackupSourceRow) {
+    val backedUp = source.state == AccountSourceBackupState.PRESENT || source.state == AccountSourceBackupState.WRITE_CONFIRMED
     val stateText = when (source.state) {
-        AccountSourceBackupState.PRESENT -> "Backed up"
-        AccountSourceBackupState.WRITE_CONFIRMED -> "Backed up, verification pending"
+        AccountSourceBackupState.PRESENT, AccountSourceBackupState.WRITE_CONFIRMED -> "Backed up"
         AccountSourceBackupState.MISSING -> "Missing"
         AccountSourceBackupState.CHECKING -> "Checking"
         AccountSourceBackupState.BACKING_UP -> "Backing up"
@@ -88,8 +88,14 @@ fun SourceStatusRow(source: BackupSourceRow) {
         Text(source.label, style = MaterialTheme.typography.titleSmall)
         Text(source.endpoint, style = MaterialTheme.typography.bodySmall)
         Text(stateText)
-        source.lastCheckedAtMillis?.let {
-            Text("Last checked: ${DateFormat.getDateTimeInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall)
+        if (backedUp) {
+            source.lastSuccessfulBackupAtMillis?.let {
+                Text("Last backed up: ${DateFormat.getDateTimeInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall)
+            }
+        } else {
+            source.lastCheckedAtMillis?.let {
+                Text("Last checked: ${DateFormat.getDateTimeInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall)
+            }
         }
         source.error?.let { Text("Issue: ${it.name.lowercase().replace('_', ' ')}", color = MaterialTheme.colorScheme.error) }
     }
