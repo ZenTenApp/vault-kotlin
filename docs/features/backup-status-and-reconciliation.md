@@ -59,17 +59,19 @@ An acknowledged write is internally `WRITE_CONFIRMED`. For Nostr, acknowledgemen
 | `BACKUP_FAILED` | The most recent write failed. |
 | `UNKNOWN` | The source could not be checked conclusively. |
 
-Account details show live rows for each source. Master status is shown on the dedicated Master Account screen. The former global Backup Status destination has been removed.
+Account details show live rows for each source. Master status is shown on the dedicated Master Account screen, which exposes exactly one primary action: **Retry master setup** until quorum setup completes, then **Consolidate backups** afterward. The former global Backup Status destination has been removed.
 
 Persisted status contains account IDs, source IDs, state, coarse error category, and timestamps only. It must never contain private keys, passphrases, encrypted payloads, Brave sync codes/authentication values, or NIP-42 challenges.
 
 ## Master setup quorum
 
-Setup attempts all enabled sources sequentially. The master is retained in secure local storage even when remote quorum fails. Setup completes only when at least one quorum-eligible Nostr source and at least one quorum-eligible Brave Sync source already contain or successfully accept the master. The user can retry without reimporting the master.
+Setup attempts all enabled sources sequentially. It writes the master only after a successful source index proves that the canonical master ID is absent; an index failure remains unknown and is never treated as permission to push another entry. The master is retained in secure local storage even when remote quorum fails. Setup completes only when at least one quorum-eligible Nostr source and at least one quorum-eligible Brave Sync source already contain or successfully accept the master. The user can retry without reimporting the master.
 
 ## Scheduling and interruption
 
-- Associated-account creation saves locally first, then enqueues account backup.
+- Associated-account creation saves locally first, then enqueues consolidation.
+- Account details offer **Consolidate backups**, not a direct retry-write action. Every manual, creation-triggered, startup, and periodic repair indexes each source before writing, and writes an account only when its canonical ID is absent from that successful source index. Immediate requests use an append-or-replace unique-work policy so account creation during an active cycle queues a follow-up cycle instead of being discarded.
+- Legacy account-backup work left in WorkManager by older app versions is handled as forced consolidation rather than a blind write.
 - A one-hour periodic worker invokes consolidation.
 - Consolidation uses a one-hour freshness threshold when there are no pending writes.
 - A persisted checkpoint identifies the active cycle, trigger, phase, source, and account without storing secrets.

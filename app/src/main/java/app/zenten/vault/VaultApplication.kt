@@ -26,7 +26,6 @@ class VaultApplication : Application(), Configuration.Provider {
         scheduler.schedulePeriodic()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             appStorage.clearLegacyBackupState()
-            engine.retryPending()
             engine.consolidate(ConsolidationTrigger.STARTUP)
         }
     }

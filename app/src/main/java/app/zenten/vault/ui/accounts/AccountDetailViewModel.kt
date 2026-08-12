@@ -52,7 +52,7 @@ class AccountDetailViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountDetailState())
 
     fun load(id: Long) { accountId.value = id }
-    fun retry() { accountId.value?.let(scheduler::scheduleAccountBackup) }
+    fun consolidate() { scheduler.scheduleConsolidation() }
 }
 
 data class AccountDetailState(

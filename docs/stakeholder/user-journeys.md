@@ -39,10 +39,10 @@ flowchart LR
 3. The user selects **Create account**.
 4. The app confirms that master backup quorum is satisfied; otherwise creation stops without saving an account.
 5. The app saves the new associated account on the device first.
-6. The app attempts remote backups in the background.
+6. The app starts background consolidation, checking each destination before writing only confirmed gaps.
 7. The user returns to the account list and can check backup status.
 
-**Success:** The new associated account is available locally immediately, even if a remote backup still needs retrying.
+**Success:** The new associated account is available locally immediately, even if remote consolidation must run again later.
 
 ## 3. Inspect or copy an associated account key
 
@@ -59,17 +59,17 @@ flowchart LR
 
 **Safety expectation:** Sensitive views should prevent screenshots where the device permits and should not expose private-key content in ordinary notifications or logs.
 
-## 4. Check backup status and retry
+## 4. Check and consolidate backup status
 
 **User goal:** Understand whether an account has known backup coverage.
 
-1. The user opens **Backups** from the account list.
-2. The app lists the master account and associated accounts with each configured destination.
-3. The user selects **Sync now** to refresh known coverage and attempt repair where applicable.
-4. The app shows progress while it reconciles backup information.
-5. The user sees whether each destination is present, missing, unknown, or needs attention.
+1. The user opens an account or the dedicated Master Account screen.
+2. The app lists each configured destination and its current status.
+3. The user selects **Consolidate backups** (or **Consolidate now** for the master) to refresh coverage and repair confirmed gaps.
+4. The app checks every source before writing, restores valid missing local accounts, and does not push an account to a source that already reports its canonical ID.
+5. The user sees whether each destination is backed up, missing, unknown, or needs attention.
 
-**Success:** The user can identify a backup concern and retry when a remote destination or network becomes available.
+**Success:** The user can identify a backup concern and safely consolidate when a remote destination or network becomes available.
 
 ## 5. Set up on a new device and recover accounts
 

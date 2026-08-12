@@ -35,88 +35,44 @@ class AccountConsolidationEngine(
         enabledSources().forEach { config ->
             val source = sourceFactory.create(config)
             setStatus(BackupAccountId.Master, config, AccountSourceBackupState.CHECKING)
-            val alreadyPresent = source.index(master).getOrNull()?.ids?.contains(BackupAccountId.Master) == true
-            if (alreadyPresent) {
-                successes += config.id
-                setStatus(BackupAccountId.Master, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
-                appStorage.clearPendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id)
-            } else {
-                setStatus(BackupAccountId.Master, config, AccountSourceBackupState.BACKING_UP)
-                source.write(master, BackupAccountId.Master, master).fold(
-                    onSuccess = {
+            source.index(master).fold(
+                onSuccess = { index ->
+                    if (BackupAccountId.Master in index.ids) {
                         successes += config.id
-                        setStatus(BackupAccountId.Master, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
+                        setStatus(BackupAccountId.Master, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
                         appStorage.clearPendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id)
-                    },
-                    onFailure = { error ->
-                        failures += config.id
-                        setStatus(BackupAccountId.Master, config, AccountSourceBackupState.BACKUP_FAILED, error = error)
-                        appStorage.upsertPendingSourceWrite(
-                            PendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id, PendingWriteReason.MASTER_QUORUM, 1, clock.millis()),
+                    } else {
+                        setStatus(BackupAccountId.Master, config, AccountSourceBackupState.BACKING_UP)
+                        source.write(master, BackupAccountId.Master, master).fold(
+                            onSuccess = {
+                                successes += config.id
+                                setStatus(BackupAccountId.Master, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
+                                appStorage.clearPendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id)
+                            },
+                            onFailure = { error ->
+                                failures += config.id
+                                setStatus(BackupAccountId.Master, config, AccountSourceBackupState.BACKUP_FAILED, error = error)
+                                appStorage.upsertPendingSourceWrite(
+                                    PendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id, PendingWriteReason.MASTER_QUORUM, 1, clock.millis()),
+                                )
+                            },
                         )
-                    },
-                )
-            }
+                    }
+                },
+                onFailure = { error ->
+                    // Unknown is not missing: never write unless a successful index proves absence.
+                    failures += config.id
+                    setStatus(BackupAccountId.Master, config, AccountSourceBackupState.UNKNOWN, checked = true, error = error)
+                    appStorage.upsertPendingSourceWrite(
+                        PendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id, PendingWriteReason.MASTER_QUORUM, 1, clock.millis()),
+                    )
+                },
+            )
         }
         val configs = enabledSources().associateBy { it.id }
         val relayQuorum = successes.any { configs[it]?.type == BackupSourceType.NOSTR_RELAY && configs[it]?.countsTowardQuorum == true }
         val braveQuorum = successes.any { configs[it]?.type == BackupSourceType.BRAVE_SYNC && configs[it]?.countsTowardQuorum == true }
         MasterBackupResult(relayQuorum, braveQuorum, successes, failures)
-    }
-
-    suspend fun backupAccount(accountId: Long): AccountBackupResult = operationMutex.withLock {
-        val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
-        val account = requireNotNull(secureStorage.getAccountById(accountId)) { "Account is unavailable" }
-        val id = BackupAccountId.associated(accountId)
-        var succeeded = 0
-        var failed = 0
-        enabledSources().forEach { config ->
-            val source = sourceFactory.create(config)
-            setStatus(id, config, AccountSourceBackupState.BACKING_UP)
-            source.write(master, id, account).fold(
-                onSuccess = {
-                    succeeded++
-                    setStatus(id, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
-                    appStorage.clearPendingSourceWrite(id.value, config.id)
-                },
-                onFailure = { error ->
-                    failed++
-                    setStatus(id, config, AccountSourceBackupState.BACKUP_FAILED, error = error)
-                    appStorage.upsertPendingSourceWrite(PendingSourceWrite(id.value, config.id, PendingWriteReason.DIRECT_BACKUP, 1, clock.millis()))
-                },
-            )
-        }
-        AccountBackupResult(succeeded, failed)
-    }
-
-    suspend fun retryPending(): AccountBackupResult = operationMutex.withLock {
-        val master = secureStorage.getMasterAccount() ?: return@withLock AccountBackupResult(0, 0)
-        val configs = enabledSources().associateBy { it.id }
-        var succeeded = 0
-        var failed = 0
-        appStorage.pendingSourceWrites.first().forEach { pending ->
-            val config = configs[pending.sourceId] ?: return@forEach
-            val id = BackupAccountId.parse(pending.accountId) ?: return@forEach
-            val account = if (id.isMaster) master else id.createdAt?.let(secureStorage::getAccountById)
-            if (account == null) {
-                appStorage.clearPendingSourceWrite(id.value, config.id)
-                return@forEach
-            }
-            setStatus(id, config, AccountSourceBackupState.BACKING_UP)
-            sourceFactory.create(config).write(master, id, account).fold(
-                onSuccess = {
-                    succeeded++
-                    setStatus(id, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
-                    appStorage.clearPendingSourceWrite(id.value, config.id)
-                },
-                onFailure = { error ->
-                    failed++
-                    setStatus(id, config, AccountSourceBackupState.BACKUP_FAILED, error = error)
-                    appStorage.upsertPendingSourceWrite(pending.copy(reason = PendingWriteReason.RETRY, attemptCount = pending.attemptCount + 1, lastAttemptAtMillis = clock.millis()))
-                },
-            )
-        }
-        AccountBackupResult(succeeded, failed)
     }
 
     suspend fun consolidate(trigger: ConsolidationTrigger, force: Boolean = false): ConsolidationResult? = operationMutex.withLock {
@@ -301,7 +257,6 @@ class AccountConsolidationEngine(
         val quorumReached: Boolean get() = relayQuorum && braveQuorum
     }
 
-    data class AccountBackupResult(val succeeded: Int, val failed: Int)
     data class ConsolidationResult(val restored: Int, val writes: Int, val failures: Int)
 
     companion object {

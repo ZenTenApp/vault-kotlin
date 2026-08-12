@@ -11,7 +11,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 3. The user selects **Create account**.
 4. The app verifies that master setup is complete, meaning its required backup quorum was satisfied.
 5. The app allocates a unique creation ID, generates the key pair encrypted with the master account passphrase, and saves the associated account locally.
-6. Backup work starts after the local save.
+6. Consolidation starts after the local save. It indexes every source and writes the new account only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
 7. The account appears in **My Accounts**. Selecting it opens its public-key details.
 
 Associated accounts are displayed with their creation ID. The master account remains an internal recovery identity and does not appear in the routine account list.
@@ -19,7 +19,7 @@ Associated accounts are displayed with their creation ID. The master account rem
 ## Failure and security expectations
 
 - Creation is rejected before local persistence when master backup quorum has not been satisfied; no associated account or backup job is created.
-- Once master quorum is satisfied, a newly created associated account remains locally available even when that account's remote backup later needs retrying.
+- Once master quorum is satisfied, a newly created associated account remains locally available even when remote consolidation must run again later.
 - Creation requires the retained master-account passphrase; the generated OpenSSH private key is encrypted with that same passphrase.
 - Creation errors are shown without disclosing secret key material.
 - The account list refreshes when the app returns to the foreground, including after recovery work.

@@ -38,6 +38,19 @@ class AccountConsolidationEngineTest {
     }
 
     @Test
+    fun master_backup_does_not_write_when_source_index_fails() = runTest {
+        fixture { engine, _, _, factory ->
+            val first = factory.sources.values.first()
+            first.indexResult = Result.failure(java.io.IOException("offline"))
+
+            val result = engine.backupMaster(master)
+
+            assertTrue(first.config.id in result.failedSourceIds)
+            assertTrue("write:${first.config.id}:masterkey" !in factory.calls)
+        }
+    }
+
+    @Test
     fun failed_quorum_is_reported_after_all_sources_are_attempted() = runTest {
         fixture { engine, _, _, factory ->
             factory.sources.values.forEach { source ->
@@ -50,6 +63,23 @@ class AccountConsolidationEngineTest {
             assertTrue(result.relayQuorum)
             assertFalse(result.braveQuorum)
             assertEquals(8, factory.calls.size)
+        }
+    }
+
+    @Test
+    fun consolidation_does_not_write_accounts_already_indexed_at_a_source() = runTest {
+        fixture { engine, _, storage, factory ->
+            every { storage.getAccounts() } returns listOf(Account(10, "local", "pass"))
+            val allPresent = setOf(BackupAccountId.Master, BackupAccountId.associated(10))
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(allPresent, emptyMap())
+                source.indexes += SourceIndex(allPresent, emptyMap())
+            }
+
+            val result = engine.consolidate(ConsolidationTrigger.MANUAL, force = true)!!
+
+            assertEquals(0, result.writes)
+            assertTrue(factory.calls.none { it.startsWith("write:") })
         }
     }
 
@@ -125,12 +155,13 @@ class AccountConsolidationEngineTest {
         val indexes = ArrayDeque<SourceIndex>()
         val restored = mutableMapOf<RemoteAccountCandidate, Account>()
         var writeResult: Result<Unit> = Result.success(Unit)
+        var indexResult: Result<SourceIndex>? = null
         var indexCount = 0
 
         override suspend fun index(master: Account): Result<SourceIndex> {
             indexCount++
             calls += "index:${config.id}:$indexCount"
-            return Result.success(indexes.removeFirstOrNull() ?: SourceIndex(emptySet(), emptyMap()))
+            return indexResult ?: Result.success(indexes.removeFirstOrNull() ?: SourceIndex(emptySet(), emptyMap()))
         }
 
         override suspend fun restoreCandidate(master: Account, candidate: RemoteAccountCandidate): Result<Account> =

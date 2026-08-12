@@ -60,7 +60,7 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         Button(onClick = { confirmReveal = true }, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) { Text("Show private key") }
         Text("Backup sources", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
         state.sources.forEach { SourceStatusRow(it) }
-        Button(onClick = viewModel::retry, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Retry backup") }
+        Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Consolidate backups") }
         TextButton(onClick = { navController.popBackStack() }, modifier = Modifier.fillMaxWidth()) { Text("Back") }
     }
     if (confirmReveal) AlertDialog(

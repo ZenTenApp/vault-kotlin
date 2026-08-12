@@ -79,8 +79,15 @@ fun MasterAccountDetailScreen(navController: NavHostController, viewModel: Maste
         Text(state.publicKey ?: "Unavailable", style = MaterialTheme.typography.bodySmall)
         Text("Backup sources", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
         state.sources.forEach { SourceStatusRow(it) }
-        Button(onClick = viewModel::retryMaster, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Retry master backup") }
-        Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Consolidate now") }
+        if (state.setupComplete) {
+            Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Text("Consolidate backups")
+            }
+        } else {
+            Button(onClick = viewModel::retryMaster, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Text("Retry master setup")
+            }
+        }
         TextButton(onClick = { navController.popBackStack() }, modifier = Modifier.fillMaxWidth()) { Text("Back") }
     }
 }
