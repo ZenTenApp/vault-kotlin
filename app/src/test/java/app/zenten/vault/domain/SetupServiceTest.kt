@@ -13,6 +13,7 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
 import io.mockk.verifyOrder
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -59,6 +60,7 @@ class SetupServiceTest {
     fun associated_account_is_saved_before_remote_work_is_scheduled() = runTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getMasterAccount() } returns master
+        every { fixture.appStorage.setupComplete } returns flowOf(true)
         val account = Account(20, "associated", "pass")
 
         assertTrue(fixture.service.addAccount(master, account).isSuccess)
@@ -67,6 +69,20 @@ class SetupServiceTest {
             fixture.secureStorage.addAccount(account)
             fixture.scheduler.scheduleAccountBackup(account.createdAt)
         }
+    }
+
+    @Test
+    fun associated_account_is_rejected_when_master_backup_quorum_is_incomplete() = runTest {
+        val fixture = Fixture()
+        every { fixture.appStorage.setupComplete } returns flowOf(false)
+        val account = Account(20, "associated", "pass")
+
+        val result = fixture.service.addAccount(master, account)
+
+        assertFalse(result.isSuccess)
+        assertTrue(result.exceptionOrNull()?.message?.contains("quorum") == true)
+        verify(exactly = 0) { fixture.secureStorage.addAccount(any()) }
+        verify(exactly = 0) { fixture.scheduler.scheduleAccountBackup(any()) }
     }
 
     private class Fixture {

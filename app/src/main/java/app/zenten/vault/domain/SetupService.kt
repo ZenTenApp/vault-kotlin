@@ -4,6 +4,7 @@ import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
+import kotlinx.coroutines.flow.first
 
 /** Master onboarding and local-first associated-account persistence. */
 class SetupService(
@@ -38,6 +39,9 @@ class SetupService(
     }
 
     suspend fun addAccount(master: Account, account: Account): Result<Unit> = runCatching {
+        check(appStorage.setupComplete.first()) {
+            "Master backup quorum must be satisfied before creating an associated account"
+        }
         require(secureStorage.getMasterAccount() != null && master.createdAt == secureStorage.getMasterAccount()?.createdAt)
         secureStorage.addAccount(account)
         workScheduler?.scheduleAccountBackup(account.createdAt)

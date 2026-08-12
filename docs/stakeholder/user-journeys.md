@@ -32,14 +32,15 @@ flowchart LR
 
 **User goal:** Create a separate credential for a new service, project, or environment.
 
-**Starting point:** Setup is complete.
+**Starting point:** Setup is complete and the required master backup quorum has been satisfied.
 
 1. The user selects **Add account** or the add button from **My Accounts**.
 2. The app explains that it will generate a fresh Ed25519 OpenSSH key pair.
 3. The user selects **Create account**.
-4. The app saves the new associated account on the device first.
-5. The app attempts remote backups in the background.
-6. The user returns to the account list and can check backup status.
+4. The app confirms that master backup quorum is satisfied; otherwise creation stops without saving an account.
+5. The app saves the new associated account on the device first.
+6. The app attempts remote backups in the background.
+7. The user returns to the account list and can check backup status.
 
 **Success:** The new associated account is available locally immediately, even if a remote backup still needs retrying.
 
