@@ -1,22 +1,23 @@
 # Implementation status
 
-This is a repository-oriented status view, not a production-readiness certification. **Present in code** means source and/or tests exist; it does not mean the capability has completed security, interoperability, UX, or operational validation.
+This is a repository-oriented status view, not a production-readiness certification. **Present in code** does not imply completed security, interoperability, UX, or operational validation.
 
-| Area                                              | Status          | Repository evidence                                                       | Notes                                                                                                            |
-| ------------------------------------------------- | --------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Compose navigation and main screens               | Present in code | `ui/`, `VaultNavGraph.kt`                                                 | Covers onboarding, accounts, detail, creation, and backup status.                                                |
-| Master-account private-key intake by paste        | Present in code | `ui/onboarding/SshSetupScreen.kt`, `SetupService.kt`                      | UI is paste-oriented. File and QR intake are not implemented.                                                    |
-| OpenSSH Ed25519 parsing and passphrase validation | Present in code | `crypto/SshKeyCodec.kt`, tests                                            | Review crypto dependencies and error handling before release.                                                    |
-| Deterministic recovery identity                   | Present in code | `crypto/Seedify.kt`, `NostrKeyDerivation.kt`                              | Golden/parity tests exist.                                                                                       |
-| Secure local storage                              | Present in code | `data/secure/`, `data/kv/`                                                | Must receive device and migration review.                                                                        |
-| Associated-account generation and listing         | Present in code | `domain/AccountService.kt`, `ui/accounts/`                                | Labels currently use creation IDs.                                                                               |
-| Private-key reveal and copy                       | Partial         | `AccountDetailScreen.kt`                                                  | Confirmation and screenshot protection exist; timed hide/export/share and clipboard lifecycle require hardening. |
-| Nostr encrypted backup                            | Present in code | `network/nostr/`, `domain/NostrAccountBackupTarget.kt`, `crypto/Nip44.kt` | Requires operational/interoperability validation.                                                                |
-| Brave Sync backup                                 | Present in code | `bravesync/`, `domain/BraveSyncBackupService.kt`                          | Requires end-to-end validation against supported infrastructure.                                                 |
-| Reconciliation, retry, and background work        | Present in code | `background/`, backup/retry services                                      | Needs lifecycle, network, and failure-mode validation.                                                           |
-| Backup status UI                                  | Partial         | `ui/backup/`                                                              | Per-destination markers exist; accessible status text, timestamps, and remediation are incomplete.               |
-| Automatic associated-account recovery             | Partial         | `domain/RecoveryService.kt`, accounts view model                          | Valid discovered accounts are restored automatically; end-to-end behavior needs validation.                      |
-| Account deletion and vault reset                  | Not available   | —                                                                         | The current app provides neither action.                                                                         |
-| Export/share workflow                             | Incomplete      | —                                                                         | The current proof of concept supports reveal/copy, not a complete export/share flow.                            |
+| Area | Status | Repository evidence | Notes |
+| --- | --- | --- | --- |
+| Compose navigation and main screens | Present in code | `ui/`, `VaultNavGraph.kt` | Onboarding, account list/create/detail, and dedicated Master Account details are implemented. |
+| Master-account key intake | Present in code | `ui/onboarding/`, `domain/SetupService.kt` | Paste-oriented; retains validated master and supports retry when source quorum fails. |
+| OpenSSH Ed25519 parsing/passphrase validation | Present in code | `crypto/SshKeyCodec.kt`, tests | Requires production crypto/dependency review. |
+| Deterministic recovery identity | Present in code | `crypto/Seedify.kt`, `NostrKeyDerivation.kt` | Golden/parity tests exist. |
+| Secure local storage | Present in code | `data/secure/`, `data/kv/` | Device, migration, and backup-policy review remains required. |
+| Associated-account generation/listing | Present in code | `domain/AccountService.kt`, `ui/accounts/` | Local-first persistence; labels currently use creation IDs. |
+| Private-key reveal/copy | Partial | `ui/accounts/AccountDetailScreen.kt` | Confirmation/screenshot protection exist; clipboard lifecycle and export/share need hardening. |
+| Independent Nostr source adapter | Present in code | `domain/BackupSourceAdapters.kt`, `network/nostr/` | Includes transient NIP-42 handling; both default relays still require opt-in operational interoperability validation. |
+| Independent Brave-compatible source adapter | Present in code | `domain/BackupSourceAdapters.kt`, `domain/BraveSyncBackupService.kt` | Both endpoints require end-to-end infrastructure validation. |
+| Source repository/default policy | Present in code | `domain/BackupSources.kt`, `BackupSourceRepository.kt` | Four immutable defaults and future custom-source persistence; no management UI yet. |
+| Two-phase consolidation and retry | Present in code | `domain/AccountConsolidationEngine.kt`, `background/BackupWorkers.kt` | Sequential restore-before-backup and hourly scheduling; lifecycle/failure validation should continue. |
+| Per-source status UI | Partial | `ui/accounts/AccountDetailScreen.kt`, `ui/master/` | Live rows exist; final accessible copy, timestamps, and remediation need product validation. |
+| Automatic associated-account recovery | Present in code | `domain/AccountConsolidationEngine.kt`, source adapters | Trusted-source candidates restore automatically; real-service end-to-end validation remains. |
+| Account deletion and vault reset | Not available | — | Neither action is currently provided. |
+| Export/share workflow | Incomplete | — | Current proof of concept supports reveal/copy only. |
 
-See the [stakeholder scope and roadmap](../stakeholder/scope-and-roadmap.md) for the corresponding client-review view.
+See the [stakeholder scope and roadmap](../stakeholder/scope-and-roadmap.md) for client-review context.

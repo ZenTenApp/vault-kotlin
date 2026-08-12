@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,10 +27,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.compose.ui.text.AnnotatedString
 import app.zenten.vault.crypto.SshKeyCodec
+import app.zenten.vault.data.kv.AccountSourceBackupState
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewModel: AccountDetailViewModel = hiltViewModel()) {
-    val account = remember(accountId) { viewModel.account(accountId) }
+    LaunchedEffect(accountId) { viewModel.load(accountId) }
+    val state by viewModel.state.collectAsState()
+    val account = state.account
     var showPrivate by remember { mutableStateOf(false) }
     var confirmReveal by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
@@ -51,6 +58,9 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             Text("Fingerprint: ${fingerprint ?: "Unavailable"}", modifier = Modifier.padding(top = 12.dp))
         }
         Button(onClick = { confirmReveal = true }, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) { Text("Show private key") }
+        Text("Backup sources", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+        state.sources.forEach { SourceStatusRow(it) }
+        Button(onClick = viewModel::retry, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Retry backup") }
         TextButton(onClick = { navController.popBackStack() }, modifier = Modifier.fillMaxWidth()) { Text("Back") }
     }
     if (confirmReveal) AlertDialog(
@@ -61,6 +71,28 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         dismissButton = { TextButton(onClick = { confirmReveal = false }) { Text("Cancel") } },
     )
     if (showPrivate) PrivateKeyDialog(account.zenTenKey, onCopy = { clipboard.setText(AnnotatedString(account.zenTenKey)) }, onDismiss = { showPrivate = false })
+}
+
+@Composable
+fun SourceStatusRow(source: BackupSourceRow) {
+    val stateText = when (source.state) {
+        AccountSourceBackupState.PRESENT -> "Backed up"
+        AccountSourceBackupState.WRITE_CONFIRMED -> "Backed up, verification pending"
+        AccountSourceBackupState.MISSING -> "Missing"
+        AccountSourceBackupState.CHECKING -> "Checking"
+        AccountSourceBackupState.BACKING_UP -> "Backing up"
+        AccountSourceBackupState.BACKUP_FAILED -> "Backup failed"
+        AccountSourceBackupState.UNKNOWN -> "Unavailable / unknown"
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(source.label, style = MaterialTheme.typography.titleSmall)
+        Text(source.endpoint, style = MaterialTheme.typography.bodySmall)
+        Text(stateText)
+        source.lastCheckedAtMillis?.let {
+            Text("Last checked: ${DateFormat.getDateTimeInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall)
+        }
+        source.error?.let { Text("Issue: ${it.name.lowercase().replace('_', ' ')}", color = MaterialTheme.colorScheme.error) }
+    }
 }
 
 @Composable

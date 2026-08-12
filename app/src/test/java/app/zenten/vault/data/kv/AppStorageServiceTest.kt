@@ -1,12 +1,13 @@
 package app.zenten.vault.data.kv
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import app.zenten.vault.data.model.AppServerConfig
+import app.zenten.vault.domain.BackupSourceConfig
+import app.zenten.vault.domain.BackupSourceType
+import app.zenten.vault.domain.SourceAuthentication
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -14,34 +15,29 @@ import java.nio.file.Files
 
 class AppStorageServiceTest {
     @Test
-    fun persists_non_secret_settings_and_deduplicates_failed_backup_ids() = runTest {
+    fun persists_source_specific_non_secret_state() = runTest {
         val directory = Files.createTempDirectory("vault-datastore").toFile()
         try {
-            val store = PreferenceDataStoreFactory.create(scope = backgroundScope) { File(directory, "settings.preferences_pb") }
-            val service = AppStorageService(store)
-
+            val service = AppStorageService(PreferenceDataStoreFactory.create(scope = backgroundScope) {
+                File(directory, "settings.preferences_pb")
+            })
+            val source = BackupSourceConfig(
+                "custom", "custom", BackupSourceType.NOSTR_RELAY, "wss://relay.example", 5,
+                authentication = SourceAuthentication.NIP42_OPTIONAL,
+            )
             assertFalse(service.setupComplete.first())
-            assertNull(service.appServerConfig.first())
-            assertEquals(emptyList<Long>(), service.failedBackupAccountIds.first())
-
             service.setSetupComplete()
-            service.setAppServerConfig(AppServerConfig(listOf("wss://relay.example")))
-            service.setFailedBackupAccountIds(listOf(9, 3, 9))
+            service.setCustomBackupSources(listOf(source))
+            service.upsertPendingSourceWrite(PendingSourceWrite("10", "custom", PendingWriteReason.DIRECT_BACKUP))
+            service.upsertAccountSourceStatus(AccountSourceStatus("10", "custom", AccountSourceBackupState.BACKUP_FAILED))
 
             assertTrue(service.setupComplete.first())
-            assertEquals(listOf("wss://relay.example"), service.appServerConfig.first()!!.relays)
-            assertEquals(listOf(9L, 3L), service.failedBackupAccountIds.first())
+            assertEquals(listOf(source), service.customBackupSources.first())
+            assertEquals(1, service.pendingSourceWrites.first().size)
+            assertEquals(AccountSourceBackupState.BACKUP_FAILED, service.accountSourceStatuses.first().single().state)
 
-            service.removeFailedBackupAccountId(9)
-            assertEquals(listOf(3L), service.failedBackupAccountIds.first())
-            service.addFailedBackupAccountId(3)
-            service.addFailedBackupAccountId(12)
-            assertEquals(listOf(3L, 12L), service.failedBackupAccountIds.first())
-
-            service.clearSetupComplete()
-            service.clearFailedBackupAccountIds()
-            assertFalse(service.setupComplete.first())
-            assertEquals(emptyList<Long>(), service.failedBackupAccountIds.first())
+            service.clearPendingSourceWrite("10", "custom")
+            assertTrue(service.pendingSourceWrites.first().isEmpty())
         } finally {
             directory.deleteRecursively()
         }

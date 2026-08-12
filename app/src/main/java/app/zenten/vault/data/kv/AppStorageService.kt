@@ -4,112 +4,150 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import app.zenten.vault.data.model.AppServerConfig
-import app.zenten.vault.domain.BackupTargetId
+import app.zenten.vault.domain.BackupSourceConfig
+import app.zenten.vault.domain.DefaultBackupSources
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/** Non-secret app state. Sensitive accounts must never be placed in this store. */
+/** Non-secret app state. Sensitive accounts and remote payloads must never be placed here. */
 class AppStorageService(private val dataStore: DataStore<Preferences>, private val json: Json = Json) {
     val setupComplete: Flow<Boolean> = dataStore.data.map { it[SETUP_COMPLETE] ?: false }
-    val appServerConfig: Flow<AppServerConfig?> = dataStore.data.map { preferences ->
-        preferences[APP_SERVER_CONFIG]?.let { runCatching { json.decodeFromString<AppServerConfig>(it) }.getOrNull() }
+    val customBackupSources: Flow<List<BackupSourceConfig>> = jsonFlow(CUSTOM_BACKUP_SOURCES)
+    val pendingSourceWrites: Flow<List<PendingSourceWrite>> = jsonFlow(PENDING_SOURCE_WRITES)
+    val accountSourceStatuses: Flow<List<AccountSourceStatus>> = jsonFlow(ACCOUNT_SOURCE_STATUSES)
+    val consolidationCheckpoint: Flow<ConsolidationCheckpoint?> = dataStore.data.map { preferences ->
+        preferences[CONSOLIDATION_CHECKPOINT]?.let { runCatching { json.decodeFromString<ConsolidationCheckpoint>(it) }.getOrNull() }
     }
-    /** Legacy relay-only retry queue, retained for existing persisted installations. */
-    val failedBackupAccountIds: Flow<List<Long>> = dataStore.data.map { preferences ->
-        preferences[FAILED_BACKUP_ACCOUNT_IDS]?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrDefault(emptyList()) }
-            ?: emptyList()
-    }
-    val pendingAccountBackups: Flow<List<PendingAccountBackup>> = dataStore.data.map { preferences ->
-        preferences[PENDING_ACCOUNT_BACKUPS]?.let { runCatching { json.decodeFromString<List<PendingAccountBackup>>(it) }.getOrDefault(emptyList()) }
-            ?: emptyList()
-    }
-    val backupStatuses: Flow<List<AccountBackupStatus>> = dataStore.data.map { preferences ->
-        preferences[BACKUP_STATUSES]?.let { runCatching { json.decodeFromString<List<AccountBackupStatus>>(it) }.getOrDefault(emptyList()) }
-            ?: emptyList()
-    }
+    val lastConsolidationCompletedAtMillis: Flow<Long?> = dataStore.data.map { it[LAST_CONSOLIDATION_COMPLETED] }
 
     suspend fun setSetupComplete() = dataStore.edit { it[SETUP_COMPLETE] = true }
     suspend fun clearSetupComplete() = dataStore.edit { it.remove(SETUP_COMPLETE) }
-    suspend fun setAppServerConfig(config: AppServerConfig) = dataStore.edit { it[APP_SERVER_CONFIG] = json.encodeToString(config) }
-    suspend fun setFailedBackupAccountIds(ids: Collection<Long>) = dataStore.edit {
-        it[FAILED_BACKUP_ACCOUNT_IDS] = json.encodeToString(ids.distinct())
-    }
-    suspend fun addFailedBackupAccountId(createdAt: Long) = dataStore.edit { preferences ->
-        val current = preferences[FAILED_BACKUP_ACCOUNT_IDS]?.let {
-            runCatching { json.decodeFromString<List<Long>>(it) }.getOrDefault(emptyList())
-        }.orEmpty()
-        preferences[FAILED_BACKUP_ACCOUNT_IDS] = json.encodeToString((current + createdAt).distinct())
+
+    suspend fun setCustomBackupSources(sources: List<BackupSourceConfig>) = dataStore.edit {
+        it[CUSTOM_BACKUP_SOURCES] = json.encodeToString(sources)
     }
 
-    suspend fun removeFailedBackupAccountId(createdAt: Long) = dataStore.edit { preferences ->
-        val current = preferences[FAILED_BACKUP_ACCOUNT_IDS]?.let {
-            runCatching { json.decodeFromString<List<Long>>(it) }.getOrDefault(emptyList())
-        }.orEmpty()
-        val remaining = current.filterNot { it == createdAt }
-        if (remaining.isEmpty()) preferences.remove(FAILED_BACKUP_ACCOUNT_IDS)
-        else preferences[FAILED_BACKUP_ACCOUNT_IDS] = json.encodeToString(remaining)
+    suspend fun setPendingSourceWrites(writes: List<PendingSourceWrite>) = dataStore.edit {
+        if (writes.isEmpty()) it.remove(PENDING_SOURCE_WRITES)
+        else it[PENDING_SOURCE_WRITES] = json.encodeToString(writes.distinctBy { write -> write.accountId to write.sourceId })
     }
 
-    suspend fun clearFailedBackupAccountIds() = dataStore.edit { it.remove(FAILED_BACKUP_ACCOUNT_IDS) }
-
-    suspend fun markPendingAccountBackup(accountId: Long, targets: Set<BackupTargetId>) = dataStore.edit { preferences ->
-        val current = preferences[PENDING_ACCOUNT_BACKUPS]?.let {
-            runCatching { json.decodeFromString<List<PendingAccountBackup>>(it) }.getOrDefault(emptyList())
-        }.orEmpty().associateBy { it.accountId }.toMutableMap()
-        current[accountId] = PendingAccountBackup(accountId, (current[accountId]?.targets.orEmpty() + targets).toSet())
-        preferences[PENDING_ACCOUNT_BACKUPS] = json.encodeToString(current.values.toList())
+    suspend fun upsertPendingSourceWrite(write: PendingSourceWrite) = dataStore.edit { preferences ->
+        val current = decodeList<PendingSourceWrite>(preferences[PENDING_SOURCE_WRITES]).associateBy { it.accountId to it.sourceId }.toMutableMap()
+        current[write.accountId to write.sourceId] = write
+        preferences[PENDING_SOURCE_WRITES] = json.encodeToString(current.values.toList())
     }
 
-    suspend fun setBackupStatuses(statuses: List<AccountBackupStatus>) = dataStore.edit {
-        it[BACKUP_STATUSES] = json.encodeToString(statuses)
-    }
-
-    suspend fun clearPendingAccountBackupTargets(accountId: Long, targets: Set<BackupTargetId>) = dataStore.edit { preferences ->
-        val current = preferences[PENDING_ACCOUNT_BACKUPS]?.let {
-            runCatching { json.decodeFromString<List<PendingAccountBackup>>(it) }.getOrDefault(emptyList())
-        }.orEmpty()
-        val remaining = current.mapNotNull { pending ->
-            if (pending.accountId != accountId) pending
-            else PendingAccountBackup(accountId, pending.targets - targets).takeIf { it.targets.isNotEmpty() }
+    suspend fun clearPendingSourceWrite(accountId: String, sourceId: String) = dataStore.edit { preferences ->
+        val remaining = decodeList<PendingSourceWrite>(preferences[PENDING_SOURCE_WRITES]).filterNot {
+            it.accountId == accountId && it.sourceId == sourceId
         }
-        if (remaining.isEmpty()) preferences.remove(PENDING_ACCOUNT_BACKUPS)
-        else preferences[PENDING_ACCOUNT_BACKUPS] = json.encodeToString(remaining)
+        if (remaining.isEmpty()) preferences.remove(PENDING_SOURCE_WRITES)
+        else preferences[PENDING_SOURCE_WRITES] = json.encodeToString(remaining)
     }
+
+    suspend fun setAccountSourceStatuses(statuses: List<AccountSourceStatus>) = dataStore.edit {
+        it[ACCOUNT_SOURCE_STATUSES] = json.encodeToString(statuses.distinctBy { status -> status.accountId to status.sourceId })
+    }
+
+    suspend fun upsertAccountSourceStatus(status: AccountSourceStatus) = dataStore.edit { preferences ->
+        val current = decodeList<AccountSourceStatus>(preferences[ACCOUNT_SOURCE_STATUSES])
+            .associateBy { it.accountId to it.sourceId }.toMutableMap()
+        current[status.accountId to status.sourceId] = status
+        preferences[ACCOUNT_SOURCE_STATUSES] = json.encodeToString(current.values.toList())
+    }
+
+    suspend fun setConsolidationCheckpoint(checkpoint: ConsolidationCheckpoint?) = dataStore.edit {
+        if (checkpoint == null) it.remove(CONSOLIDATION_CHECKPOINT)
+        else it[CONSOLIDATION_CHECKPOINT] = json.encodeToString(checkpoint)
+    }
+
+    suspend fun markConsolidationCompleted(atMillis: Long) = dataStore.edit {
+        it[LAST_CONSOLIDATION_COMPLETED] = atMillis
+        it.remove(CONSOLIDATION_CHECKPOINT)
+    }
+
+    /** Removes development-only state from the superseded grouped-target implementation. */
+    suspend fun clearLegacyBackupState() = dataStore.edit {
+        it.remove(stringPreferencesKey("failed_backup_account_ids"))
+        it.remove(stringPreferencesKey("pending_account_backups"))
+        it.remove(stringPreferencesKey("backup_statuses"))
+    }
+
+    private inline fun <reified T> jsonFlow(key: Preferences.Key<String>): Flow<List<T>> = dataStore.data.map {
+        decodeList(it[key])
+    }
+
+    private inline fun <reified T> decodeList(value: String?): List<T> = value?.let {
+        runCatching { json.decodeFromString<List<T>>(it) }.getOrDefault(emptyList())
+    }.orEmpty()
 
     companion object {
         val SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
-        val APP_SERVER_CONFIG = stringPreferencesKey("app_server_config")
-        val FAILED_BACKUP_ACCOUNT_IDS = stringPreferencesKey("failed_backup_account_ids")
-        val PENDING_ACCOUNT_BACKUPS = stringPreferencesKey("pending_account_backups")
-        val BACKUP_STATUSES = stringPreferencesKey("backup_statuses")
+        val CUSTOM_BACKUP_SOURCES = stringPreferencesKey("custom_backup_sources_v2")
+        val PENDING_SOURCE_WRITES = stringPreferencesKey("pending_source_writes_v2")
+        val ACCOUNT_SOURCE_STATUSES = stringPreferencesKey("account_source_statuses_v2")
+        val CONSOLIDATION_CHECKPOINT = stringPreferencesKey("consolidation_checkpoint_v2")
+        val LAST_CONSOLIDATION_COMPLETED = longPreferencesKey("last_consolidation_completed_v2")
     }
 }
 
 @Serializable
-data class PendingAccountBackup(
-    val accountId: Long,
-    val targets: Set<BackupTargetId>,
-)
-
-/** Cached, non-secret reconciliation coverage used by the Backup Status screen. */
-@Serializable
-data class AccountBackupStatus(
+data class PendingSourceWrite(
     val accountId: String,
-    val destinations: List<DestinationBackupStatus>,
-    val checkedAtMillis: Long,
+    val sourceId: String,
+    val reason: PendingWriteReason,
+    val attemptCount: Int = 0,
+    val lastAttemptAtMillis: Long? = null,
 )
 
 @Serializable
-data class DestinationBackupStatus(
-    val id: String,
-    val label: String,
-    val state: BackupCoverageState,
+enum class PendingWriteReason { MASTER_QUORUM, DIRECT_BACKUP, CONSOLIDATION, RETRY }
+
+@Serializable
+data class AccountSourceStatus(
+    val accountId: String,
+    val sourceId: String,
+    val state: AccountSourceBackupState,
+    val lastCheckedAtMillis: Long? = null,
+    val lastSuccessfulBackupAtMillis: Long? = null,
+    val lastAttemptAtMillis: Long? = null,
+    val errorCategory: BackupErrorCategory? = null,
 )
 
 @Serializable
-enum class BackupCoverageState { PRESENT, MISSING, UNKNOWN, REPAIR_FAILED }
+enum class AccountSourceBackupState { PRESENT, WRITE_CONFIRMED, MISSING, CHECKING, BACKING_UP, BACKUP_FAILED, UNKNOWN }
+
+@Serializable
+enum class BackupErrorCategory {
+    NETWORK_UNAVAILABLE,
+    TIMEOUT,
+    AUTHENTICATION_FAILED,
+    REMOTE_REJECTED,
+    REMOTE_PROTOCOL_ERROR,
+    INVALID_REMOTE_RECORD,
+    LOCAL_ACCOUNT_UNAVAILABLE,
+    UNKNOWN,
+}
+
+@Serializable
+data class ConsolidationCheckpoint(
+    val cycleId: String,
+    val trigger: ConsolidationTrigger,
+    val phase: ConsolidationPhase,
+    val currentSourceId: String? = null,
+    val currentAccountId: String? = null,
+    val startedAtMillis: Long,
+    val updatedAtMillis: Long,
+)
+
+@Serializable
+enum class ConsolidationTrigger { MASTER_IMPORT, STARTUP, PERIODIC, MANUAL, SOURCE_CHANGED }
+
+@Serializable
+enum class ConsolidationPhase { RESTORE, BACKUP }

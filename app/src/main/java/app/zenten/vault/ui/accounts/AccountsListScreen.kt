@@ -57,7 +57,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("My Accounts", style = MaterialTheme.typography.headlineMedium)
-                TextButton(onClick = { navController.navigate(VaultDestinations.BACKUP_STATUS) }) { Text("Backups") }
+                TextButton(onClick = { navController.navigate(VaultDestinations.MASTER_ACCOUNT) }) { Text("Master Account") }
             }
             Text("Your generated SSH accounts", style = MaterialTheme.typography.bodyMedium)
             if (state.recoveryInProgress) {

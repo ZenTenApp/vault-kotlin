@@ -27,7 +27,10 @@
 - Private-key disclosure requires user confirmation and its dialog sets the secure-window flag.
 - OpenSSH parsing, Nostr derivation/encryption, and remote record codecs have automated tests; crypto test vectors are in `app/src/test/resources/golden/`.
 - Generated associated-account OpenSSH keys use `aes256-ctr` with `bcrypt_pbkdf` and the retained master-account passphrase; Nostr backups add NIP-44 encryption around that encrypted key payload.
-- Local secure storage, relay backup, sync backup, retry, and reconciliation have distinct implementation areas.
+- Local secure storage, source adapters, consolidation, and background scheduling have distinct implementation areas.
+- NIP-42 relay challenges are signed transiently with the master-derived Nostr identity on the challenged connection and are not persisted.
+- Backup status, pending writes, and checkpoints persist only canonical account/source IDs, coarse state/error categories, counters, and timestamps—not keys, passphrases, payloads, sync codes, auth tokens, or challenges.
+- Presence comparisons are identifier-only. A remote private-key payload is decrypted only when its associated account is absent locally and restoration is required.
 
 ## Required production review topics
 
@@ -42,7 +45,7 @@
 ## Non-promises
 
 - A device-level PIN, biometric unlock, or operating-system protection does not replace the master account private key and passphrase for recovery.
-- Remote backup does not guarantee availability. The current app has no account-deletion or vault-reset action.
+- Remote backup does not guarantee availability. Master setup requires one eligible Nostr and one eligible Brave source, not successful writes to every source. The current app has no account-deletion or vault-reset action.
 - The application cannot recover master account material that the user has lost.
 
 ## Change control

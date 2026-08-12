@@ -1,61 +1,55 @@
 package app.zenten.vault.domain
 
 import app.zenten.vault.data.kv.AppStorageService
+import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 
-/** First-run state transition: master persistence is rolled back unless its relay backup succeeds. */
+/** Master onboarding and local-first associated-account persistence. */
 class SetupService(
     private val secureStorage: SecureStorageService,
     private val appStorage: AppStorageService,
-    private val backupCoordinator: AccountBackupCoordinator,
-    private val recoveryService: RecoveryService,
-    private val retryScheduler: RelayBackupRetryScheduler? = null,
+    private val consolidationEngine: AccountConsolidationEngine,
+    private val workScheduler: BackupWorkScheduler? = null,
 ) {
-    /** Compatibility constructor for Nostr-only callers/tests. */
-    constructor(
-        secureStorage: SecureStorageService,
-        appStorage: AppStorageService,
-        backupService: BackupService,
-        recoveryService: RecoveryService,
-        retryScheduler: RelayBackupRetryScheduler? = null,
-    ) : this(
-        secureStorage,
-        appStorage,
-        AccountBackupCoordinator(setOf(NostrAccountBackupTarget(backupService))),
-        recoveryService,
-        retryScheduler,
-    )
     suspend fun performSetup(master: Account): Result<Unit> = runCatching {
         require(master.nostr != null) { "Master account must have a Nostr identity" }
+        // Keep the imported master on quorum failure so users can retry without re-entering it.
         secureStorage.addMasterAccount(master)
-        val report = backupCoordinator.backupMaster(master)
-        check(report.isSuccess) { "Master backup failed for: ${report.failedTargets.joinToString()}" }
-        appStorage.setSetupComplete()
-
-        Unit
-    }.onFailure {
-        secureStorage.removeMasterAccount()
         appStorage.clearSetupComplete()
+        val result = consolidationEngine.backupMaster(master)
+        check(result.quorumReached) {
+            when {
+                !result.relayQuorum && !result.braveQuorum -> "Master backup needs at least one relay and one Brave Sync server"
+                !result.relayQuorum -> "Master backup did not reach relay quorum"
+                else -> "Master backup did not reach Brave Sync quorum"
+            }
+        }
+        appStorage.setSetupComplete()
+        workScheduler?.scheduleConsolidation()
     }
 
-    /**
-     * Rebuilds the empty local registry after importing an existing master key. This runs
-     * separately from setup so the Accounts screen can report progress while relays respond.
-     */
-    suspend fun recoverExistingAccounts(): Result<RecoveryService.RecoveryResult> = runCatching {
+    suspend fun retryMasterBackup(): Result<Unit> = runCatching {
         val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
-        // A recovery error is returned to the UI rather than silently converted to an empty
-        // result. The master remains available and the user can retry.
-        recoveryService.discoverAssociatedAccounts(master)
+        val result = consolidationEngine.backupMaster(master)
+        check(result.quorumReached) { "Master backup quorum is still unavailable" }
+        appStorage.setSetupComplete()
+        workScheduler?.scheduleConsolidation()
     }
 
     suspend fun addAccount(master: Account, account: Account): Result<Unit> = runCatching {
+        require(secureStorage.getMasterAccount() != null && master.createdAt == secureStorage.getMasterAccount()?.createdAt)
         secureStorage.addAccount(account)
-        val report = backupCoordinator.backupAssociatedAccount(master, account)
-        if (!report.isSuccess) {
-            appStorage.markPendingAccountBackup(account.createdAt, report.failedTargets)
-            retryScheduler?.schedule()
-        }
+        workScheduler?.scheduleAccountBackup(account.createdAt)
     }
+
+    suspend fun consolidateNow(): Result<AccountConsolidationEngine.ConsolidationResult?> = runCatching {
+        consolidationEngine.consolidate(ConsolidationTrigger.MANUAL, force = true)
+    }
+}
+
+interface BackupWorkScheduler {
+    fun scheduleAccountBackup(accountId: Long)
+    fun scheduleConsolidation()
+    fun schedulePendingRetry()
 }

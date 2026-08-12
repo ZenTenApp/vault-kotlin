@@ -2,128 +2,92 @@
 
 ## Purpose and scope
 
-This document specifies the current backup write path for the master account and associated accounts. Backup has two independent targets:
+Vault writes the master and associated accounts independently to Nostr relay and Brave Sync sources. Remote formats remain compatible with the earlier implementation. Backup does not replace the user's obligation to retain the master private key and passphrase.
 
-- **Nostr relays** — encrypted and signed Nostr events; and
-- **Brave Sync** — password records reached using a sync code derived from the master account.
+The default source list and consolidation behavior are documented in [Backup status and consolidation](backup-status-and-reconciliation.md).
 
-The account private-key payload is normalized before it is sent to either target. Only passphrase-protected OpenSSH private keys are accepted; unencrypted keys are rejected. Backup is not a substitute for retaining the master account private key and passphrase.
+## Local-first lifecycle
 
-## Write lifecycle
-
-### Master account during setup
+### Master setup
 
 1. Setup validates and derives the master account.
-2. `SetupService` persists the master account in secure storage.
-3. `AccountBackupCoordinator.backupMaster` writes to every configured target.
-4. Setup completes only if all configured target writes report success.
-5. On any failure, `SetupService` removes the stored master account and clears the setup-complete flag.
+2. `SetupService` stores it using `SecureStorageService`.
+3. `AccountConsolidationEngine.backupMaster` checks and, where absent, writes every enabled source sequentially.
+4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the master.
+5. If quorum fails, the master remains securely stored, setup remains incomplete, and retry does not require reimport.
 
-At present the coordinator is configured for Nostr and Brave Sync. A Nostr write succeeds only after at least one configured relay acknowledges the event. A Brave Sync write succeeds only after its record operation succeeds.
+### Associated-account creation
 
-### Associated account after creation
+1. `AccountService` generates a passphrase-protected Ed25519 OpenSSH key and allocates its `createdAt` identifier.
+2. `SetupService.addAccount` persists the account locally before any remote operation.
+3. WorkManager schedules source-by-source backup.
+4. Failed writes remain pending by account ID and source ID; the local account remains usable.
 
-1. `AccountService` allocates a unique `createdAt` identifier and generates an Ed25519 OpenSSH key pair encrypted with the master account passphrase (`aes256-ctr` with `bcrypt_pbkdf`). Generated keys use the configurable `SshKeyCodec.BCRYPT_PBKDF_ROUNDS` constant, currently set to one round.
-2. `SetupService.addAccount` persists the associated account in secure storage **before** remote work begins.
-3. `AccountBackupCoordinator.backupAssociatedAccount` attempts every target.
-4. If one or more targets fail, `AppStorageService` records the account ID and only the failed target IDs in `pendingAccountBackups`.
-5. `RelayBackupRetryScheduler` requests background retry work.
+## Canonical identifiers
 
-A failed remote write must never remove a successfully created local associated account.
+- Master: `masterkey`
+- Associated account: decimal `createdAt`
 
-## Target-neutral contract
+Presence is determined by identifier only. Consolidation does not decrypt an already-present payload to compare it with local material. Payload decryption and OpenSSH validation happen only when a missing local associated account must be restored.
 
-`AccountBackupCoordinator` calls each `AccountBackupTarget` once per operation and returns a `BackupReport` containing failed target IDs. Target IDs must be unique. The current IDs are:
+## Nostr format
 
-```text
-NOSTR
-BRAVE_SYNC
-```
+| Backup | Kind | `d` tag | Plaintext before NIP-44 |
+| --- | ---: | --- | --- |
+| Master | `37801` | `masterkey` | normalized master OpenSSH private key |
+| Associated | `37802` | decimal `createdAt` | normalized encrypted OpenSSH private key |
 
-The pending queue is target-aware. A later retry writes only destinations that failed previously, rather than duplicating successful writes unnecessarily.
+The event author/signature identity is derived from the master account. The plaintext is a canonical single-line Base64 OpenSSH private-key value. `BackupService` NIP-44 self-encrypts it, then `NostrEventCodec` signs the event.
 
-## Nostr target
+### NIP-42 lifecycle
 
-### Event contract
+`NostrRelayService` creates an authenticated one-shot Quartz connection for source reads and writes:
 
-| Backup             | Nostr kind | `d` tag             | Plaintext before encryption                       |
-| ------------------ | ---------: | ------------------- | ------------------------------------------------- |
-| Master account     |    `37801` | `masterkey`         | normalized master-account OpenSSH private key     |
-| Associated account |    `37802` | decimal `createdAt` | normalized passphrase-encrypted associated-account OpenSSH private key |
+1. Install `RelayAuthenticator` before connecting.
+2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the master-derived Nostr key.
+3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
+4. Keep the connection alive while waiting for AUTH acknowledgement and retry the requested publication on that authenticated connection when necessary.
+5. Require the target relay's `OK` acknowledgement before reporting a confirmed write.
 
-`created_at` on the Nostr event is the publication time in seconds; it is not an associated-account identifier. The event has one `d` tag and is signed by the Nostr identity derived from the master account.
+A relay that does not request NIP-42 proceeds normally. Timeout, rejection, or incomplete authentication is a source failure and cannot satisfy quorum. The two default relay endpoints are `wss://appdata1.zentext.me` and `wss://appdata2.nostr.box`.
 
-### Protection and publish policy
+## Brave Sync format
 
-- The exact plaintext is the single-line Base64 OpenSSH private-key value; it is not PEM and is not wrapped in metadata JSON.
-- `BackupService` uses NIP-44 self-encryption with the master account's derived Nostr private/public key pair.
-- `NostrEventCodec.sign` signs the encrypted event with the same derived Nostr identity.
-- When a relay sends a NIP-42 `AUTH` challenge, the relay transport signs and sends the required kind `22242` challenge response with that same identity, then Quartz resends the pending request or publication after the relay acknowledges it. For an authenticated operation it briefly waits for an immediate challenge after connecting, so a protected relay does not reject the queued event before authentication completes. Relays that do not request authentication continue without an auth event.
-- The relay transport rejects invalid events before publishing.
-- `NostrRelayService.publish` tries up to three times, with an eight-second attempt timeout and a short delay between attempts.
-- A publish is acknowledged when at least one configured relay confirms it. The result retains successful and failed relay URLs for observability.
+The sync code is derived from the parsed master seed by `Seedify.toBraveSyncCode`. Each independently configured server receives its own transport and operation.
 
-### Idempotency
+| Backup | URL | Username | Password |
+| --- | --- | --- | --- |
+| Master | `https://masterkey.zenten/` | `masterkey` | normalized master private key |
+| Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key |
 
-The account ID and kind are stable, but event publication time and encryption make an event write non-byte-identical across attempts. Reconciliation determines backup presence by the canonical `d` tag, not by a previous event ID.
+Records have no notes. Before writing, the service parses the key as Ed25519 OpenSSH. An identical matching record is success; a conflicting matching record fails and is not overwritten.
 
-## Brave Sync target
+## Retry and consolidation
 
-### Record contract
+Account backup, pending retry, and two-phase consolidation are implemented by `AccountConsolidationEngine` and `background/BackupWorkers.kt`. Work is constrained to a connected network, all remote operations are serialized, and periodic consolidation runs hourly.
 
-Brave Sync stores a password record with no notes:
+## Secret handling
 
-| Backup             | URL                           | Username            | Password                                  |
-| ------------------ | ----------------------------- | ------------------- | ----------------------------------------- |
-| Master account     | `https://masterkey.zenten/`   | `masterkey`         | normalized master-account private key     |
-| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized passphrase-encrypted associated-account private key |
+Secure storage contains account private keys and passphrases. Non-secret DataStore state may contain canonical account IDs, source IDs, status/error categories, timestamps, pending-write counters, and checkpoints. It must not contain private keys, passphrases, payloads, sync codes, authentication tokens, or NIP-42 challenges.
 
-The sync code is derived from the parsed master account seed by `Seedify.toBraveSyncCode`.
-
-### Write and duplicate policy
-
-Before a write, the service normalizes and parses the private key to require a valid Ed25519 OpenSSH key. It reads existing records for the derived sync code:
-
-- If no matching URL/username record exists, it creates one.
-- If a matching record contains the identical canonical key and no notes, the operation is treated as successful.
-- If it contains a different value or notes, the operation fails rather than overwriting a potentially conflicting record.
-
-## Retry behavior
-
-`RelayBackupWorker` runs as unique WorkManager work with a connected-network constraint and exponential backoff starting at ten seconds. `RelayBackupRetryService`:
-
-1. migrates legacy relay-only queue entries to the target-aware queue;
-2. removes queue entries whose local account no longer exists;
-3. retries only each pending target;
-4. clears targets that succeed; and
-5. asks WorkManager to retry while attempted work remains unsatisfied.
-
-Periodic reconciliation can also repair confirmed backup gaps; see [Backup status and reconciliation](backup-status-and-reconciliation.md).
-
-## Persistence and secret handling
-
-- Account records, including private keys and the passphrase retained for their OpenSSH encryption, are stored in `SecureStorageService` using `EncryptedSharedPreferences` and an Android Keystore-backed `MasterKey`.
-- Associated-account OpenSSH private keys are encrypted with the master account passphrase before local or remote storage; Nostr additionally encrypts the complete key payload with NIP-44.
-- Retry queues and backup-status cache are non-secret DataStore preferences. They store account IDs, target IDs, status, and timestamps—not private-key payloads.
-- Do not add private-key material, passphrases, derived sync codes, or encrypted event plaintext to logs, analytics, work input data, errors, or status storage.
+Errors, logs, analytics, WorkManager input, and UI status must follow the same restriction.
 
 ## Failure semantics
 
-| Situation                                     | Required behavior                                                    |
-| --------------------------------------------- | -------------------------------------------------------------------- |
-| Master backup target fails during setup       | Roll back local master setup and leave setup incomplete.             |
-| Associated-account target fails               | Preserve local account, record failed target(s), and schedule retry. |
-| Existing Brave record conflicts               | Fail that target; do not overwrite it.                               |
-| Relay rejects or does not complete NIP-42 authentication | Treat that relay as unacknowledged; do not claim a confirmed backup there. |
-| Relay has no acknowledgement after attempts   | Fail Nostr target; do not claim a confirmed relay backup.            |
-| Remote payload cannot be normalized/validated | Fail the operation; never publish malformed private-key material.    |
+| Situation | Behavior |
+| --- | --- |
+| Master quorum unavailable | Retain local master, leave setup incomplete, allow retry. |
+| Associated write fails everywhere | Preserve usable local account and pending source writes. |
+| Initial source index fails | Mark `UNKNOWN`; do not infer absence or write that source in the cycle. |
+| Existing Brave record conflicts | Fail that source; do not overwrite. |
+| NIP-42/relay acknowledgement fails | Fail that relay and do not count it toward quorum. |
+| Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local accounts. |
 
-## Key source locations and tests
+## Key locations
 
-- Target coordination: `app/src/main/java/app/zenten/vault/domain/AccountBackupCoordinator.kt`
-- Nostr event construction: `app/src/main/java/app/zenten/vault/domain/BackupService.kt`
-- Nostr target adapter: `app/src/main/java/app/zenten/vault/domain/NostrAccountBackupTarget.kt`
-- Relay transport: `app/src/main/java/app/zenten/vault/network/nostr/NostrRelayService.kt`
-- Brave target: `app/src/main/java/app/zenten/vault/domain/BraveSyncBackupService.kt`
-- Retry service/worker: `app/src/main/java/app/zenten/vault/domain/RelayBackupRetryService.kt`, `background/RelayBackupWorker.kt`
-- Relevant tests: `domain/BackupRecoveryServiceTest.kt`, `domain/RelayBackupRetryServiceTest.kt`, `network/nostr/NostrEventCodecTest.kt`, and Brave Sync tests under `app/src/test/java/app/zenten/vault/bravesync/`.
+- Engine: `domain/AccountConsolidationEngine.kt`
+- Source adapters: `domain/BackupSourceAdapters.kt`
+- Nostr event construction: `domain/BackupService.kt`
+- Relay transport/authentication: `network/nostr/NostrRelayService.kt`
+- Brave records: `domain/BraveSyncBackupService.kt`
+- Workers: `background/BackupWorkers.kt`

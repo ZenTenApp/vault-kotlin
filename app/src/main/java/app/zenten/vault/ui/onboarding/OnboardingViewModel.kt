@@ -53,6 +53,16 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
+    fun retryStoredMaster() {
+        if (_state.value.inProgress) return
+        _state.value = OnboardingState(inProgress = true, stage = "Retrying master backup…")
+        viewModelScope.launch {
+            setupService.retryMasterBackup()
+                .onSuccess { _state.value = OnboardingState(completed = true, stage = "Setup complete") }
+                .onFailure { error -> _state.value = OnboardingState(error = error.message ?: "Backup quorum is unavailable.", canRetryStoredMaster = true) }
+        }
+    }
+
     fun clearError() { _state.value = OnboardingState() }
 }
 
@@ -61,6 +71,7 @@ data class OnboardingState(
     val completed: Boolean = false,
     val stage: String? = null,
     val error: String? = null,
+    val canRetryStoredMaster: Boolean = false,
 )
 
 private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }

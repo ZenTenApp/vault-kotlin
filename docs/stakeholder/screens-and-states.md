@@ -1,15 +1,17 @@
 # Screens and states
 
-This screen map reflects the Android proof-of-concept navigation. It is a review aid, not final visual design. Add approved screenshots or wireframes beside each section as the UI matures.
+This screen map reflects the current Android proof-of-concept navigation.
 
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
 | Get started | Introduce setup | Start setup | New installation |
-| Set up master account | Provide master account private key and passphrase | Create and back up master account | Validating, setup in progress, invalid input, backup failure |
-| My Accounts | List generated associated accounts | Add account; open account; open backups | Loading, empty, recovering, populated |
-| Create new associated account | Confirm generation of a new account | Create account | Ready, creating, creation error |
-| Account detail | Inspect one associated account | Show/copy private key | Account missing, normal, sensitive-key confirmation, sensitive-key view |
-| Backup Status | View backup coverage | Sync now | No status yet, syncing, destination present/missing/unknown/repair failed |
+| Set up master account | Import master private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
+| My Accounts | List associated accounts and reach master details | Add account; open account; open Master Account | Loading, empty, recovering, populated |
+| Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
+| Account detail | Inspect account and per-source backup state | Show/copy private key | Missing, source checking/writing/present/missing/failed/unknown |
+| Master Account | Inspect master and per-source backup state | Retry/consolidate as available | Quorum/status rows, checking, partial, failure |
+
+The former global **Backup Status** screen and navigation destination have been removed. Backup information is attached to the account it describes.
 
 ## Navigation map
 
@@ -18,62 +20,44 @@ flowchart TD
     R[App launch] --> S{Setup complete?}
     S -- No --> G[Get started]
     G --> M[Set up master account]
-    M -- Setup succeeds --> A[My Accounts]
+    M -- Quorum succeeds --> A[My Accounts]
+    M -- Quorum unavailable --> M
     S -- Yes --> A
-    A --> N[Create new associated account]
+    A --> N[Create associated account]
     N --> A
     A --> D[Account detail]
-    D --> A
-    A --> B[Backup Status]
+    A --> MA[Master Account]
 ```
 
-## Review notes by screen
+## Review notes
 
 ### Set up master account
 
-- The user pastes the master account private key and enters its passphrase.
-- The screen must not echo secret values in an error message.
-- The action remains unavailable while setup is running.
-- The app protects this screen from screenshots on supported Android devices.
-- Current proof-of-concept copy refers to protected remote backup; final stakeholder copy should avoid unexplained protocol names.
+- The screen accepts a passphrase-protected Ed25519 OpenSSH master key.
+- On remote quorum failure, the imported master remains securely stored and retry does not require re-entry.
+- Errors distinguish missing relay versus Brave coverage without including secret data.
+- The screen remains protected from screenshots where supported.
 
 ### My Accounts
 
-- Only generated associated accounts appear in the routine list; the master account is intentionally not listed as a normal account.
-- An empty state directs the user to create their first associated account.
-- While backup discovery runs, the user receives a clear progress or outcome message. Every valid discovered associated account is restored automatically.
-- The current proof of concept displays creation IDs as labels. Any friendlier naming feature requires a separate approved product decision.
+- Associated accounts only are listed as routine accounts.
+- A separate Master Account action opens master source status.
+- Automatic restoration occurs during consolidation; valid missing accounts appear after secure local persistence.
 
-### Create new associated account
+### Create associated account
 
-- Explain that a new SSH key pair will be generated.
-- Make clear that the account is stored locally first and backups may continue afterward.
-- Provide a visible creation failure and a safe way to cancel.
+- The account is stored locally before remote backup begins.
+- Remote failures do not remove or disable the account.
+- The UI should make clear that source backup may continue in the background.
 
-### Account detail and private-key confirmation
+### Account detail and Master Account
 
-- Public-key information and fingerprint are shown in the normal state.
-- Private-key disclosure requires an immediate confirmation.
-- The confirmation warns that anyone with the private key can use that account.
-- The private-key view must be treated as sensitive: prevent screenshots where supported and avoid exposing content through notifications/logging.
+Each fixed source has its own row and live state: present, write confirmed, missing, checking, backing up, failed, or unknown. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
 
-### Backup Status
+### Sensitive private-key access
 
-- The screen shows the master account and each associated account with coverage across configured backup destinations.
-- **Present** means the app has confirmed the destination contains a copy.
-- **Missing** means the app did not confirm a copy at that destination.
-- **Unknown** means the app does not have sufficiently current information; it is not the same as failure.
-- **Repair failed** means a repair attempt did not succeed and should lead to a clear retry/help message in the production UI.
+Private-key disclosure requires immediate confirmation, warning, secure-window protection, and safe copy feedback. Backup status does not weaken those controls.
 
-## States that require client approval
+## States requiring client approval
 
-Before release, stakeholders should review final content and behavior for:
-
-- wrong passphrase and invalid-key messages;
-- initial backup unavailable during setup;
-- offline creation and later backup retry;
-- automatic restoration when accounts are discovered during recovery;
-- no accounts discovered during recovery;
-- partial versus unknown backup coverage;
-- account-not-found behavior; and
-- private-key warning and copy feedback.
+Before release, review final wording and behavior for quorum failure/retry, offline account creation, automatic restoration, partial and unknown source coverage, source authentication failure, account-not-found handling, and private-key warnings.

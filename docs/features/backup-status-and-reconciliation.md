@@ -1,125 +1,87 @@
-# Backup status and reconciliation
+# Backup status and consolidation
 
-## Purpose and scope
+## Purpose
 
-Reconciliation is the periodic or user-initiated process that checks every configured backup destination, automatically imports newly discovered valid associated accounts, records coverage status, and repairs confirmed gaps.
+Vault consolidates account backups across independently addressed sources. A cycle restores missing local accounts from every trusted source before filling confirmed gaps at any source.
 
-This process is implemented by `BackupSyncService`. It is distinct from the immediate write path: immediate backup attempts to publish a newly created account, while reconciliation verifies what destinations actually contain and repairs missing coverage.
+The fixed default sources, in processing order, are:
 
-## Triggers and concurrency
-
-- The **Sync now** action on the Backup Status screen calls `sync(force = true)`.
-- The periodic `BackupReconcileWorker` calls `sync()` every 15 minutes when WorkManager has network connectivity.
-- A five-minute in-process cooldown applies to non-forced sync requests.
-- A coroutine `Mutex` makes synchronization single-flight: one sync cannot run concurrently with another in the same process.
-- A forced request bypasses the five-minute cooldown but still waits for the single-flight lock; it does not perform concurrent reconciliation.
-
-If no master account is stored, synchronization returns without a result.
-
-## Inventory model
-
-At the start of a run, the service builds a local inventory:
-
-```text
-masterkey -> stored master account
-<createdAt> -> each stored associated account
-```
-
-`masterkey` is the canonical identifier for master-account backup status. Each associated account uses its decimal `createdAt` value. This inventory can grow during the same run when remote discovery finds valid associated accounts.
-
-Coverage is recorded for every inventory ID and every expected destination:
-
-- one `nostr:<relay URL>` destination per configured relay; and
-- one `brave-sync` destination.
-
-## Relay reconciliation algorithm
-
-For each configured relay, the service requests master events of kind `37801` and associated-account events of kind `37802`, constrained to the master account's derived Nostr public key.
-
-### Relay request fails
-
-If either request fails or times out:
-
-- the relay presence set is unknown; and
-- every account's status at that relay is `UNKNOWN`.
-
-A failed check is never interpreted as a missing backup.
-
-### Relay request succeeds
-
-1. The service recognizes a master backup only when an event has the canonical `d` tag `masterkey`.
-2. It recognizes associated-account candidates only when the `d` tag is numeric.
-3. For every discovered associated-account ID that is not already local, it validates and decodes the event before automatically storing the account.
-4. Every known inventory ID is marked `PRESENT` if the relay returned that canonical ID; otherwise it is marked `MISSING`.
-
-The service preserves each relay's raw presence set during the run. When a new account is discovered after another source has already been checked, it backfills that account's earlier source statuses from those stored presence sets. This avoids leaving late discoveries without coverage entries.
-
-## Brave Sync reconciliation algorithm
-
-The service checks the master record with `hasMasterBackup(master)` and discovers associated accounts with `discoverAssociatedAccounts(master)`.
-
-- If either operation fails, all account statuses at `brave-sync` are `UNKNOWN`.
-- If both succeed, the master record contributes `masterkey` when present.
-- Valid discovered associated accounts are added automatically when not already local.
-- Every inventory ID is then marked `PRESENT` or `MISSING` at Brave Sync from the discovered canonical ID set.
-
-Brave Sync discovery validates record structure and private-key content before it contributes an account. Invalid records and decryption failures do not become local accounts.
-
-## Automatic recovery during reconciliation
-
-Reconciliation is also a recovery trigger. A valid associated account found at any successfully checked destination is persisted immediately if its ID is not already in secure storage. The user is not asked to select discovered accounts; all valid unique accounts are restored automatically.
-
-An account found from one source is added to the inventory and compared with all sources checked in that same pass. The service does not overwrite an already-local account with a remote record.
-
-For the validation rules applied to relay recovery candidates, see [Automatic account recovery](automatic-account-recovery.md).
-
-## Coverage states
-
-| State | Assigned when | Repair eligible? |
+| Label | Type | Endpoint |
 | --- | --- | --- |
-| `PRESENT` | A successfully checked destination contains the canonical backup ID. | No |
-| `MISSING` | A successfully checked destination does not contain the canonical backup ID. | Yes |
-| `UNKNOWN` | The destination could not be checked successfully. | No |
-| `REPAIR_FAILED` | A repair write for a `MISSING` record failed. | A later run may retry after checking again. |
+| appdata1 | Nostr relay | `wss://appdata1.zentext.me` |
+| appdata2 | Nostr relay | `wss://appdata2.nostr.box` |
+| zenten sync | Brave Sync | `https://sync-v2.zenten.app/litesync` |
+| brave sync | Brave Sync | `https://sync-v2.brave.com/v2` |
 
-The Backup Status screen currently renders these states as symbols. Status data also includes `checkedAtMillis`, the time the reconciliation result was stored.
+Defaults are enabled, trusted for restore, count toward master quorum, and cannot be removed or disabled. `BackupSourceRepository` supports persisted custom Nostr and Brave-compatible sources, but source-management UI is not implemented yet.
 
-## Repair algorithm
+## Sequential execution
 
-After discovery and coverage calculation, the service repairs only `MISSING` destinations:
+`AccountConsolidationEngine` protects all remote backup operations with one process-wide mutex. Sources are processed in stable order, one at a time. Accounts within each source are also processed one at a time; remote network operations are never deliberately concurrent.
 
-- For a missing Nostr destination, it builds the appropriate master or associated-account event and publishes directly to that relay.
-- For a missing Brave Sync destination, it writes the master or associated-account record through `BraveSyncBackupService`.
+## Phase 1: index and restore
 
-On a successful repair, the in-memory state becomes `PRESENT`. On failure, it becomes `REPAIR_FAILED`. The updated status list is saved to `AppStorageService`; a future sync checks the destination again rather than assuming the repair persisted.
+For every enabled source:
 
-`UNKNOWN` destinations are never repaired during that run because the app cannot distinguish an outage from an absent backup.
+1. Index canonical IDs on that source.
+2. A failed index marks status `UNKNOWN`; failure does not prove an account is absent.
+3. A successful index records `masterkey` and decimal associated-account IDs.
+4. Existing local accounts are compared by canonical ID only. Their remote payloads are not decrypted or compared.
+5. For an associated ID missing locally, candidates are tried newest-first until one decrypts and validates.
+6. A valid recovered account is saved immediately and becomes part of the inventory considered for later sources.
 
-## Persistence
+The master is indexed but never restored remotely. The user must retain and import the master private key and passphrase.
 
-`AppStorageService.setBackupStatuses` writes the non-secret status cache to DataStore. Each `AccountBackupStatus` includes:
+Custom-source restoration requires both `restoreEnabled` and `trustedForRestore`; untrusted sources can still be indexed for status and backup repair.
 
-```text
-accountId             canonical account ID, including masterkey
-checkedAtMillis       reconciliation completion/check time
-Destinations[]        destination ID, display label, and coverage state
-```
+## Phase 2: backup and read-back
 
-Private keys, passphrases, and remote encrypted payloads must never be added to this cache.
+Only after all phase-1 source reads finish:
 
-## Operational limits and current limitations
+1. Retain each successful phase-1 index; do not refresh it before writes.
+2. Compare that snapshot with the complete local inventory, including accounts restored from later sources.
+3. Write the master first, then associated accounts in local registry order, only when the canonical ID is absent.
+4. Continue after individual write failures and persist pending writes without secret payloads.
+5. Update the retained in-memory presence set after each acknowledgement.
+6. Perform one final read-back for each successfully indexed source after its writes.
 
-- The reconciliation worker uses WorkManager's 15-minute minimum periodic interval and requires a connected network; timing is ultimately controlled by Android.
-- Cooldown and single-flight protection are process-local. They do not coordinate work across separate process lifetimes beyond WorkManager's unique periodic work.
-- The UI lacks full text equivalents, per-destination retry, last-checked display, and detailed remediation guidance.
-- Relay coverage recognizes canonical `d` tags. It does not interpret a remote event as present solely because its event ID exists.
-- Current destination configuration is code/configuration driven; the UI does not provide destination editing.
+An acknowledged write is `WRITE_CONFIRMED`. A successful final read-back upgrades returned IDs to `PRESENT`. A source whose initial index failed remains `UNKNOWN` and is not written in that cycle.
 
-## Key source locations and tests
+## Per-source states
 
-- Reconciliation: `app/src/main/java/app/zenten/vault/domain/BackupSyncService.kt`
-- Periodic worker: `app/src/main/java/app/zenten/vault/background/BackupReconcileWorker.kt`
-- Backup status UI: `app/src/main/java/app/zenten/vault/ui/backup/`
-- Status persistence: `app/src/main/java/app/zenten/vault/data/kv/AppStorageService.kt`
-- Relay transport: `app/src/main/java/app/zenten/vault/network/nostr/NostrRelayService.kt`
-- Relevant tests: `app/src/test/java/app/zenten/vault/domain/BackupRecoveryServiceTest.kt` and `StartupRetrySchedulerTest.kt`.
+| State | Meaning |
+| --- | --- |
+| `PRESENT` | A successful source read confirmed the canonical ID. |
+| `WRITE_CONFIRMED` | The source acknowledged a write; later read-back has not confirmed it. |
+| `MISSING` | A successful source read did not contain the canonical ID. |
+| `CHECKING` | Source indexing is in progress. |
+| `BACKING_UP` | A write is in progress. |
+| `BACKUP_FAILED` | The most recent write failed. |
+| `UNKNOWN` | The source could not be checked conclusively. |
+
+Account details show live rows for each source. Master status is shown on the dedicated Master Account screen. The former global Backup Status destination has been removed.
+
+Persisted status contains account IDs, source IDs, state, coarse error category, and timestamps only. It must never contain private keys, passphrases, encrypted payloads, Brave sync codes/authentication values, or NIP-42 challenges.
+
+## Master setup quorum
+
+Setup attempts all enabled sources sequentially. The master is retained in secure local storage even when remote quorum fails. Setup completes only when at least one quorum-eligible Nostr source and at least one quorum-eligible Brave Sync source already contain or successfully accept the master. The user can retry without reimporting the master.
+
+## Scheduling and interruption
+
+- Associated-account creation saves locally first, then enqueues account backup.
+- A one-hour periodic worker invokes consolidation.
+- Consolidation uses a one-hour freshness threshold when there are no pending writes.
+- A persisted checkpoint identifies the active cycle, trigger, phase, source, and account without storing secrets.
+- A later run is safe to repeat because presence is determined by canonical IDs.
+
+## Source locations and tests
+
+- Source model/defaults: `domain/BackupSources.kt`
+- Source persistence: `domain/BackupSourceRepository.kt`
+- Adapters: `domain/BackupSourceAdapters.kt`
+- Orchestration: `domain/AccountConsolidationEngine.kt`
+- Workers: `background/BackupWorkers.kt`
+- Status persistence: `data/kv/AppStorageService.kt`
+- UI: `ui/accounts/AccountDetailScreen.kt`, `ui/master/MasterAccountDetailScreen.kt`
+- Core tests: `domain/AccountConsolidationEngineTest.kt`, `domain/BackupSourceRepositoryTest.kt`, `data/kv/AppStorageServiceTest.kt`

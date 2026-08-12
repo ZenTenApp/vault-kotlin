@@ -1,7 +1,7 @@
 package app.zenten.vault.di
 
-import app.zenten.vault.background.WorkManagerRelayBackupRetryScheduler
-import app.zenten.vault.domain.RelayBackupRetryScheduler
+import app.zenten.vault.background.WorkManagerBackupWorkScheduler
+import app.zenten.vault.domain.BackupWorkScheduler
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -12,5 +12,5 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class BackgroundModule {
     @Binds @Singleton
-    abstract fun retryScheduler(implementation: WorkManagerRelayBackupRetryScheduler): RelayBackupRetryScheduler
+    abstract fun backupWorkScheduler(implementation: WorkManagerBackupWorkScheduler): BackupWorkScheduler
 }

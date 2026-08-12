@@ -1,47 +1,57 @@
 # Backup and recovery
 
-## What backup means in ZenTen Vault
+## What backup means
 
-After setup, ZenTen Vault attempts to keep protected copies of the master account material and each generated associated account at more than one configured backup destination. The purpose is to reduce dependence on one device or one remote service.
+ZenTen Vault stores protected copies of the master and generated associated accounts at four independent default sources: two Nostr relays and two Brave Sync-compatible servers. A newly generated associated account is always saved on the device first, so it remains visible and usable even if every remote write fails.
 
-The app saves a newly generated associated account locally before it starts remote backup work. This means a user can see and use the account right away, while backup completion may still be in progress.
+Remote work is sequential rather than simultaneous. One unavailable service does not stop the app from trying later sources.
 
-## What a user must retain
+## What users must retain
 
-For recovery on another device, the user must retain both:
+Recovery requires both:
 
-1. the private key for the master account used during setup; and
-2. that account's passphrase.
+1. the master account private key used during setup; and
+2. its passphrase.
 
-The app does not replace these items with a username, email address, device PIN, biometric check, or customer-support process.
+The app cannot replace these with email, a device PIN, biometrics, or customer support. Losing either means this recovery method cannot recreate the vault.
 
-> If the user loses the master account private key or its passphrase, ZenTen Vault cannot use this recovery method to recreate them.
+## Setup protection level
+
+The app attempts all four sources. Initial setup completes when the master is confirmed on at least:
+
+- one eligible Nostr relay; and
+- one eligible Brave Sync server.
+
+If that minimum is unavailable, the app keeps the validated master securely on the device and offers retry without making the user paste it again. It does not falsely mark setup complete.
 
 ## Recovery expectation
 
-With the same master account private key and passphrase, a user can establish the same vault identity on a new device. The app then looks for protected backup copies of associated accounts and automatically restores every valid account it discovers.
+On a new device, the user imports the same master key and passphrase. The app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
 
-Recovery can be affected by network availability, backup-destination availability, configuration, and whether a backup copy was successfully created before the original device was lost. It must therefore be described as an attempt to discover and automatically restore available accounts, not as an unconditional guarantee.
+Recovery availability depends on network and service availability and whether at least one valid copy was previously created. It is not an unconditional guarantee.
 
-## Understanding backup status
+## Understanding source status
 
-| Status | What it means | Suggested user action |
+Status appears per source in associated-account details and on a dedicated Master Account screen. There is no global Backup Status screen.
+
+| Status | Meaning | Suggested action |
 | --- | --- | --- |
-| Healthy / present | The app has confirmed expected backup coverage. | No action needed; check periodically. |
-| Partial | At least one backup copy is known, but another expected destination is not confirmed. | Review the affected destination and retry. |
-| Missing | The app has not confirmed a backup copy at any expected destination. | Check connection/configuration and retry promptly. |
-| Unknown | The app has no sufficiently recent information to make a conclusion. | Refresh status; do not assume this is a failure. |
-| Repair failed | An attempt to restore missing coverage did not succeed. | Retry after resolving connection or destination issues. |
+| Present | A read confirmed this account ID at this source. | None. |
+| Write confirmed | The source acknowledged a write; read-back may still be pending. | Usually none; refresh later. |
+| Missing | A successful check did not find this account ID. | Retry/consolidate. |
+| Checking / Backing up | Work is currently in progress. | Wait. |
+| Backup failed | The latest write failed. | Check connectivity and retry. |
+| Unknown | The source could not be checked conclusively. | Refresh; do not assume the copy is absent. |
 
-The proof-of-concept screen currently presents per-destination markers. The final product should pair them with clear text, last-checked time, and accessible descriptions.
+Background consolidation runs hourly, subject to network availability, and avoids unnecessary rechecks when fresh and no writes are pending.
 
-## Current app limitation
+## Privacy expectations
 
-The current app does not provide account deletion or vault-reset actions. Remote-backup retention and remote-deletion behavior are therefore not user-facing flows in the current release.
+Operational status records contain source/account identifiers, state, coarse error categories, and timestamps—not private keys, passphrases, backup payloads, sync codes, authentication tokens, or relay challenges. User-facing and support diagnostics must preserve this boundary.
 
-## Stakeholder decisions to confirm
+## Current limitations
 
-- Which backup destinations are shown by name in user-facing material.
-- The final wording for healthy, partial, missing, and unknown coverage.
-- How long the app should retry and how users are notified of a problem.
-- The support guidance shown when a user has lost master account recovery material.
+- Default sources cannot be removed or disabled.
+- Architecture supports future custom compatible sources, but no source-management screen exists yet.
+- The app does not currently provide account deletion or vault reset; remote deletion/retention is therefore not a user-facing flow.
+- Remote backup cannot recover lost master material.

@@ -1,115 +1,70 @@
 # Automatic account recovery
 
-## Purpose and scope
+## Purpose
 
-Automatic account recovery rebuilds local associated-account records from remote backups after a user sets up the vault with the same master account private key and passphrase. It does not recover the master account itself: the user must supply that material again during setup.
+After the user imports the same master account, source consolidation restores every valid remotely backed-up associated account that is absent locally. The master itself is never recovered remotely: the user must supply its private key and passphrase.
 
-All valid discovered associated accounts are restored automatically. There is no selection screen, pending-restore state, or manual restore action.
+## Trigger and ordering
 
-## Recovery triggers
+A successful master-quorum setup schedules immediate consolidation. Consolidation also runs periodically once per hour and can be invoked manually. `AccountConsolidationEngine` serializes all remote work and completes its restore phase across all sources before starting any backup repair.
 
-Recovery is invoked in two places:
+For each enabled source in stable order:
 
-1. **After successful master-account setup.** `SetupService.recoverExistingAccounts()` loads the stored master account and delegates to `RecoveryService.discoverAssociatedAccounts`. It is intentionally separate from the setup transaction so the account-list UI can report progress while remote services respond.
-2. **During backup reconciliation.** `BackupSyncService.sync()` discovers associated accounts while inspecting each remote destination and stores any valid account that is not already local.
+1. Index master and associated canonical IDs.
+2. Compare IDs with current local secure storage.
+3. For IDs already local, do not decrypt or compare payloads.
+4. For each associated ID absent locally on a trusted restore-enabled source, try duplicate candidates newest-first.
+5. Decrypt and validate candidates only until one produces a valid passphrase-protected Ed25519 OpenSSH account.
+6. Save a valid account immediately. Later sources see it as local and do not overwrite it.
 
-A recovery failure does not remove the already-established master account or mark setup incomplete. It is returned to the UI/worker path so a later sync can retry.
+A failed source does not prevent later sources from restoring accounts. Invalid records are skipped. Recovery never overwrites an existing local account.
 
-## Prerequisites
+## Nostr validation
 
-Recovery requires:
+A Nostr candidate is eligible only when:
 
-- a locally stored master account;
-- the derived master Nostr identity for relay discovery/decryption;
-- availability of at least one configured remote destination containing a valid backup; and
-- a valid encrypted private-key payload for each recovered associated account.
+- the event signature is valid;
+- kind is `37802`;
+- author matches the master-derived Nostr public key;
+- the single `d` tag is a decimal associated-account ID;
+- NIP-44 self-decryption succeeds; and
+- the decrypted value normalizes and parses as an Ed25519 OpenSSH private key with the retained master passphrase.
 
-The original master account private key and its passphrase remain mandatory user-held recovery material. The app cannot recreate either item from a remote associated-account backup.
+Source reads use NIP-42 authentication on the same connection when a relay challenges the client.
 
-## Direct discovery flow
+## Brave Sync validation
 
-`RecoveryService.discoverAssociatedAccounts(master)` performs the post-setup discovery path:
+A Brave candidate is eligible only when:
 
-1. It requires the master account's Nostr identity.
-2. It fetches Nostr events authored by the master Nostr public key with kind `37802`.
-3. It loads existing associated-account IDs from secure storage.
-4. It validates and decodes each relay event.
-5. For each valid account ID not already local, it writes the account to secure storage and records it in the recovery result.
-6. If Brave Sync is configured, it independently calls `BraveSyncBackupService.discoverAssociatedAccounts`.
-7. Valid Brave Sync accounts not already local are stored; duplicate IDs are ignored.
-8. The result reports recovered accounts, invalid/skipped record IDs, relay event count, Brave record count, and Brave decryption-failure count.
+- username is a decimal account ID;
+- URL is exactly `https://<accountId>.zenten/`;
+- notes are empty; and
+- password normalizes and parses as an Ed25519 OpenSSH private key with the retained master passphrase.
 
-The service accepts records from either source. A failure in the optional Brave discovery path is contained with `runCatching`; relay recovery can still return its valid results.
+Each Brave-compatible server is queried independently with the master-derived sync code.
 
-## Nostr candidate validation
+## Duplicate behavior
 
-A relay event becomes an associated account only when all checks below succeed:
+Presence is ID-only. Duplicate remote candidates for a missing ID are sorted newest-first and attempted defensively until one validates. Once an account is restored locally, candidates for the same ID on later sources are not decrypted. Local records are authoritative and never replaced by remote payload differences.
 
-1. `NostrEventCodec.isValid(event)` verifies event integrity/signature validity.
-2. The event kind is exactly `37802`.
-3. The event author is exactly the master account's derived Nostr public key.
-4. There is exactly one usable `d` tag, and its value is non-blank decimal text.
-5. The content decrypts successfully using NIP-44 self-decryption with the master account's derived Nostr keys.
-6. The decrypted private-key payload is non-blank.
+## Security and persistence
 
-The resulting local record uses the numeric `d` tag as `createdAt` and the decrypted value as `zenTenKey`. A candidate that fails any check is skipped and its event ID is included in the skipped-result list.
-
-> Implementation note: the direct Nostr recovery path currently requires a non-blank decrypted payload. Broader OpenSSH normalization/parse validation is enforced on backup writes and Brave Sync discovery. Production hardening should make validation consistent across all discovery paths before release.
-
-## Brave Sync candidate validation
-
-`BraveSyncBackupService.discoverAssociatedAccounts` considers each password record valid only when:
-
-1. its username parses as a numeric account ID;
-2. its URL is exactly `https://<accountId>.zenten/`;
-3. its notes field is empty; and
-4. its password normalizes and parses as a valid Ed25519 OpenSSH private key.
-
-Valid records become local associated accounts using the username as `createdAt`. Invalid records are skipped and their record IDs are reported. Brave Sync decryption failures are counted separately.
-
-The master Brave record uses `masterkey` and is checked for coverage, not restored as an associated account.
-
-## Duplicate and conflict behavior
-
-- Local account IDs form the authoritative duplicate set for a recovery pass.
-- A discovered account is added only when its `createdAt` ID is not already local.
-- If the same ID appears from both relays and Brave Sync, the first valid source added wins for that run; later duplicates are ignored.
-- Recovery never overwrites an existing local associated account with remote material.
-- Invalid remote records never alter local accounts.
-
-## Secure persistence
-
-Recovered associated accounts are stored through `SecureStorageService.addAccount`, which writes encrypted account records and appends the ID to the registry once. Recovery status/progress metadata belongs in non-secret app state; private keys and decrypted event contents must not be placed in logs, analytics, or DataStore status caches.
-
-## UI behavior
-
-The Accounts screen refreshes on resume and can show that recovery is in progress or report the recovery outcome. The feature currently has no user choice over which discovered accounts are added. The production UI should make automatic restoration and failures clear without revealing private-key material.
+Recovered accounts are written only through `SecureStorageService`. Status, pending writes, and checkpoints store IDs and coarse operational metadata only. Decrypted payloads, passphrases, sync codes, auth tokens, and NIP-42 challenges must not be logged or persisted outside secure account storage.
 
 ## Failure semantics
 
-| Situation                                                                                | Behavior                                                                           |
-| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| No master account is available                                                           | Recovery fails; account operations should not proceed as if recovery succeeded.    |
-| Relay query returns no matching valid records                                            | Recovery completes with no relay accounts.                                         |
-| Relay event is malformed, invalid, wrong author/kind, cannot decrypt, or has unusable ID | Skip it and continue with other candidates.                                        |
-| Brave record is malformed or key parsing fails                                           | Skip it and continue with other records.                                           |
-| Brave discovery call fails in direct recovery                                            | Keep relay recovery results; Brave contributes no recovered accounts in that pass. |
-| Same account exists locally                                                              | Do not overwrite or duplicate it.                                                  |
+| Situation | Behavior |
+| --- | --- |
+| No local master | Consolidation does not run. |
+| Source index fails | Mark source status unknown and continue. |
+| No matching valid record | Restore nothing and continue. |
+| Newest duplicate is invalid | Try the next candidate for that ID. |
+| Same ID already exists locally | Do not decrypt, overwrite, or duplicate it. |
+| One source fails | Continue sequentially with remaining sources. |
 
-## Current limitations
+## Key locations and tests
 
-- Automatic restoration has no approval/selection interface by design.
-- The final recovery-progress, error, and accessibility experience needs end-to-end product validation.
-- The current app has no associated-account deletion or vault-reset action.
-- Recovery cannot recreate a lost master account private key or passphrase.
-- Relay candidate private-key validation should be strengthened to match the strict normalization/parsing already used for Brave Sync candidates.
-
-## Key source locations and tests
-
-- Direct recovery: `app/src/main/java/app/zenten/vault/domain/RecoveryService.kt`
-- Setup handoff: `app/src/main/java/app/zenten/vault/domain/SetupService.kt`
-- Reconciliation recovery: `app/src/main/java/app/zenten/vault/domain/BackupSyncService.kt`
-- Secure storage: `app/src/main/java/app/zenten/vault/data/secure/SecureStorageService.kt`
-- Brave Sync validation: `app/src/main/java/app/zenten/vault/domain/BraveSyncBackupService.kt`
-- UI progress: `app/src/main/java/app/zenten/vault/ui/accounts/`
-- Relevant tests: `app/src/test/java/app/zenten/vault/domain/BackupRecoveryServiceTest.kt` and `app/src/test/java/app/zenten/vault/domain/AccountServiceTest.kt`.
+- Orchestration: `domain/AccountConsolidationEngine.kt`
+- Source adapters/validation: `domain/BackupSourceAdapters.kt`
+- Secure storage: `data/secure/SecureStorageService.kt`
+- Core sequencing tests: `domain/AccountConsolidationEngineTest.kt`

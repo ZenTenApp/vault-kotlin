@@ -29,9 +29,9 @@ class NostrEventCodecTest {
     }
 
     @Test
-    fun default_relays_are_the_poc_hardcoded_set() {
+    fun default_relays_are_the_two_privileged_backup_relays() {
         assertEquals(
-            listOf("wss://appdata1.zentext.me", "wss://relay.damus.io", "wss://relay.primal.net", "wss://nos.lol"),
+            listOf("wss://appdata1.zentext.me", "wss://appdata2.nostr.box"),
             NostrRelayService.DEFAULT_RELAYS,
         )
     }

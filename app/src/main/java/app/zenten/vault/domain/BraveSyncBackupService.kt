@@ -15,12 +15,35 @@ import kotlinx.coroutines.withContext
  */
 class BraveSyncBackupService(
     private val passwordService: BravePasswordService = BravePasswordService(),
-) : AccountBackupTarget {
-    override val id = BackupTargetId.BRAVE_SYNC
-    override suspend fun backupMaster(master: Account): Result<Unit> = backup(master, MASTER_ACCOUNT_ID)
+) {
+    suspend fun backupMaster(master: Account): Result<Unit> = backup(master, MASTER_ACCOUNT_ID)
 
-    override suspend fun backupAssociatedAccount(master: Account, account: Account): Result<Unit> =
+    suspend fun backupAssociatedAccount(master: Account, account: Account): Result<Unit> =
         backup(master, account.createdAt.toString(), account)
+
+    /** Lists decrypted record metadata/payloads. SSH key parsing remains deferred to restoration. */
+    suspend fun listRecords(master: Account): Result<BravePasswordService.ListResult> = withContext(Dispatchers.IO) {
+        runCatching { passwordService.list(syncCode(master)) }
+    }
+
+    fun accountId(entry: BravePasswordService.Password): String? = when {
+        entry.username == MASTER_ACCOUNT_ID && entry.url == accountUrl(MASTER_ACCOUNT_ID) && entry.notes.isEmpty() -> MASTER_ACCOUNT_ID
+        entry.username.toLongOrNull() != null && entry.url == accountUrl(entry.username) && entry.notes.isEmpty() -> entry.username
+        else -> null
+    }
+
+    fun decodeAssociatedAccount(master: Account, entry: BravePasswordService.Password): Account? = runCatching {
+        val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
+        val passphrase = requireNotNull(master.zenTenPass)
+        val key = canonicalKey(entry.password, passphrase.toCharArray())
+        val parsed = SshKeyCodec.parse(key, passphrase.toCharArray())
+        Account(
+            createdAt = accountId,
+            zenTenKey = key,
+            zenTenPass = passphrase,
+            pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
+        )
+    }.getOrNull()
 
     /** Checks the master record separately because normal recovery deliberately restores associated accounts only. */
     suspend fun hasMasterBackup(master: Account): Result<Boolean> = withContext(Dispatchers.IO) {
@@ -40,27 +63,13 @@ class BraveSyncBackupService(
         val valid = mutableListOf<Account>()
         val skipped = mutableListOf<String>()
         discovered.passwords.forEach { entry ->
-            val accountId = entry.username.toLongOrNull()
-            if (accountId == null || entry.url != accountUrl(entry.username) || entry.notes.isNotEmpty()) {
+            val accountId = accountId(entry)?.toLongOrNull()
+            if (accountId == null) {
                 skipped += entry.id
                 return@forEach
             }
-            val passphrase = master.zenTenPass ?: run {
-                skipped += entry.id
-                return@forEach
-            }
-            val key = runCatching { canonicalKey(entry.password, passphrase.toCharArray()) }.getOrNull()
-            if (key == null) {
-                skipped += entry.id
-                return@forEach
-            }
-            val parsed = SshKeyCodec.parse(key, passphrase.toCharArray())
-            valid += Account(
-                createdAt = accountId,
-                zenTenKey = key,
-                zenTenPass = passphrase,
-                pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
-            )
+            val account = decodeAssociatedAccount(master, entry)
+            if (account == null) skipped += entry.id else valid += account
         }
         RecoveryResult(valid, skipped, discovered.decryptionFailures, discovered.passwords.size)
     }

@@ -8,8 +8,9 @@ import app.zenten.vault.bravesync.proto.SyncMessages
 import app.zenten.vault.bravesync.transport.BraveSyncTransport
 
 /** App-facing, password-only Brave Sync API. Instances retain keys only in memory. */
-class BravePasswordService {
-    private val transport = BraveSyncTransport()
+class BravePasswordService(
+    private val transport: BraveSyncTransport = BraveSyncTransport(),
+) {
 
     data class Note(val value: String, val hidden: Boolean = false)
     data class Password(val id: String, val version: Long, val clientTagHash: String, val url: String, val username: String, val password: String, val notes: List<Note>)

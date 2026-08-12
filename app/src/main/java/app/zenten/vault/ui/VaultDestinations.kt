@@ -25,8 +25,8 @@ object VaultDestinations {
     /** Create new associated account. */
     const val NEW_ACCOUNT = "new-accounts"
 
-    /** Per-account coverage across relays and backup providers. */
-    const val BACKUP_STATUS = "backup-status"
+    /** Master account and its per-source backup coverage. */
+    const val MASTER_ACCOUNT = "master-account"
 
     fun accountDetail(id: Long): String = "accounts/$id"
 }

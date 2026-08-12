@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import java.util.UUID
@@ -95,11 +94,23 @@ class NostrRelayService(
         require(NostrEventCodec.isValid(event)) { "Refusing to publish an invalid Nostr event" }
         val relay = NormalizedRelayUrl(relayUrl)
         val accepted = withClient(authPrivateKey) { client ->
-            withTimeoutOrNull(timeoutMillis) {
-                client.publishAndConfirmDetailed(event.toQuartzEvent(), setOf(relay), timeoutMillis)[relay] == true
-            } ?: false
+            var accepted = false
+            var attempt = 0
+            // Keep the same authenticated connection for retries. A protected relay may reject
+            // the first EVENT while its NIP-42 challenge is being signed; RelayAuthenticator
+            // records the AUTH OK and Quartz resynchronizes filters on this same connection.
+            while (!accepted && attempt < maxAttempts) {
+                attempt++
+                accepted = withTimeoutOrNull(timeoutMillis) {
+                    client.publishAndConfirmDetailed(event.toQuartzEvent(), setOf(relay), timeoutMillis)[relay] == true
+                } ?: false
+                if (!accepted && attempt < maxAttempts) delay(AUTH_RETRY_DELAY_MILLIS)
+            }
+            accepted
         }
-        check(accepted) { "Relay did not acknowledge backup: $relayUrl" }
+        if (!accepted) {
+            throw SecurityException("Relay authentication or acknowledgement failed: $relayUrl")
+        }
     }
 
     override suspend fun fetchByRelay(relayUrl: String, authorPubkey: String, kind: Int): Result<List<NostrEvent>> =
@@ -164,10 +175,9 @@ class NostrRelayService(
         val authenticator = authPrivateKey?.let { privateKey ->
             val signer = NostrSignerInternal(KeyPair(privKey = privateKey))
             RelayAuthenticator(client, requireNotNull(authScope)) { template ->
-                // RelayAuthenticator launches this callback. Completing the local signature here
-                // makes AUTH the immediate response to a challenge rather than letting the
-                // pending EVENT race ahead on the socket.
-                listOf(runBlocking { signer.sign(template.createdAt, template.kind, template.tags, template.content) })
+                // The callback is suspend and RelayAuthenticator already invokes it in its auth
+                // scope. Do not nest runBlocking: signing must not block relay message dispatch.
+                listOf(signer.sign(template.createdAt, template.kind, template.tags, template.content))
             }
         }
         return try {
@@ -187,14 +197,13 @@ class NostrRelayService(
     companion object {
         val DEFAULT_RELAYS = listOf(
             "wss://appdata1.zentext.me",
-            "wss://relay.damus.io",
-            "wss://relay.primal.net",
-            "wss://nos.lol",
+            "wss://appdata2.nostr.box",
         )
         const val ATTEMPT_TIMEOUT_MILLIS = 8_000L
         const val MAX_ATTEMPTS = 3
         const val RETRY_DELAY_MILLIS = 250L
         private const val AUTH_CHALLENGE_GRACE_MILLIS = 250L
+        private const val AUTH_RETRY_DELAY_MILLIS = 500L
 
         private fun newQuartzClient(scope: CoroutineScope): NostrClient {
             val okHttp = OkHttpClient.Builder()

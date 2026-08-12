@@ -5,13 +5,13 @@
 ```text
 app.zenten.vault
 ├── ui/           Compose screens, navigation, and view models
-├── domain/       Setup, account, backup, recovery, and retry orchestration
+├── domain/       Source model, setup, account, backup, and consolidation orchestration
 ├── crypto/       SSH parsing, seed derivation, Nostr derivation, NIP-44
-├── data/         Secure storage, preferences, and domain models
-├── network/      Nostr relay transport/event encoding
-├── bravesync/    Brave Sync client, authentication, crypto, and password records
-├── background/   WorkManager reconciliation and retry workers
-└── di/           Hilt dependency-injection modules
+├── data/         Secure account storage and non-secret operational preferences
+├── network/      Nostr relay transport, event encoding, and NIP-42 authentication
+├── bravesync/    Brave Sync client, crypto, password records, and transport
+├── background/   WorkManager account backup, retry, and periodic consolidation
+└── di/           Hilt dependency injection
 ```
 
 ## Primary flow
@@ -19,38 +19,58 @@ app.zenten.vault
 ```mermaid
 flowchart TD
     UI[Compose UI] --> VM[View models]
-    VM --> Domain[Domain services]
-    Domain --> Storage[Secure storage and preferences]
-    Domain --> SSH[SSH and derivation crypto]
-    Domain --> Relay[Nostr relay services]
-    Domain --> Sync[Brave Sync services]
-    Workers[Background workers] --> Domain
+    VM --> Setup[SetupService / AccountService]
+    Setup --> Engine[AccountConsolidationEngine]
+    Workers[Backup workers] --> Engine
+    Engine --> Repo[BackupSourceRepository]
+    Engine --> Secure[SecureStorageService]
+    Engine --> State[AppStorageService]
+    Engine --> Factory[DefaultBackupSourceFactory]
+    Factory --> Relay[Nostr source + NIP-42 gateway]
+    Factory --> Brave[Brave source + per-endpoint transport]
 ```
+
+## Source-oriented model
+
+`BackupSourceConfig` represents one independently checked and written endpoint. Four fixed defaults are merged with persisted custom sources in stable order. The default entries are immutable in repository operations. Each source declares type, endpoint, ordering, enabled/restore/trust/quorum policy, and authentication mode.
+
+`DefaultBackupSourceFactory` constructs one `AccountBackupSource` adapter per configuration. Nostr adapters address exactly one relay through `NostrRelayGateway`; Brave adapters construct `BraveSyncTransport` with exactly one configured server URL. Existing Nostr event and Brave password-record formats are preserved.
+
+## Serialization boundary
+
+`AccountConsolidationEngine` owns one coroutine `Mutex` around master backup, account backup, pending retry, and consolidation. Within each operation it uses ordered loops and suspend calls without `async`, ensuring no intentional network concurrency across sources or accounts.
 
 ## Core lifecycle
 
-1. **Setup:** UI provides master-account material to domain setup services. The master account is stored, backed up, and setup is marked complete only after the required backup succeeds. Failure rolls back local setup state.
-2. **Associated-account creation:** a domain service allocates an ID, generates a key pair, stores the account locally, then coordinates asynchronous backup and retry scheduling.
-3. **Recovery:** after setup and during reconciliation, domain services validate remote candidates and automatically store valid associated accounts that are not already local.
-4. **Status and repair:** reconciliation checks each destination, stores coverage status, and only repairs destinations conclusively found missing.
+1. **Master setup:** persist master locally, inspect/write all sources sequentially, and complete setup only with one eligible Nostr plus one eligible Brave success. Retain the local master on quorum failure.
+2. **Associated creation:** generate and save locally, then enqueue background backup; failed sources are persisted as pending IDs.
+3. **Consolidation restore:** index every source and restore missing valid associated accounts from trusted sources.
+4. **Consolidation backup:** use retained phase-1 indexes to fill gaps, then perform one final read-back per successfully indexed source.
+5. **Status:** persist per-account/per-source state and coarse errors. UI observes this state in account and master details.
 
-## Design boundaries
+## Background execution
 
-- UI code should not parse, derive, encrypt, or transmit secrets directly.
-- Domain services coordinate use cases and keep local persistence ahead of asynchronous remote backup.
-- Crypto code owns sensitive transformations and must have deterministic tests/vectors for compatibility-sensitive behavior.
-- Remote integrations are separated by destination so retry and coverage can be tracked independently.
-- Background workers retry/reconcile without becoming an alternative source of product rules.
+- One-time account backup work is unique per account.
+- Pending-write retry is unique work.
+- Immediate consolidation is unique work after setup.
+- Periodic consolidation runs every hour with a connected-network constraint.
+- `VaultApplication` supplies WorkManager's Hilt worker factory through `Configuration.Provider`; the manifest removes the default WorkManager startup initializer to avoid initializing it without that configuration.
+- A persisted checkpoint describes interrupted progress; operations are idempotent by canonical account ID.
 
-## Key implementation references
+## Security boundaries
 
-- Setup orchestration: `domain/SetupService.kt`
-- Associated-account creation: `domain/AccountService.kt`
-- Backup coordination: `domain/AccountBackupCoordinator.kt`
-- Recovery: `domain/RecoveryService.kt`
-- Reconciliation: `domain/BackupSyncService.kt`
-- Secure storage: `data/secure/SecureStorageService.kt`
-- Relay transport: `network/nostr/NostrRelayService.kt`
-- Sync integration: `bravesync/`
+- Secrets are stored only through `SecureStorageService` or transiently in crypto/network operations.
+- `AppStorageService`, WorkManager input, checkpoints, status, and diagnostics contain no keys, passphrases, payloads, sync codes, tokens, or NIP-42 challenges.
+- Relay authentication signs kind `22242` on the challenged connection using the master-derived Nostr identity and does not persist the challenge.
+- Remote payloads are decrypted only to restore an account missing locally.
 
-For behavior and limitations per capability, see the [feature documentation](../features/README.md).
+## Key references
+
+- `domain/BackupSources.kt`
+- `domain/BackupSourceRepository.kt`
+- `domain/BackupSourceAdapters.kt`
+- `domain/AccountConsolidationEngine.kt`
+- `domain/SetupService.kt`
+- `background/BackupWorkers.kt`
+- `network/nostr/NostrRelayService.kt`
+- `data/kv/AppStorageService.kt`

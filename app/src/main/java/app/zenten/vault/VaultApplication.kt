@@ -3,9 +3,10 @@ package app.zenten.vault
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import app.zenten.vault.background.BackupReconcileWorker
-import app.zenten.vault.domain.BackupSyncService
-import app.zenten.vault.domain.StartupRetryScheduler
+import app.zenten.vault.background.WorkManagerBackupWorkScheduler
+import app.zenten.vault.data.kv.AppStorageService
+import app.zenten.vault.data.kv.ConsolidationTrigger
+import app.zenten.vault.domain.AccountConsolidationEngine
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,15 +17,17 @@ import javax.inject.Inject
 @HiltAndroidApp
 class VaultApplication : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
-    @Inject lateinit var startupRetryScheduler: StartupRetryScheduler
-    @Inject lateinit var backupSyncService: BackupSyncService
+    @Inject lateinit var scheduler: WorkManagerBackupWorkScheduler
+    @Inject lateinit var engine: AccountConsolidationEngine
+    @Inject lateinit var appStorage: AppStorageService
 
     override fun onCreate() {
         super.onCreate()
-        BackupReconcileWorker.schedule(this)
+        scheduler.schedulePeriodic()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            startupRetryScheduler.runStartupRetries()
-            backupSyncService.sync()
+            appStorage.clearLegacyBackupState()
+            engine.retryPending()
+            engine.consolidate(ConsolidationTrigger.STARTUP)
         }
     }
 

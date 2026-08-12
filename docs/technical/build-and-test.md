@@ -21,7 +21,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Test coverage areas
 
-The current test suite includes SSH key-codec behavior, deterministic crypto parity/golden vectors, Nostr event encoding, Brave Sync encoding/crypto components, storage, backup/recovery services, retry scheduling, and navigation destinations.
+The current test suite includes SSH key-codec behavior, deterministic crypto parity/golden vectors, Nostr event encoding, Brave Sync encoding/crypto components, source/status persistence, fixed-source policy, master quorum, sequential two-phase consolidation, local-first account behavior, and navigation destinations. Real default-relay/server verification is an integration concern and should remain opt-in rather than making host unit tests depend on external services.
 
 Host-side tests run on JDK 21 because the Quartz dependency ships JVM 21 bytecode. The Android app itself compiles with Java/Kotlin target 17; Gradle is configured to provision the host-test toolchain when necessary.
 

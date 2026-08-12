@@ -66,6 +66,11 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         )
         state.stage?.let { Text(it) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (state.canRetryStoredMaster) {
+            Button(onClick = viewModel::retryStoredMaster, modifier = Modifier.fillMaxWidth(), enabled = !state.inProgress) {
+                Text("Retry backup without re-importing")
+            }
+        }
         Button(
             onClick = { viewModel.performSetup(keyInput, passphrase) },
             modifier = Modifier.fillMaxWidth(),

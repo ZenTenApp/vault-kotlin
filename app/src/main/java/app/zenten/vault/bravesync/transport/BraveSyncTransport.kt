@@ -10,7 +10,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /** HTTP transport for Brave's gzip-capable protobuf Sync endpoint. */
-internal class BraveSyncTransport(
+class BraveSyncTransport(
     private val client: OkHttpClient = OkHttpClient(),
     private val serverUrl: String = BraveSyncConfig.DEFAULT_SERVER_URL,
     private val serviceKey: String = BraveSyncConfig.SERVICE_KEY,
