@@ -6,7 +6,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 
 ## Current behavior
 
-1. From **My Accounts**, the user selects the add button or **Add Account**.
+1. From **My Accounts**, the user selects the add floating action button.
 2. The app displays **Create new SSH account** and explains that a fresh Ed25519 OpenSSH key pair will be generated.
 3. The user selects **Create account**.
 4. The app verifies that master setup is complete, meaning its required backup quorum was satisfied.
@@ -14,7 +14,9 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
 7. The account appears in **My Accounts**. Selecting it opens its public-key details.
 
-Associated accounts are displayed with their creation ID. The master account remains an internal recovery identity and does not appear in the routine account list.
+The screen has no title or header section: it presents account cards plus two bottom-right actions. The extended **Master account** action opens master backup details and sits above the add floating action button.
+
+Associated accounts use compact, credit-card-inspired cards. Each card shows the 16-digit creation ID in groups of four, a shortened SSH fingerprint (first four and last four characters), and a localized date/time decoded from the microsecond Unix creation ID. A stable dark card color is selected from an accessible palette using the account ID as the palette index; this gives the same account the same color across renders without treating color as account state. Selecting anywhere on a card opens its public-key details. The master account remains an internal recovery identity and does not appear in the routine account list.
 
 ## Failure and security expectations
 

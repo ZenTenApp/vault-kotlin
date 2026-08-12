@@ -40,8 +40,10 @@ flowchart TD
 
 ### My Accounts
 
-- Associated accounts only are listed as routine accounts.
-- A separate Master Account action opens master source status.
+- Associated accounts only are listed as routine accounts; the screen has no top app bar, title, or explanatory header.
+- Each account is a tappable credit-card-style card showing its grouped 16-digit ID, shortened SSH fingerprint, and localized creation date/time.
+- Card color is stable per account ID and is decorative rather than a status signal.
+- An extended Master Account floating action opens master source status and is stacked above the add-account floating action in the bottom-right corner.
 - Automatic restoration occurs during consolidation; valid missing accounts appear after secure local persistence.
 
 ### Create associated account
