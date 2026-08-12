@@ -5,6 +5,8 @@ import com.vitorpamplona.quartz.nip01Core.relay.client.NostrClient
 import com.vitorpamplona.quartz.nip01Core.relay.client.auth.RelayAuthenticator
 import com.vitorpamplona.quartz.nip01Core.relay.client.listeners.RelayConnectionListener
 import com.vitorpamplona.quartz.nip01Core.relay.client.single.IRelayClient
+import com.vitorpamplona.quartz.nip01Core.relay.commands.toClient.AuthMessage
+import com.vitorpamplona.quartz.nip01Core.relay.commands.toClient.ClosedMessage
 import com.vitorpamplona.quartz.nip01Core.relay.commands.toClient.Message
 import com.vitorpamplona.quartz.nip01Core.relay.commands.toClient.OkMessage
 import com.vitorpamplona.quartz.nip01Core.relay.client.accessories.fetchAll
@@ -133,14 +135,30 @@ class NostrRelayService(
     private suspend fun fetchByRelay(relayUrl: String, authorPubkey: String, kind: Int, authPrivateKey: ByteArray?): Result<List<NostrEvent>> = runCatching {
         val relay = NormalizedRelayUrl(relayUrl)
         withClient(authPrivateKey) { client, monitor ->
-            val result = withTimeoutOrNull(timeoutMillis) {
+            val filters = mapOf(relay to listOf(Filter(authors = listOf(authorPubkey), kinds = listOf(kind))))
+            suspend fun fetch() = withTimeoutOrNull(timeoutMillis) {
                 client.fetchAll(
                     subscriptionId = UUID.randomUUID().toString(),
-                    filters = mapOf(relay to listOf(Filter(authors = listOf(authorPubkey), kinds = listOf(kind)))),
+                    filters = filters,
                     timeoutMs = timeoutMillis,
                 )
             } ?: throw SocketTimeoutException("Timed out checking $relayUrl")
-            if (result.isEmpty()) monitor.currentConnectionFailure(relay)?.let { throw it }
+
+            var result = fetch()
+            // A protected relay can answer the first REQ with CLOSED auth-required while also
+            // issuing AUTH. Quartz's fetchAll treats CLOSED as completion and immediately removes
+            // that subscription, so RelayAuthenticator's post-auth sync has nothing left to
+            // resend. Wait for the AUTH OK and issue a fresh REQ on this same connection.
+            if (result.isEmpty() && monitor.authenticationWasRequested(relay)) {
+                if (!monitor.awaitAuthentication(relay, timeoutMillis)) {
+                    throw monitor.authenticationFailure(relay)
+                }
+                result = fetch()
+            }
+            if (result.isEmpty()) {
+                monitor.authenticationFailureOrNull(relay)?.let { throw it }
+                monitor.currentConnectionFailure(relay)?.let { throw it }
+            }
             result.map { it.toAppEvent() }.filter {
                 it.kind == kind && it.pubkey == authorPubkey && NostrEventCodec.isValid(it)
             }.distinctBy { it.id }
@@ -217,6 +235,8 @@ class NostrRelayService(
         private data class EventResponse(val relay: NormalizedRelayUrl, val success: Boolean, val message: String)
 
         private val authEventIds = ConcurrentHashMap.newKeySet<String>()
+        private val authChallengedRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
+        private val authRequiredRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
         private val authAcceptedRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
         private val authRejectedRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
         private val responses = ConcurrentHashMap<String, ConcurrentLinkedQueue<EventResponse>>()
@@ -239,14 +259,39 @@ class NostrRelayService(
         }
 
         override fun onIncomingMessage(relay: IRelayClient, msgStr: String, msg: Message) {
-            if (msg !is OkMessage) return
-            if (msg.eventId in authEventIds) {
-                if (msg.success) authAcceptedRelays += relay.url else authRejectedRelays += relay.url
-                return
+            when (msg) {
+                is AuthMessage -> authChallengedRelays += relay.url
+                is ClosedMessage -> if (isAuthRequired(msg.message)) authRequiredRelays += relay.url
+                is OkMessage -> {
+                    if (msg.eventId in authEventIds) {
+                        if (msg.success) authAcceptedRelays += relay.url else authRejectedRelays += relay.url
+                    } else {
+                        responses.getOrPut(msg.eventId) { ConcurrentLinkedQueue() }
+                            .add(EventResponse(relay.url, msg.success, msg.message))
+                    }
+                }
             }
-            responses.getOrPut(msg.eventId) { ConcurrentLinkedQueue() }
-                .add(EventResponse(relay.url, msg.success, msg.message))
         }
+
+        fun authenticationWasRequested(relay: NormalizedRelayUrl): Boolean =
+            relay in authChallengedRelays || relay in authRequiredRelays
+
+        suspend fun awaitAuthentication(relay: NormalizedRelayUrl, timeoutMillis: Long): Boolean {
+            val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
+            while (relay !in authAcceptedRelays && relay !in authRejectedRelays && System.nanoTime() < deadline) {
+                delay(ACK_POLL_MILLIS)
+            }
+            return relay in authAcceptedRelays
+        }
+
+        fun authenticationFailureOrNull(relay: NormalizedRelayUrl): SecurityException? = when {
+            relay in authRejectedRelays -> authenticationFailure(relay)
+            relay in authRequiredRelays && relay !in authAcceptedRelays -> authenticationFailure(relay)
+            else -> null
+        }
+
+        fun authenticationFailure(relay: NormalizedRelayUrl) =
+            SecurityException("Relay authentication failed: ${relay.url}")
 
         fun acceptedRelays(eventId: String): Set<String> = responses[eventId].orEmpty()
             .filter { it.success || isIdempotentDuplicate(eventId, it.message) }
@@ -266,8 +311,8 @@ class NostrRelayService(
 
         fun failureFor(relay: NormalizedRelayUrl, eventId: String): Throwable {
             val relayResponses = responses[eventId].orEmpty().filter { it.relay == relay }
-            if (relay in authRejectedRelays || (relay !in authAcceptedRelays && relayResponses.any { it.message.trim().startsWith("auth-required:", ignoreCase = true) })) {
-                return SecurityException("Relay authentication failed: ${relay.url}")
+            if (relay in authRejectedRelays || (relay !in authAcceptedRelays && relayResponses.any { isAuthRequired(it.message) })) {
+                return authenticationFailure(relay)
             }
             if (relayResponses.isNotEmpty()) return IllegalStateException("Relay rejected event: ${relay.url}")
             currentConnectionFailure(relay)?.let { return it }
@@ -276,6 +321,9 @@ class NostrRelayService(
     }
 
     companion object {
+        internal fun isAuthRequired(message: String): Boolean =
+            message.trim().startsWith("auth-required:", ignoreCase = true)
+
         internal fun isIdempotentDuplicate(eventId: String, message: String): Boolean {
             val normalized = message.trim().lowercase()
             return normalized.contains("already exists") &&

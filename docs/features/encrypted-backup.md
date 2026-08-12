@@ -46,8 +46,8 @@ The event author/signature identity is derived from the master account. The plai
 1. Install `RelayAuthenticator` before connecting.
 2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the master-derived Nostr key.
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
-4. Keep the connection alive while waiting for AUTH acknowledgement and retry the requested publication on that authenticated connection when necessary.
-5. Observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.
+4. Keep the connection alive while waiting for AUTH acknowledgement. If a protected read's initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
+5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.
 6. Require the target relay's successful `OK` acknowledgement before reporting a confirmed write. An exact-ID `event already exists` response is also accepted as idempotent confirmation because it proves that relay already stores the same signed event; other duplicate or blocked responses remain failures.
 
 A relay that does not request NIP-42 proceeds normally. Authentication rejection, network failure, timeout, and event rejection remain distinct source error categories and cannot satisfy quorum. The two default relay endpoints are `wss://appdata1.zentext.me` and `wss://appdata2.nostr.box`.
