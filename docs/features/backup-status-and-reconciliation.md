@@ -59,7 +59,7 @@ An acknowledged write is internally `WRITE_CONFIRMED`. For Nostr, acknowledgemen
 | `BACKUP_FAILED` | The most recent write failed. |
 | `UNKNOWN` | The source could not be checked conclusively. |
 
-Account details show live rows for each source. Master status is shown on the dedicated Master Account screen, which exposes exactly one primary action: **Retry master setup** until quorum setup completes, then **Consolidate backups** afterward. The former global Backup Status destination has been removed.
+Account details show live rows for each source. An associated-account screen offers **Consolidate backup**, which reconciles only that account across all enabled sources. Master status is shown on the dedicated Master Account screen, which exposes exactly one primary action: **Retry master setup** until quorum setup completes, then **Consolidate backups** for the whole vault afterward. The former global Backup Status destination has been removed.
 
 Persisted status contains account IDs, source IDs, state, coarse error category, and timestamps only. It must never contain private keys, passphrases, encrypted payloads, Brave sync codes/authentication values, or NIP-42 challenges.
 
@@ -69,8 +69,9 @@ Setup attempts all enabled sources sequentially. It writes the master only after
 
 ## Scheduling and interruption
 
-- Associated-account creation saves locally first, then enqueues consolidation.
-- Account details offer **Consolidate backups**, not a direct retry-write action. Every manual, creation-triggered, startup, and periodic repair indexes each source before writing, and writes an account only when its canonical ID is absent from that successful source index. Immediate requests use an append-or-replace unique-work policy so account creation during an active cycle queues a follow-up cycle instead of being discarded.
+- Associated-account creation saves locally first, then enqueues targeted consolidation for that account.
+- Associated-account details offer **Consolidate backup**, not a direct retry-write action. The targeted cycle indexes every source and reconciles only the selected account: it does not restore, write, or update statuses for unrelated accounts. It writes the selected account only when its canonical ID is absent from a successful source index.
+- The Master Account screen offers **Consolidate backups** after setup; startup and periodic work also run full-vault consolidation. Immediate requests use an append-or-replace unique-work policy so account creation during an active targeted cycle queues a follow-up cycle instead of being discarded.
 - Legacy account-backup work left in WorkManager by older app versions is handled as forced consolidation rather than a blind write.
 - A one-hour periodic worker invokes consolidation.
 - Consolidation uses a one-hour freshness threshold when there are no pending writes.

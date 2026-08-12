@@ -67,7 +67,7 @@ class SetupServiceTest {
 
         verifyOrder {
             fixture.secureStorage.addAccount(account)
-            fixture.scheduler.scheduleConsolidation()
+            fixture.scheduler.scheduleAccountConsolidation(account.createdAt)
         }
     }
 
@@ -82,7 +82,7 @@ class SetupServiceTest {
         assertFalse(result.isSuccess)
         assertTrue(result.exceptionOrNull()?.message?.contains("quorum") == true)
         verify(exactly = 0) { fixture.secureStorage.addAccount(any()) }
-        verify(exactly = 0) { fixture.scheduler.scheduleConsolidation() }
+        verify(exactly = 0) { fixture.scheduler.scheduleAccountConsolidation(any()) }
     }
 
     private class Fixture {
@@ -97,6 +97,7 @@ class SetupServiceTest {
             every { secureStorage.removeMasterAccount() } just runs
             every { secureStorage.addAccount(any()) } just runs
             every { scheduler.scheduleConsolidation() } just runs
+            every { scheduler.scheduleAccountConsolidation(any()) } just runs
             coJustRun { appStorage.clearSetupComplete() }
             coJustRun { appStorage.setSetupComplete() }
         }

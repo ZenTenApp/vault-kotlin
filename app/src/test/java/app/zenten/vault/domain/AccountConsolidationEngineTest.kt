@@ -67,6 +67,43 @@ class AccountConsolidationEngineTest {
     }
 
     @Test
+    fun targeted_consolidation_only_updates_and_writes_the_selected_account() = runTest {
+        fixture { engine, appStorage, storage, factory ->
+            val selected = Account(10, "selected", "pass")
+            val unrelated = Account(20, "unrelated", "pass")
+            every { storage.getAccountById(10) } returns selected
+            every { storage.getAccounts() } returns listOf(selected, unrelated)
+            val selectedId = BackupAccountId.associated(10)
+            val verified = setOf(selectedId)
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(verified, emptyMap())
+            }
+
+            val result = engine.consolidateAccount(10)
+
+            assertEquals(DefaultBackupSources.all.size, result.writes)
+            assertTrue(factory.calls.filter { it.startsWith("write:") }.all { it.endsWith(":10") })
+            assertTrue(appStorage.accountSourceStatuses.first().none { it.accountId == "20" })
+        }
+    }
+
+    @Test
+    fun targeted_consolidation_does_not_write_when_selected_account_is_already_present() = runTest {
+        fixture { engine, _, storage, factory ->
+            val selected = Account(10, "selected", "pass")
+            every { storage.getAccountById(10) } returns selected
+            val present = setOf(BackupAccountId.associated(10))
+            factory.sources.values.forEach { it.indexes += SourceIndex(present, emptyMap()) }
+
+            val result = engine.consolidateAccount(10)
+
+            assertEquals(0, result.writes)
+            assertTrue(factory.calls.none { it.startsWith("write:") })
+        }
+    }
+
+    @Test
     fun consolidation_does_not_write_accounts_already_indexed_at_a_source() = runTest {
         fixture { engine, _, storage, factory ->
             every { storage.getAccounts() } returns listOf(Account(10, "local", "pass"))

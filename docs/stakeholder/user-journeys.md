@@ -65,8 +65,8 @@ flowchart LR
 
 1. The user opens an account or the dedicated Master Account screen.
 2. The app lists each configured destination and its current status.
-3. The user selects **Consolidate backups** (or **Consolidate now** for the master) to refresh coverage and repair confirmed gaps.
-4. The app checks every source before writing, restores valid missing local accounts, and does not push an account to a source that already reports its canonical ID.
+3. From an associated-account screen, the user selects **Consolidate backup** to reconcile only that account. From the Master Account screen, the user selects **Consolidate backups** to reconcile the whole vault.
+4. The app checks every source before writing and does not push an account to a source that already reports its canonical ID. Full-vault consolidation can also restore valid missing local accounts; targeted consolidation does not process unrelated accounts.
 5. The user sees whether each destination is backed up, missing, unknown, or needs attention.
 
 **Success:** The user can identify a backup concern and safely consolidate when a remote destination or network becomes available.

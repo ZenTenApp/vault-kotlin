@@ -44,9 +44,9 @@ class SetupService(
         }
         require(secureStorage.getMasterAccount() != null && master.createdAt == secureStorage.getMasterAccount()?.createdAt)
         secureStorage.addAccount(account)
-        // Consolidation indexes every source before writing, so an existing canonical account ID
-        // is never blindly pushed again.
-        workScheduler?.scheduleConsolidation()
+        // Targeted consolidation indexes every source before writing, so an existing canonical
+        // account ID is never blindly pushed again and unrelated accounts are not processed.
+        workScheduler?.scheduleAccountConsolidation(account.createdAt)
     }
 
     suspend fun consolidateNow(): Result<AccountConsolidationEngine.ConsolidationResult?> = runCatching {
@@ -56,4 +56,5 @@ class SetupService(
 
 interface BackupWorkScheduler {
     fun scheduleConsolidation()
+    fun scheduleAccountConsolidation(accountId: Long)
 }

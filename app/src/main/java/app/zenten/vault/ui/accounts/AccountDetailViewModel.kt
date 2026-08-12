@@ -52,7 +52,7 @@ class AccountDetailViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountDetailState())
 
     fun load(id: Long) { accountId.value = id }
-    fun consolidate() { scheduler.scheduleConsolidation() }
+    fun consolidate() { accountId.value?.let(scheduler::scheduleAccountConsolidation) }
 }
 
 data class AccountDetailState(

@@ -75,6 +75,75 @@ class AccountConsolidationEngine(
         MasterBackupResult(relayQuorum, braveQuorum, successes, failures)
     }
 
+    /** Reconciles one associated account without restoring, writing, or changing statuses for other accounts. */
+    suspend fun consolidateAccount(accountId: Long, trigger: ConsolidationTrigger = ConsolidationTrigger.MANUAL): ConsolidationResult = operationMutex.withLock {
+        val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
+        val account = requireNotNull(secureStorage.getAccountById(accountId)) { "Account is unavailable" }
+        val id = BackupAccountId.associated(accountId)
+        val cycleId = UUID.randomUUID().toString()
+        val started = clock.millis()
+        var writes = 0
+        var failures = 0
+
+        enabledSources().forEach { config ->
+            checkpoint(cycleId, trigger, ConsolidationPhase.RESTORE, config.id, id.value, started)
+            val source = sourceFactory.create(config)
+            setStatus(id, config, AccountSourceBackupState.CHECKING)
+            source.index(master).fold(
+                onSuccess = { initial ->
+                    if (id in initial.ids) {
+                        setStatus(id, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
+                        appStorage.clearPendingSourceWrite(id.value, config.id)
+                    } else {
+                        checkpoint(cycleId, trigger, ConsolidationPhase.BACKUP, config.id, id.value, started)
+                        setStatus(id, config, AccountSourceBackupState.BACKING_UP, checked = true)
+                        source.write(master, id, account).fold(
+                            onSuccess = {
+                                writes++
+                                setStatus(id, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
+                                source.index(master).fold(
+                                    onSuccess = { verified ->
+                                        if (id in verified.ids) {
+                                            setStatus(id, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
+                                            appStorage.clearPendingSourceWrite(id.value, config.id)
+                                        } else {
+                                            failures++
+                                            val error = IllegalStateException("Source read-back did not confirm the acknowledged write")
+                                            setStatus(id, config, AccountSourceBackupState.BACKUP_FAILED, checked = true, error = error)
+                                            appStorage.upsertPendingSourceWrite(
+                                                PendingSourceWrite(id.value, config.id, PendingWriteReason.CONSOLIDATION, 1, clock.millis()),
+                                            )
+                                        }
+                                    },
+                                    onFailure = { error ->
+                                        failures++
+                                        setStatus(id, config, AccountSourceBackupState.UNKNOWN, checked = true, error = error)
+                                        appStorage.upsertPendingSourceWrite(
+                                            PendingSourceWrite(id.value, config.id, PendingWriteReason.CONSOLIDATION, 1, clock.millis()),
+                                        )
+                                    },
+                                )
+                            },
+                            onFailure = { error ->
+                                failures++
+                                setStatus(id, config, AccountSourceBackupState.BACKUP_FAILED, error = error)
+                                appStorage.upsertPendingSourceWrite(
+                                    PendingSourceWrite(id.value, config.id, PendingWriteReason.CONSOLIDATION, 1, clock.millis()),
+                                )
+                            },
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    // Unknown is not missing: never write unless the source index proves absence.
+                    failures++
+                    setStatus(id, config, AccountSourceBackupState.UNKNOWN, checked = true, error = error)
+                },
+            )
+        }
+        ConsolidationResult(restored = 0, writes = writes, failures = failures)
+    }
+
     suspend fun consolidate(trigger: ConsolidationTrigger, force: Boolean = false): ConsolidationResult? = operationMutex.withLock {
         val now = clock.millis()
         if (!force) {
