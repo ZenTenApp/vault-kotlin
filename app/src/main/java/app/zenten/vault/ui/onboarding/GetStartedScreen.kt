@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,5 +28,9 @@ fun GetStartedScreen(navController: NavHostController) {
             onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
             modifier = Modifier.padding(top = 24.dp),
         ) { Text("Import SSH Key") }
+        OutlinedButton(
+            onClick = { navController.navigate(VaultDestinations.BACKUP_SOURCES) },
+            modifier = Modifier.padding(top = 12.dp),
+        ) { Text("Manage backup sources") }
     }
 }

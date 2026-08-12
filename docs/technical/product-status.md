@@ -4,7 +4,7 @@ This is a repository-oriented status view, not a production-readiness certificat
 
 | Area | Status | Repository evidence | Notes |
 | --- | --- | --- | --- |
-| Compose navigation and main screens | Present in code | `ui/`, `VaultNavGraph.kt` | Onboarding, account list/create/detail, and dedicated Master Account details are implemented. |
+| Compose navigation and main screens | Present in code | `ui/`, `VaultNavGraph.kt` | Onboarding, pre-setup source list/add, account list/create/detail, and dedicated Master Account details are implemented. |
 | Master-account key intake | Present in code | `ui/onboarding/`, `domain/SetupService.kt` | Paste-oriented; retains validated master and supports retry when source quorum fails. |
 | OpenSSH Ed25519 parsing/passphrase validation | Present in code | `crypto/SshKeyCodec.kt`, tests | Requires production crypto/dependency review. |
 | Deterministic recovery identity | Present in code | `crypto/Seedify.kt`, `NostrKeyDerivation.kt` | Golden/parity tests exist. |
@@ -13,7 +13,7 @@ This is a repository-oriented status view, not a production-readiness certificat
 | Private-key reveal/copy | Partial | `ui/accounts/AccountDetailScreen.kt` | Confirmation/screenshot protection exist; clipboard lifecycle and export/share need hardening. |
 | Independent Nostr source adapter | Present in code | `domain/BackupSourceAdapters.kt`, `network/nostr/` | Includes transient NIP-42 handling; both default relays still require opt-in operational interoperability validation. |
 | Independent Brave-compatible source adapter | Present in code | `domain/BackupSourceAdapters.kt`, `domain/BraveSyncBackupService.kt` | Both endpoints require end-to-end infrastructure validation. |
-| Source repository/default policy | Present in code | `domain/BackupSources.kt`, `BackupSourceRepository.kt` | Four immutable defaults and future custom-source persistence; no management UI yet. |
+| Source repository/default policy | Present in code | `domain/BackupSources.kt`, `BackupSourceRepository.kt`, `ui/sources/` | Four immutable defaults and custom-source persistence. The UI currently adds at most three pre-setup Nostr relays; broader repository operations and custom Brave support are not exposed. |
 | Two-phase consolidation and retry | Present in code | `domain/AccountConsolidationEngine.kt`, `background/BackupWorkers.kt` | Sequential restore-before-backup and hourly scheduling; lifecycle/failure validation should continue. |
 | Per-source status UI | Partial | `ui/accounts/AccountDetailScreen.kt`, `ui/master/` | Live rows exist; final accessible copy, timestamps, and remediation need product validation. |
 | Automatic associated-account recovery | Present in code | `domain/AccountConsolidationEngine.kt`, source adapters | Trusted-source candidates restore automatically; real-service end-to-end validation remains. |

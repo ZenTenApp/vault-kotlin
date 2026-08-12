@@ -4,7 +4,9 @@ This screen map reflects the current Android proof-of-concept navigation.
 
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
-| Get started | Introduce setup | Start setup | New installation |
+| Get started | Introduce setup | Import SSH key; optionally manage sources | New installation |
+| Backup sources | Inspect built-ins and pre-setup custom sources | Add Nostr relay | Loading, add available, three-relay maximum |
+| Add Nostr relay | Configure an additional pre-setup relay | Add relay | Ready, advanced settings, saving, validation/save failure |
 | Set up master account | Import master private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | My Accounts | List associated accounts and reach master details | Add account; open account; open Master Account | Loading, empty, recovering, populated |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
@@ -20,6 +22,10 @@ flowchart TD
     R[App launch] --> S{Setup complete?}
     S -- No --> G[Get started]
     G --> M[Set up master account]
+    G --> BS[Backup sources]
+    BS --> G
+    BS --> AN[Add Nostr relay]
+    AN --> BS
     M -- Quorum succeeds --> A[My Accounts]
     M -- Quorum unavailable --> M
     S -- Yes --> A
@@ -30,6 +36,14 @@ flowchart TD
 ```
 
 ## Review notes
+
+### Backup sources
+
+- Source management is optional and available only before setup from **Get started**.
+- Four built-in sources are shown first in fixed order with full endpoints and no mutation controls.
+- Up to three custom Nostr relays may be appended. Their rows are informational after creation.
+- The add form defaults quorum and recovery participation off. Advanced controls can enable Nostr quorum participation or trusted associated-account recovery.
+- There is no editing, disabling, removal, reordering, connection test, or source-health display in this MVP.
 
 ### Set up master account
 

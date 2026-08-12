@@ -3,8 +3,7 @@ package app.zenten.vault.ui
 /**
  * Navigation routes for the PoC.
  *
- * Mirrors ui-ux-flows.md §1 (Navigation Structure), trimmed to the PoC scope
- * (no backup-status / settings screens for now).
+ * Routes for the current proof-of-concept screens.
  */
 object VaultDestinations {
     /** App entry — redirects based on setup state. */
@@ -15,6 +14,12 @@ object VaultDestinations {
 
     /** SSH key entry + passphrase + setup progress. */
     const val GET_STARTED_SSH = "get-started/ssh"
+
+    /** Pre-setup configured backup-source list. */
+    const val BACKUP_SOURCES = "backup-sources"
+
+    /** Add a pre-setup custom Nostr relay. */
+    const val ADD_BACKUP_SOURCE = "backup-sources/add"
 
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"

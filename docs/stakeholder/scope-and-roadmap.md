@@ -12,6 +12,7 @@
 | Capability | Status | Notes |
 | --- | --- | --- |
 | Android first-run entry and master-account setup screen | Implemented (PoC) | Supports pasted master account private-key material and passphrase entry. |
+| Pre-setup backup-source management | Implemented (PoC) | Shows locked defaults and adds up to three custom Nostr relays; no post-setup, edit, disable, remove, reorder, or custom Brave UI. |
 | Master-account validation and deterministic vault identity | Implemented (PoC) | Technical behavior is covered by automated tests; requires production security review. |
 | Generate associated Ed25519 SSH accounts | Implemented (PoC) | Created accounts appear in the account list using creation IDs. |
 | View public key and fingerprint | Implemented (PoC) | Available on associated-account detail. |

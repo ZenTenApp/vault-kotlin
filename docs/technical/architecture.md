@@ -36,6 +36,8 @@ flowchart TD
 
 `DefaultBackupSourceFactory` constructs one `AccountBackupSource` adapter per configuration. Nostr adapters address exactly one relay through `NostrRelayGateway`; Brave adapters construct `BraveSyncTransport` with exactly one configured server URL. Existing Nostr event and Brave password-record formats are preserved.
 
+The current management UI is deliberately narrower than the repository API. Before master setup, it lists all sources and can append at most three custom Nostr relays after the fixed defaults. It exposes quorum participation and one combined recovery control; that control writes the same value to `restoreEnabled` and `trustedForRestore`. Editing, disabling, removal, reordering, custom Brave creation, and post-setup access remain unexposed.
+
 ## Serialization boundary
 
 `AccountConsolidationEngine` owns one coroutine `Mutex` around master backup, account backup, pending retry, and consolidation. Within each operation it uses ordered loops and suspend calls without `async`, ensuring no intentional network concurrency across sources or accounts.

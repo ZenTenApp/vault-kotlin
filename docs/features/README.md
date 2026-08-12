@@ -10,6 +10,7 @@ This directory describes each feature currently available in the ZenTen Vault An
 4. [Encrypted backup](encrypted-backup.md) — detailed write contract, target behavior, and retries.
 5. [Backup status and reconciliation](backup-status-and-reconciliation.md) — detailed discovery, coverage, and repair algorithm.
 6. [Automatic account recovery](automatic-account-recovery.md) — detailed validation and automatic-restore behavior.
+7. [Backup source management](backup-source-management.md) — optional pre-setup custom Nostr relay configuration.
 
 ## Documentation conventions
 
