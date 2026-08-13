@@ -16,7 +16,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 
 The screen has no title or header section: it presents account cards plus two bottom-right actions. The extended **Master account** action opens master backup details and sits above the add floating action button.
 
-Associated accounts use compact, credit-card-inspired cards. Each card shows the 16-digit creation ID in groups of four, a shortened SSH fingerprint (first four and last four characters), and a localized date/time decoded from the microsecond Unix creation ID. A stable dark card color is selected from an accessible palette using the account ID as the palette index; this gives the same account the same color across renders without treating color as account state. Selecting anywhere on a card opens its public-key details. The master account remains an internal recovery identity and does not appear in the routine account list.
+Associated accounts use compact, credit-card-inspired cards and are listed alphabetically by their displayed creation ID. Each card shows the 16-digit creation ID in groups of four, a shortened SSH fingerprint (first four and last four characters), and a localized date/time decoded from the microsecond Unix creation ID. A stable dark card color is selected from an accessible palette using the account ID as the palette index; this gives the same account the same color across renders without treating color as account state. Selecting anywhere on a card opens its public-key details. The master account remains an internal recovery identity and does not appear in the routine account list.
 
 ## Failure and security expectations
 

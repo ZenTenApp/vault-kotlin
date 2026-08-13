@@ -116,7 +116,10 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
                 contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 152.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(state.accounts, key = { it.createdAt }) { account ->
+                items(
+                    items = state.accounts.sortedBy { formatAccountId(it.createdAt) },
+                    key = { it.createdAt },
+                ) { account ->
                     AccountCard(account) {
                         navController.navigate(VaultDestinations.accountDetail(account.createdAt))
                     }
