@@ -10,8 +10,9 @@ The replacement will use a **source-oriented architecture**. Each endpoint is an
 | ---: | --- | --- | --- | --- |
 | 1 | `default-nostr-appdata1` | appdata1 | Nostr | `wss://appdata1.zentext.me` |
 | 2 | `default-nostr-appdata2` | appdata2 | Nostr | `wss://appdata2.nostr.box` |
-| 3 | `default-brave-zenten` | zenten sync | Brave Sync | `https://sync-v2.zenten.app/litesync` |
-| 4 | `default-brave-official` | brave sync | Brave Sync | `https://sync-v2.brave.com/v2` |
+| 3 | `default-brave-zenten` | zenten sync | Brave Sync | `https://litesync1.zentext.me/litesync` |
+| 4 | `default-brave-nostr-box` | nostr.box sync | Brave Sync | `https://litesync2.nostr.box/litesync` |
+| 5 | `default-brave-official` | brave sync | Brave Sync | `https://sync-v2.brave.com/v2` |
 
 These sources will be fixed, enabled, non-removable, processed in stable order, eligible for setup quorum, and trusted for restoration.
 
@@ -236,14 +237,14 @@ After validation and deterministic Nostr/Brave derivation:
 
 1. Store the master account in secure storage.
 2. Mark onboarding as pending master backup.
-3. Process all four enabled default sources sequentially.
+3. Process all five enabled default sources sequentially.
 4. For each source:
    - index/check for `masterkey` when appropriate;
    - if already present, count it as confirmed success by ID;
    - otherwise write the master backup;
    - accept an acknowledged Nostr write or successful Brave commit for initial quorum;
    - record source-level status and failure category.
-5. Continue through all four sources even if quorum is reached early.
+5. Continue through all five sources even if quorum is reached early.
 6. Evaluate quorum after all source attempts.
 
 Success requires:
@@ -664,7 +665,7 @@ Both default endpoints use:
 Expected self-hosted command endpoint:
 
 ```text
-https://sync-v2.zenten.app/litesync/command/?...
+https://litesync1.zentext.me/litesync/command/?...
 ```
 
 `BravePasswordService` will accept its transport through constructor injection instead of constructing a fixed transport internally.
@@ -798,7 +799,7 @@ Exact package boundaries can be adjusted to repository conventions during implem
 
 Verify:
 
-- four defaults and exact ordering;
+- five defaults and exact ordering;
 - labels and endpoint values;
 - defaults cannot be removed or disabled;
 - custom Nostr and Brave sources can be added;
@@ -813,12 +814,12 @@ Verify:
 
 Cover:
 
-- all four sources succeed;
+- all five sources succeed;
 - relay 1 plus Brave 1 succeeds;
 - relay 2 plus Brave 2 succeeds;
 - one category succeeds but the other fails;
 - neither category succeeds;
-- all four sources are attempted despite early quorum;
+- all five sources are attempted despite early quorum;
 - operations are sequential;
 - master is retained when quorum fails;
 - setup remains incomplete on quorum failure;
@@ -894,7 +895,7 @@ Real-service tests are opt-in only and excluded from normal unit and CI runs unl
 
 - read/write against both Nostr relays;
 - NIP-42 authentication;
-- read/write against both Brave servers;
+- read/write against all three Brave servers;
 - source isolation;
 - a complete four-source cycle using disposable test material.
 
@@ -904,8 +905,8 @@ No production private keys or sync credentials will be committed.
 
 The implementation is complete when:
 
-1. The four default sources are represented and processed independently in fixed order.
-2. Master import attempts all four sources sequentially.
+1. The five default sources are represented and processed independently in fixed order.
+2. Master import attempts all five sources sequentially.
 3. Setup succeeds only with at least one eligible relay and one eligible Brave server.
 4. Failed quorum retains the master securely and permits retry without re-import.
 5. Successful quorum allows app entry and starts consolidation in the background.
@@ -924,7 +925,7 @@ The implementation is complete when:
 18. Interrupted consolidation restarts with a fresh restore phase.
 19. Repeated cycles are safe and avoid unnecessary duplicate writes.
 20. NIP-42 authentication works correctly against both default relays.
-21. Both Brave endpoints operate as independent copies using the same derived sync-chain credentials.
+21. All three Brave endpoints operate as independent copies using the same derived sync-chain credentials.
 22. Custom Nostr and Brave source APIs exist without requiring source-management UI.
 23. No secret material is persisted in status, diagnostics, errors, or WorkManager input.
 24. Relevant feature, technical, stakeholder, security, UI-flow, and test documentation is updated with the implementation.

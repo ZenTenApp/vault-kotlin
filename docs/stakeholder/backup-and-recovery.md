@@ -2,7 +2,7 @@
 
 ## What backup means
 
-ZenTen Vault stores protected copies of the master and generated associated accounts at four independent default sources: two Nostr relays and two Brave Sync-compatible servers. A newly generated associated account is always saved on the device first, so it remains visible and usable even if every remote write fails.
+ZenTen Vault stores protected copies of the master and generated associated accounts at five independent default sources: two Nostr relays and three Brave Sync-compatible servers. A newly generated associated account is always saved on the device first, so it remains visible and usable even if every remote write fails.
 
 Remote work is sequential rather than simultaneous. One unavailable service does not stop the app from trying later sources.
 
@@ -17,7 +17,7 @@ The app cannot replace these with email, a device PIN, biometrics, or customer s
 
 ## Setup protection level
 
-The app attempts all four sources. Initial setup completes when the master is confirmed on at least:
+The app attempts all five sources. Initial setup completes when the master is confirmed on at least:
 
 - one eligible Nostr relay; and
 - one eligible Brave Sync server.
