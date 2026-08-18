@@ -3,6 +3,8 @@ package app.zenten.vault.ui.accounts
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -46,7 +48,12 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         }
         return
     }
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+    ) {
         Text(account.createdAt.toString(), style = MaterialTheme.typography.headlineSmall)
         Text("SSH public key", modifier = Modifier.padding(top = 24.dp))
         Text(account.pubkey ?: "Unavailable", style = MaterialTheme.typography.bodySmall)

@@ -60,7 +60,7 @@ An acknowledged write is internally `WRITE_CONFIRMED`. For Nostr, acknowledgemen
 | `BACKUP_FAILED` | The most recent write failed. |
 | `UNKNOWN` | The source could not be checked conclusively. |
 
-Account details show live rows for each source. An associated-account screen offers **Consolidate backup**, which reconciles only that account across all enabled sources. Master status is shown on the dedicated Master Account screen, which exposes exactly one primary action: **Retry master setup** until quorum setup completes, then **Consolidate backups** for the whole vault afterward. The former global Backup Status destination has been removed.
+Account details show live rows for each source. The associated-account details content scrolls when it exceeds the available screen height, keeping the source list and account actions reachable. An associated-account screen offers **Consolidate backup**, which reconciles only that account across all enabled sources. Master status is shown on the dedicated Master Account screen, which exposes exactly one primary action: **Retry master setup** until quorum setup completes, then **Consolidate backups** for the whole vault afterward. The former global Backup Status destination has been removed.
 
 Persisted status contains account IDs, source IDs, state, coarse error category, and timestamps only. It must never contain private keys, passphrases, encrypted payloads, Brave sync codes/authentication values, or NIP-42 challenges.
 
