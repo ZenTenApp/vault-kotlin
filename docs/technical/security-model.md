@@ -20,7 +20,7 @@
 | Network and relays | Payloads are protected before transmission. | Authentication/signatures, encryption, relay trust, replay/malformed records. |
 | Brave Sync integration | Records and transport protect remote data. | Protocol compatibility, authentication, server trust, retry/error behavior. |
 | Logs and operations | Secrets must not leave through diagnostics. | Crash reporting, analytics, build logs, support workflows. |
-| KeyHive provider | Trusted sibling apps may read associated SSH private keys. | Signature identity, field allowlist, ciphertext IPC, provider process. |
+| KeyHive provider | Trusted sibling apps may read associated SSH private keys. | Signature identity, field allowlist, plaintext Binder IPC, provider process. |
 
 ## Current safeguards visible in code
 
@@ -32,7 +32,7 @@
 - NIP-42 relay challenges are signed transiently with the master-derived Nostr identity on the challenged connection and are not persisted.
 - Backup status, pending writes, and checkpoints persist only canonical account/source IDs, coarse state/error categories, counters, and timestamps—not keys, passphrases, payloads, sync codes, auth tokens, or challenges.
 - Presence comparisons are identifier-only. A remote private-key payload is decrypted only when its associated account is absent locally and restoration is required.
-- The KeyHive provider exposes only associated-account `createdAt` and `zentenKey` fields through a signature-protected, encrypted ContentProvider. Master material, passphrases, mnemonics, SSH public keys, and Nostr identities are not exposed.
+- The KeyHive provider exposes only associated-account `createdAt` and `zentenKey` fields as `json_v1` through a signature-protected ContentProvider. The signature permission is the IPC confidentiality boundary; certificate-derived application encryption is not used because the certificate is public. Master material, passphrases, mnemonics, SSH public keys, and Nostr identities are not exposed.
 
 ## Required production review topics
 

@@ -12,12 +12,12 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/** Signature-protected, ciphertext-only read access to associated accounts. */
+/** Signature-protected, read-only access to associated accounts. */
 class AssociatedAccountsProvider : ContentProvider() {
     companion object {
         const val AUTHORITY = "app.zenten.vault.keys"
         const val PERMISSION = "app.zenten.permission.VAULT_ACCESS"
-        const val FORMAT = "encrypted_v1"
+        const val FORMAT = "json_v1"
         const val FORMAT_COLUMN = "format"
         const val DATA_COLUMN = "data"
         private const val ACCOUNTS = 1
@@ -40,11 +40,11 @@ class AssociatedAccountsProvider : ContentProvider() {
         if (selection != null || !selectionArgs.isNullOrEmpty() || sortOrder != null) return null
         return try {
             when (matcher.match(uri)) {
-                ACCOUNTS -> encryptedCursor(Json.encodeToString(storage.getAccounts().map { it.createdAt.toString() }))
+                ACCOUNTS -> jsonCursor(Json.encodeToString(storage.getAccounts().map { it.createdAt.toString() }))
                 ACCOUNT -> {
                     val id = uri.lastPathSegment?.toLongOrNull() ?: return null
                     if (id <= 0 || id.toString() != uri.lastPathSegment) return null
-                    storage.getAccountById(id)?.let { encryptedCursor(Json.encodeToString(it.toSharedAssociatedAccount())) }
+                    storage.getAccountById(id)?.let { jsonCursor(Json.encodeToString(it.toSharedAssociatedAccount())) }
                         ?: emptyCursor()
                 }
                 else -> null
@@ -61,9 +61,15 @@ class AssociatedAccountsProvider : ContentProvider() {
         else -> null
     }
 
-    private fun encryptedCursor(plaintext: String): Cursor = MatrixCursor(arrayOf(FORMAT_COLUMN, DATA_COLUMN)).apply {
-        addRow(arrayOf(FORMAT, KeyHiveIpcCrypto.encrypt(plaintext, requireNotNull(context))))
-    }
+    private fun jsonCursor(json: String): Cursor = keyHiveJsonCursor(json)
 
     private fun emptyCursor(): Cursor = MatrixCursor(arrayOf(FORMAT_COLUMN, DATA_COLUMN))
 }
+
+internal fun keyHiveJsonCursor(json: String): Cursor = MatrixCursor(
+    arrayOf(AssociatedAccountsProvider.FORMAT_COLUMN, AssociatedAccountsProvider.DATA_COLUMN),
+).apply {
+    addRow(keyHiveJsonRow(json))
+}
+
+internal fun keyHiveJsonRow(json: String) = arrayOf(AssociatedAccountsProvider.FORMAT, json)
