@@ -18,6 +18,7 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.NormalizedRelayUrl
 import com.vitorpamplona.quartz.nip01Core.relay.sockets.okhttp.BasicOkHttpWebSocket
 import com.vitorpamplona.quartz.nip01Core.signers.NostrSignerInternal
 import com.vitorpamplona.quartz.nip42RelayAuth.RelayAuthEvent
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -107,19 +108,20 @@ class NostrRelayService(
     private suspend fun publishToRelay(relayUrl: String, event: NostrEvent, authPrivateKey: ByteArray?): Result<Unit> = runCatching {
         require(NostrEventCodec.isValid(event)) { "Refusing to publish an invalid Nostr event" }
         val relay = NormalizedRelayUrl(relayUrl)
+        var attempts = 0
         withClient(authPrivateKey) { client, monitor ->
             var accepted = false
-            var attempt = 0
             // Keep one acknowledgement monitor and the same authenticated connection for every
             // retry. Quartz can resend the EVENT while handling AUTH; its OK may arrive between
             // publishAndConfirmDetailed calls and must not be lost.
-            while (!accepted && attempt < maxAttempts) {
-                attempt++
+            while (!accepted && attempts < maxAttempts) {
+                attempts++
                 accepted = withTimeoutOrNull(timeoutMillis) {
                     client.publishAndConfirmDetailed(event.toQuartzEvent(), setOf(relay), quartzTimeoutSeconds())[relay] == true
                 } ?: false
-                if (!accepted) {
-                    accepted = monitor.awaitAcceptance(relay, event.id, AUTH_RETRY_DELAY_MILLIS)
+                if (!accepted && monitor.authenticationWasRequested(relay)) {
+                    monitor.awaitAuthentication(relay, timeoutMillis)
+                    accepted = monitor.accepted(relay, event.id)
                 }
             }
             if (!accepted) throw monitor.failureFor(relay, event.id)
@@ -136,32 +138,38 @@ class NostrRelayService(
         val relay = NormalizedRelayUrl(relayUrl)
         withClient(authPrivateKey) { client, monitor ->
             val filters = mapOf(relay to listOf(Filter(authors = listOf(authorPubkey), kinds = listOf(kind))))
-            suspend fun fetch() = withTimeoutOrNull(timeoutMillis) {
-                client.fetchAll(
-                    subscriptionId = UUID.randomUUID().toString(),
-                    filters = filters,
-                    timeoutMs = timeoutMillis,
-                )
-            } ?: throw SocketTimeoutException("Timed out checking $relayUrl")
+            val keepAliveSubscriptionId = UUID.randomUUID().toString()
+            if (authPrivateKey != null) {
+                // fetchAll always unsubscribes when CLOSED arrives. Keep another request in
+                // Quartz's pool so it cannot remove the relay and disconnect the challenged socket.
+                client.subscribe(keepAliveSubscriptionId, filters)
+            }
+            try {
+                suspend fun fetch() = withTimeoutOrNull(timeoutMillis) {
+                    client.fetchAll(
+                        subscriptionId = UUID.randomUUID().toString(),
+                        filters = filters,
+                        timeoutMs = timeoutMillis,
+                    )
+                } ?: throw SocketTimeoutException("Timed out checking $relayUrl")
 
-            var result = fetch()
-            // A protected relay can answer the first REQ with CLOSED auth-required while also
-            // issuing AUTH. Quartz's fetchAll treats CLOSED as completion and immediately removes
-            // that subscription, so RelayAuthenticator's post-auth sync has nothing left to
-            // resend. Wait for the AUTH OK and issue a fresh REQ on this same connection.
-            if (result.isEmpty() && monitor.authenticationWasRequested(relay)) {
-                if (!monitor.awaitAuthentication(relay, timeoutMillis)) {
-                    throw monitor.authenticationFailure(relay)
+                var result = fetch()
+                // A protected relay can answer the first REQ with CLOSED auth-required while also
+                // issuing AUTH. Wait for its OK and issue a fresh REQ on the pinned connection.
+                if (result.isEmpty() && monitor.authenticationWasRequested(relay)) {
+                    monitor.awaitAuthentication(relay, timeoutMillis)
+                    result = fetch()
                 }
-                result = fetch()
+                if (result.isEmpty()) {
+                    monitor.authenticationFailureOrNull(relay)?.let { throw it }
+                    monitor.currentConnectionFailure(relay)?.let { throw it }
+                }
+                result.map { it.toAppEvent() }.filter {
+                    it.kind == kind && it.pubkey == authorPubkey && NostrEventCodec.isValid(it)
+                }.distinctBy { it.id }
+            } finally {
+                if (authPrivateKey != null) client.unsubscribe(keepAliveSubscriptionId)
             }
-            if (result.isEmpty()) {
-                monitor.authenticationFailureOrNull(relay)?.let { throw it }
-                monitor.currentConnectionFailure(relay)?.let { throw it }
-            }
-            result.map { it.toAppEvent() }.filter {
-                it.kind == kind && it.pubkey == authorPubkey && NostrEventCodec.isValid(it)
-            }.distinctBy { it.id }
         }
     }
 
@@ -202,13 +210,9 @@ class NostrRelayService(
         val client = clientFactory(scope)
         val monitor = RelayOperationMonitor()
         client.addConnectionListener(monitor)
-        // Quartz queues the initial EVENT/REQ from onConnected. Relay AUTH commonly arrives
-        // immediately afterwards; dispatch its signer undispatched so the AUTH is sent before
-        // the queued unauthenticated operation can be rejected and removed from the outbox.
-        val authScope = authPrivateKey?.let { CoroutineScope(SupervisorJob() + Dispatchers.Unconfined) }
         val authenticator = authPrivateKey?.let { privateKey ->
             val signer = NostrSignerInternal(KeyPair(privKey = privateKey))
-            RelayAuthenticator(client, requireNotNull(authScope)) { template ->
+            RelayAuthenticator(client, scope) { template ->
                 // The callback is suspend and RelayAuthenticator already invokes it in its auth
                 // scope. Do not nest runBlocking: signing must not block relay message dispatch.
                 val signed = signer.sign<RelayAuthEvent>(template.createdAt, template.kind, template.tags, template.content)
@@ -217,17 +221,12 @@ class NostrRelayService(
             }
         }
         return try {
-            client.connect()
-            // Quartz synchronizes the outbox as soon as the socket opens, whereas an auth relay
-            // sends AUTH at the same instant. Give that challenge priority: an EVENT sent first
-            // can be rejected and discarded before Quartz receives the successful AUTH OK.
-            if (authPrivateKey != null) delay(AUTH_CHALLENGE_GRACE_MILLIS)
             block(client, monitor)
         } finally {
             authenticator?.destroy()
             client.removeConnectionListener(monitor)
-            authScope?.cancel()
             client.close()
+            scope.cancel()
         }
     }
 
@@ -237,8 +236,8 @@ class NostrRelayService(
         private val authEventIds = ConcurrentHashMap.newKeySet<String>()
         private val authChallengedRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
         private val authRequiredRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
-        private val authAcceptedRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
         private val authRejectedRelays = ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
+        private val authResults = ConcurrentHashMap<NormalizedRelayUrl, CompletableDeferred<Boolean>>()
         private val responses = ConcurrentHashMap<String, ConcurrentLinkedQueue<EventResponse>>()
         private val connectionFailures = ConcurrentHashMap<NormalizedRelayUrl, AtomicReference<String?>>()
 
@@ -261,11 +260,15 @@ class NostrRelayService(
         override fun onIncomingMessage(relay: IRelayClient, msgStr: String, msg: Message) {
             when (msg) {
                 is AuthMessage -> authChallengedRelays += relay.url
-                is ClosedMessage -> if (isAuthRequired(msg.message)) authRequiredRelays += relay.url
+                is ClosedMessage -> if (isAuthRequired(msg.message)) {
+                    authRequiredRelays += relay.url
+                }
                 is OkMessage -> {
                     if (msg.eventId in authEventIds) {
-                        if (msg.success) authAcceptedRelays += relay.url else authRejectedRelays += relay.url
+                        if (!msg.success) authRejectedRelays += relay.url
+                        authResults.getOrPut(relay.url) { CompletableDeferred() }.complete(msg.success)
                     } else {
+                        if (isAuthRequired(msg.message)) authRequiredRelays += relay.url
                         responses.getOrPut(msg.eventId) { ConcurrentLinkedQueue() }
                             .add(EventResponse(relay.url, msg.success, msg.message))
                     }
@@ -276,17 +279,15 @@ class NostrRelayService(
         fun authenticationWasRequested(relay: NormalizedRelayUrl): Boolean =
             relay in authChallengedRelays || relay in authRequiredRelays
 
-        suspend fun awaitAuthentication(relay: NormalizedRelayUrl, timeoutMillis: Long): Boolean {
-            val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
-            while (relay !in authAcceptedRelays && relay !in authRejectedRelays && System.nanoTime() < deadline) {
-                delay(ACK_POLL_MILLIS)
-            }
-            return relay in authAcceptedRelays
+        suspend fun awaitAuthentication(relay: NormalizedRelayUrl, timeoutMillis: Long) {
+            val accepted = withTimeoutOrNull(timeoutMillis) {
+                authResults.getOrPut(relay) { CompletableDeferred() }.await()
+            } ?: throw SocketTimeoutException("Timed out waiting for relay authentication: ${relay.url}")
+            if (!accepted) throw authenticationFailure(relay)
         }
 
         fun authenticationFailureOrNull(relay: NormalizedRelayUrl): SecurityException? = when {
             relay in authRejectedRelays -> authenticationFailure(relay)
-            relay in authRequiredRelays && relay !in authAcceptedRelays -> authenticationFailure(relay)
             else -> null
         }
 
@@ -297,21 +298,15 @@ class NostrRelayService(
             .filter { it.success || isIdempotentDuplicate(eventId, it.message) }
             .mapTo(mutableSetOf()) { it.relay.url }
 
-        private fun accepted(relay: NormalizedRelayUrl, eventId: String): Boolean = responses[eventId].orEmpty()
+        fun accepted(relay: NormalizedRelayUrl, eventId: String): Boolean = responses[eventId].orEmpty()
             .any { it.relay == relay && (it.success || isIdempotentDuplicate(eventId, it.message)) }
-
-        suspend fun awaitAcceptance(relay: NormalizedRelayUrl, eventId: String, timeoutMillis: Long): Boolean {
-            val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
-            while (!accepted(relay, eventId) && System.nanoTime() < deadline) delay(ACK_POLL_MILLIS)
-            return accepted(relay, eventId)
-        }
 
         fun currentConnectionFailure(relay: NormalizedRelayUrl): IOException? =
             connectionFailures[relay]?.get()?.let { IOException("Relay connection failed: ${relay.url}") }
 
         fun failureFor(relay: NormalizedRelayUrl, eventId: String): Throwable {
             val relayResponses = responses[eventId].orEmpty().filter { it.relay == relay }
-            if (relay in authRejectedRelays || (relay !in authAcceptedRelays && relayResponses.any { isAuthRequired(it.message) })) {
+            if (relay in authRejectedRelays) {
                 return authenticationFailure(relay)
             }
             if (relayResponses.isNotEmpty()) return IllegalStateException("Relay rejected event: ${relay.url}")
@@ -337,10 +332,6 @@ class NostrRelayService(
         const val ATTEMPT_TIMEOUT_MILLIS = 8_000L
         const val MAX_ATTEMPTS = 3
         const val RETRY_DELAY_MILLIS = 250L
-        private const val AUTH_CHALLENGE_GRACE_MILLIS = 250L
-        private const val AUTH_RETRY_DELAY_MILLIS = 500L
-        private const val ACK_POLL_MILLIS = 20L
-
         private fun newQuartzClient(scope: CoroutineScope): NostrClient {
             val okHttp = OkHttpClient.Builder()
                 .connectTimeout(ATTEMPT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)

@@ -46,11 +46,13 @@ The event author/signature identity is derived from the master account. The plai
 1. Install `RelayAuthenticator` before connecting.
 2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the master-derived Nostr key.
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
-4. Keep the connection alive while waiting for AUTH acknowledgement. If a protected read's initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
+4. Pin the challenged relay in Quartz's connection pool for the full operation timeout while waiting for a definitive AUTH acknowledgement. `fetchAll` removes its subscription after `CLOSED`, so an authenticated read maintains a temporary keep-alive subscription until the handshake and retry finish. If the initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
 5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.
 6. Require the target relay's successful `OK` acknowledgement before reporting a confirmed write. An exact-ID `event already exists` response is also accepted as idempotent confirmation because it proves that relay already stores the same signed event; other duplicate or blocked responses remain failures.
 
-A relay that does not request NIP-42 proceeds normally. Authentication rejection, network failure, timeout, and event rejection remain distinct source error categories and cannot satisfy quorum. The two default relay endpoints are `wss://appdata1.zentext.me` and `wss://appdata2.nostr.box`.
+A relay that does not request NIP-42 proceeds normally. Only an explicit negative AUTH `OK` is an authentication rejection; a missing AUTH acknowledgement is a timeout. Authentication rejection, network failure, timeout, and event rejection remain distinct source error categories and cannot satisfy quorum. The two default relay endpoints are `wss://appdata1.zentext.me` and `wss://appdata2.nostr.box`.
+
+NIP-42 auth events use the device wall clock and relays may reject events outside their freshness window. Persistent authentication rejection on one device therefore requires checking that Android automatic date and time are enabled; extending a network timeout cannot correct clock skew.
 
 ## Brave Sync format
 

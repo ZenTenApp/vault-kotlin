@@ -12,6 +12,7 @@ class NostrRelayServiceTest {
         assertTrue(NostrRelayService.isAuthRequired("auth-required: login required"))
         assertTrue(NostrRelayService.isAuthRequired("  AUTH-REQUIRED: restricted  "))
         assertFalse(NostrRelayService.isAuthRequired("restricted: login required"))
+        assertFalse(NostrRelayService.isAuthRequired("authentication failed"))
     }
 
     @Test
