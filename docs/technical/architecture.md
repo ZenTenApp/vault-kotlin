@@ -36,7 +36,7 @@ flowchart TD
 
 `DefaultBackupSourceFactory` constructs one `AccountBackupSource` adapter per configuration. Nostr adapters address exactly one relay through `NostrRelayGateway`; Brave adapters construct `BraveSyncTransport` with exactly one configured server URL. Existing Nostr event and Brave password-record formats are preserved.
 
-The current management UI is deliberately narrower than the repository API. Before master setup, it lists all sources and can append at most three custom Nostr relays after the fixed defaults. It exposes quorum participation and one combined recovery control; that control writes the same value to `restoreEnabled` and `trustedForRestore`. Editing, disabling, removal, reordering, custom Brave creation, and post-setup access remain unexposed.
+The current app has no custom-source management UI. The repository API is retained so a future UI can create and manage custom sources without reimplementing persistence, endpoint validation, ordering, or processing support.
 
 ## Serialization boundary
 

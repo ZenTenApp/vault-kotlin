@@ -13,8 +13,6 @@ import app.zenten.vault.ui.newaccount.NewAccountScreen
 import app.zenten.vault.ui.onboarding.GetStartedScreen
 import app.zenten.vault.ui.onboarding.SshSetupScreen
 import app.zenten.vault.ui.root.RootScreen
-import app.zenten.vault.ui.sources.AddBackupSourceScreen
-import app.zenten.vault.ui.sources.BackupSourcesScreen
 import androidx.compose.runtime.Composable
 
 @Composable
@@ -37,14 +35,6 @@ fun VaultNavGraph(
 
         composable(VaultDestinations.GET_STARTED_SSH) {
             SshSetupScreen(navController)
-        }
-
-        composable(VaultDestinations.BACKUP_SOURCES) {
-            BackupSourcesScreen(navController)
-        }
-
-        composable(VaultDestinations.ADD_BACKUP_SOURCE) {
-            AddBackupSourceScreen(navController)
         }
 
         composable(VaultDestinations.ACCOUNTS) {

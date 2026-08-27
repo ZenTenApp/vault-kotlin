@@ -17,13 +17,11 @@ flowchart LR
 
 **Starting point:** The app is new.
 
-1. On **Get started**, the user may optionally open **Manage backup sources**.
-2. The user can inspect the four locked built-in sources and add up to three custom Nostr relays, then return to **Get started**. This step is optional.
-3. The user selects **Import SSH Key** and provides the Ed25519 OpenSSH private key and passphrase for their master account.
-4. The app validates the material locally and prepares the vault identity.
-5. The app creates the required initial protected backup and reports progress.
-6. When setup succeeds, the user reaches **My Accounts**.
-7. The app looks for associated accounts already available from backup and restores every valid discovered account automatically.
+1. The user selects **Import SSH Key** and provides the Ed25519 OpenSSH private key and passphrase for their master account.
+2. The app validates the material locally and prepares the vault identity.
+3. The app creates the required initial protected backup and reports progress.
+4. When setup succeeds, the user reaches **My Accounts**.
+5. The app looks for associated accounts already available from backup and restores every valid discovered account automatically.
 
 **Success:** The vault is ready for use, and any valid discovered associated accounts are added to **My Accounts**.
 

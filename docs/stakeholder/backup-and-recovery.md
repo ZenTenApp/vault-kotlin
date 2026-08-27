@@ -51,7 +51,6 @@ Operational status records contain source/account identifiers, state, coarse err
 ## Current limitations
 
 - Default sources cannot be removed or disabled.
-- Before setup, users may add up to three custom Nostr relays. This optional screen does not support custom Brave sources, editing, disabling, removal, reordering, connectivity checks, or post-setup access.
-- Custom relay quorum and trusted-recovery participation are off by default and can be enabled in the add form's advanced settings.
+- The current app exposes no custom backup-source management UI. The underlying source configuration and processing capability is retained for future use.
 - The app does not currently provide account deletion or vault reset; remote deletion/retention is therefore not a user-facing flow.
 - Remote backup cannot recover lost master material.
