@@ -55,6 +55,9 @@ object SshKeyCodec {
     /** Converts PEM, raw base64, or {"OPENSSH PRIVATE KEY":"..."} input to canonical single-line base64. */
     fun normalizeToSingleLineBase64(input: String): String = Base64.getEncoder().encodeToString(decodePem(input))
 
+    /** Formats a stored canonical key for OpenSSH-compatible export. */
+    fun formatAsPem(input: String): String = pemEncode(decodePem(input))
+
     fun publicKeyLine(publicKey: ByteArray, comment: String): String {
         require(publicKey.size == 32) { "Ed25519 public key must be 32 bytes" }
         val blob = sshString(Ed25519.toByteArray(StandardCharsets.US_ASCII)) + sshString(publicKey)

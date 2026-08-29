@@ -30,11 +30,21 @@ class AppStorageServiceTest {
             service.setCustomBackupSources(listOf(source))
             service.upsertPendingSourceWrite(PendingSourceWrite("10", "custom", PendingWriteReason.DIRECT_BACKUP))
             service.upsertAccountSourceStatus(AccountSourceStatus("10", "custom", AccountSourceBackupState.BACKUP_FAILED))
+            service.markAccountLocallyBackedUp(10L)
+            service.requireAccountLocalBackup(20L)
+            service.markAccountQrBackedUp(20L)
 
             assertTrue(service.setupComplete.first())
             assertEquals(listOf(source), service.customBackupSources.first())
             assertEquals(1, service.pendingSourceWrites.first().size)
             assertEquals(AccountSourceBackupState.BACKUP_FAILED, service.accountSourceStatuses.first().single().state)
+            assertEquals(setOf("10"), service.locallyBackedUpAccountIds.first())
+            assertEquals(setOf("20"), service.pendingLocalBackupAccountIds.first())
+            assertEquals(setOf("20"), service.qrBackedUpAccountIds.first())
+
+            service.markAccountLocallyBackedUp(20L)
+            assertTrue(service.pendingLocalBackupAccountIds.first().isEmpty())
+            assertTrue(service.qrBackedUpAccountIds.first().isEmpty())
 
             service.clearPendingSourceWrite("10", "custom")
             assertTrue(service.pendingSourceWrites.first().isEmpty())

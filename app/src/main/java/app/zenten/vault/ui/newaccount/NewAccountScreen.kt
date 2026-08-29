@@ -17,11 +17,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import app.zenten.vault.ui.VaultDestinations
 
 @Composable
 fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
-    LaunchedEffect(state.created) { if (state.created != null) navController.popBackStack() }
+    LaunchedEffect(state.created) {
+        state.created?.let { account ->
+            navController.navigate(VaultDestinations.localAccountBackupQr(account.createdAt)) {
+                popUpTo(VaultDestinations.NEW_ACCOUNT) { inclusive = true }
+            }
+        }
+    }
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

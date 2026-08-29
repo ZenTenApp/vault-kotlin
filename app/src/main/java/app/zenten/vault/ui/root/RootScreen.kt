@@ -13,15 +13,16 @@ import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PlaceholderScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @Composable
 fun RootScreen(navController: NavHostController, viewModel: RootViewModel = hiltViewModel()) {
-    val setupComplete by viewModel.setupComplete.collectAsState()
-    LaunchedEffect(setupComplete) {
-        setupComplete?.let { complete ->
-            navController.navigate(if (complete) VaultDestinations.ACCOUNTS else VaultDestinations.GET_STARTED) {
+    val destination by viewModel.destination.collectAsState()
+    LaunchedEffect(destination) {
+        destination?.let { target ->
+            navController.navigate(target) {
                 popUpTo(VaultDestinations.ROOT) { inclusive = true }
             }
         }
@@ -31,5 +32,15 @@ fun RootScreen(navController: NavHostController, viewModel: RootViewModel = hilt
 
 @HiltViewModel
 class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewModel() {
-    val setupComplete = appStorage.setupComplete.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val destination = combine(appStorage.setupComplete, appStorage.pendingLocalBackupAccountIds, appStorage.qrBackedUpAccountIds) { complete, pending, qrBackedUp ->
+        when {
+            !complete -> VaultDestinations.GET_STARTED
+            pending.isNotEmpty() -> {
+                val accountId = pending.first().toLong()
+                if (accountId.toString() in qrBackedUp) VaultDestinations.localAccountBackupExport(accountId)
+                else VaultDestinations.localAccountBackupQr(accountId)
+            }
+            else -> VaultDestinations.ACCOUNTS
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }

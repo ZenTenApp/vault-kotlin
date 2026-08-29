@@ -57,6 +57,16 @@ class SshKeyCodecTest {
     }
 
     @Test
+    fun formats_canonical_key_as_open_ssh_pem_for_export() {
+        val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
+
+        assertEquals(
+            SshKeyCodec.normalizeToSingleLineBase64(pem),
+            SshKeyCodec.normalizeToSingleLineBase64(SshKeyCodec.formatAsPem(SshKeyCodec.normalizeToSingleLineBase64(pem))),
+        )
+    }
+
+    @Test
     fun decrypts_bcrypt_aes_ctr_key_and_rejects_wrong_passphrase() {
         val root = root()
         val pem = root["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
