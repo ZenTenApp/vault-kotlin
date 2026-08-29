@@ -117,7 +117,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 items(
-                    items = state.accounts.sortedBy { formatAccountId(it.createdAt) },
+                    items = newestFirst(state.accounts),
                     key = { it.createdAt },
                 ) { account ->
                     AccountCard(account) {
@@ -175,6 +175,9 @@ private fun AccountCard(account: Account, onClick: () -> Unit) {
 
 internal fun formatAccountId(accountId: Long): String =
     accountId.toString().chunked(4).joinToString(" ")
+
+internal fun newestFirst(accounts: List<Account>): List<Account> =
+    accounts.sortedByDescending { it.createdAt }
 
 internal fun formatAccountCreatedAt(accountId: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(accountId / 1_000L))
