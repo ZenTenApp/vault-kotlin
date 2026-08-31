@@ -32,14 +32,10 @@ fun RootScreen(navController: NavHostController, viewModel: RootViewModel = hilt
 
 @HiltViewModel
 class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewModel() {
-    val destination = combine(appStorage.setupComplete, appStorage.pendingLocalBackupAccountIds, appStorage.qrBackedUpAccountIds) { complete, pending, qrBackedUp ->
+    val destination = combine(appStorage.setupComplete, appStorage.pendingLocalBackupAccountIds) { complete, pending ->
         when {
             !complete -> VaultDestinations.GET_STARTED
-            pending.isNotEmpty() -> {
-                val accountId = pending.first().toLong()
-                if (accountId.toString() in qrBackedUp) VaultDestinations.localAccountBackupExport(accountId)
-                else VaultDestinations.localAccountBackupQr(accountId)
-            }
+            pending.isNotEmpty() -> VaultDestinations.localAccountBackupExport(pending.first().toLong())
             else -> VaultDestinations.ACCOUNTS
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

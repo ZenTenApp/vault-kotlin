@@ -30,9 +30,6 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     val pendingLocalBackupAccountIds: Flow<Set<String>> = dataStore.data.map { preferences ->
         decodeList<String>(preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS]).toSet()
     }
-    val qrBackedUpAccountIds: Flow<Set<String>> = dataStore.data.map { preferences ->
-        decodeList<String>(preferences[QR_BACKED_UP_ACCOUNT_IDS]).toSet()
-    }
 
     suspend fun setSetupComplete() = dataStore.edit { it[SETUP_COMPLETE] = true }
     suspend fun clearSetupComplete() = dataStore.edit { it.remove(SETUP_COMPLETE) }
@@ -89,9 +86,6 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val pending = decodeList<String>(preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS]).filterNot { it == accountId.toString() }
         if (pending.isEmpty()) preferences.remove(PENDING_LOCAL_BACKUP_ACCOUNT_IDS)
         else preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS] = json.encodeToString(pending)
-        val qrBackedUp = decodeList<String>(preferences[QR_BACKED_UP_ACCOUNT_IDS]).filterNot { it == accountId.toString() }
-        if (qrBackedUp.isEmpty()) preferences.remove(QR_BACKED_UP_ACCOUNT_IDS)
-        else preferences[QR_BACKED_UP_ACCOUNT_IDS] = json.encodeToString(qrBackedUp)
     }
 
     suspend fun requireAccountLocalBackup(accountId: Long) = dataStore.edit { preferences ->
@@ -100,17 +94,12 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS] = json.encodeToString(ids.toList())
     }
 
-    suspend fun markAccountQrBackedUp(accountId: Long) = dataStore.edit { preferences ->
-        val ids = decodeList<String>(preferences[QR_BACKED_UP_ACCOUNT_IDS]).toMutableSet()
-        ids += accountId.toString()
-        preferences[QR_BACKED_UP_ACCOUNT_IDS] = json.encodeToString(ids.toList())
-    }
-
     /** Removes development-only state from the superseded grouped-target implementation. */
     suspend fun clearLegacyBackupState() = dataStore.edit {
         it.remove(stringPreferencesKey("failed_backup_account_ids"))
         it.remove(stringPreferencesKey("pending_account_backups"))
         it.remove(stringPreferencesKey("backup_statuses"))
+        it.remove(stringPreferencesKey("qr_backed_up_account_ids_v1"))
     }
 
     private inline fun <reified T> jsonFlow(key: Preferences.Key<String>): Flow<List<T>> = dataStore.data.map {
@@ -130,7 +119,6 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val LAST_CONSOLIDATION_COMPLETED = longPreferencesKey("last_consolidation_completed_v2")
         val LOCALLY_BACKED_UP_ACCOUNT_IDS = stringPreferencesKey("locally_backed_up_account_ids_v1")
         val PENDING_LOCAL_BACKUP_ACCOUNT_IDS = stringPreferencesKey("pending_local_backup_account_ids_v1")
-        val QR_BACKED_UP_ACCOUNT_IDS = stringPreferencesKey("qr_backed_up_account_ids_v1")
     }
 }
 

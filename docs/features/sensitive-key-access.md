@@ -26,7 +26,6 @@ Private-key disclosure is never the default account-detail state.
 - The private-key view does not currently auto-hide after a timeout.
 - Clipboard-clearing behavior is not implemented.
 - Android cannot verify that a selected Sharesheet target saved the key. The mandatory post-creation flow completes its export step when it opens the chooser.
-- Gallery QR backups intentionally place an encrypted private key in shared media. The image may be copied by Gallery apps or cloud-media services and can be photographed or screen-captured outside the app.
 
 ## Primary implementation locations
 

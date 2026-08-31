@@ -19,9 +19,7 @@ class VaultDestinationsTest {
 
     @Test
     fun localAccountBackup_buildsRoutesFromId() {
-        assertEquals("accounts/1234567890/local-backup/qr", VaultDestinations.localAccountBackupQr(1234567890L))
         assertEquals("accounts/1234567890/local-backup/export", VaultDestinations.localAccountBackupExport(1234567890L))
-        assertEquals("accounts/{id}/local-backup/qr", VaultDestinations.LOCAL_ACCOUNT_BACKUP_QR)
         assertEquals("accounts/{id}/local-backup/export", VaultDestinations.LOCAL_ACCOUNT_BACKUP_EXPORT)
     }
 }

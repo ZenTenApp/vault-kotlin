@@ -24,16 +24,12 @@ object VaultDestinations {
     /** Create new associated account. */
     const val NEW_ACCOUNT = "new-accounts"
 
-    /** First mandatory local-backup step immediately after account creation. */
-    const val LOCAL_ACCOUNT_BACKUP_QR = "accounts/{id}/local-backup/qr"
-
-    /** Second mandatory local-backup step immediately after the QR image is saved. */
+    /** Mandatory local-backup step immediately after account creation. */
     const val LOCAL_ACCOUNT_BACKUP_EXPORT = "accounts/{id}/local-backup/export"
 
     /** Master account and its per-source backup coverage. */
     const val MASTER_ACCOUNT = "master-account"
 
     fun accountDetail(id: Long): String = "accounts/$id"
-    fun localAccountBackupQr(id: Long): String = "accounts/$id/local-backup/qr"
     fun localAccountBackupExport(id: Long): String = "accounts/$id/local-backup/export"
 }

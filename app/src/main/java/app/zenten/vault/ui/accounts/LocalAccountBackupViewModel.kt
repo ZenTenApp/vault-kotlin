@@ -27,14 +27,6 @@ class LocalAccountBackupViewModel @Inject constructor(
         _state.value = LocalAccountBackupState(accountId = accountId, account = accountService.getAccount(accountId))
     }
 
-    fun markQrBackedUp() {
-        val accountId = _state.value.accountId ?: return
-        viewModelScope.launch {
-            appStorage.markAccountQrBackedUp(accountId)
-            _state.value = _state.value.copy(qrBackedUp = true)
-        }
-    }
-
     fun complete() {
         val accountId = _state.value.accountId ?: return
         viewModelScope.launch {
@@ -49,6 +41,5 @@ class LocalAccountBackupViewModel @Inject constructor(
 data class LocalAccountBackupState(
     val accountId: Long? = null,
     val account: Account? = null,
-    val qrBackedUp: Boolean = false,
     val completed: Boolean = false,
 )

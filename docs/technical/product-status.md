@@ -10,7 +10,7 @@ This is a repository-oriented status view, not a production-readiness certificat
 | Deterministic recovery identity | Present in code | `crypto/Seedify.kt`, `NostrKeyDerivation.kt` | Golden/parity tests exist. |
 | Secure local storage | Present in code | `data/secure/`, `data/kv/` | Device, migration, and backup-policy review remains required. |
 | Associated-account generation/listing | Present in code | `domain/AccountService.kt`, `ui/accounts/` | Local-first persistence; labels currently use creation IDs. |
-| Private-key reveal/copy/local backup | Partial | `ui/accounts/AccountDetailScreen.kt`, `ui/accounts/LocalAccountBackupScreen.kt` | Confirmation and screenshot protection exist. Mandatory local backup requires a MediaStore QR then a Sharesheet export of the encrypted OpenSSH private key; clipboard lifecycle and independent verification of Sharesheet delivery remain unavailable. |
+| Private-key reveal/copy/local backup | Partial | `ui/accounts/AccountDetailScreen.kt`, `ui/accounts/LocalAccountBackupScreen.kt` | Confirmation and screenshot protection exist. Mandatory local backup requires a Sharesheet export of the encrypted OpenSSH private key; clipboard lifecycle and independent verification of Sharesheet delivery remain unavailable. |
 | Independent Nostr source adapter | Present in code | `domain/BackupSourceAdapters.kt`, `network/nostr/` | Includes transient NIP-42 handling; both default relays still require opt-in operational interoperability validation. |
 | Independent Brave-compatible source adapter | Present in code | `domain/BackupSourceAdapters.kt`, `domain/BraveSyncBackupService.kt` | All three endpoints require end-to-end infrastructure validation. |
 | Source repository/default policy | Present in code | `domain/BackupSources.kt`, `BackupSourceRepository.kt`, `ui/sources/` | Five immutable defaults and custom-source persistence. The UI currently adds at most three pre-setup Nostr relays; broader repository operations and custom Brave support are not exposed. |
@@ -18,6 +18,6 @@ This is a repository-oriented status view, not a production-readiness certificat
 | Per-source status UI | Partial | `ui/accounts/AccountDetailScreen.kt`, `ui/master/` | Live rows exist; final accessible copy, timestamps, and remediation need product validation. |
 | Automatic associated-account recovery | Present in code | `domain/AccountConsolidationEngine.kt`, source adapters | Trusted-source candidates restore automatically; real-service end-to-end validation remains. |
 | Account deletion and vault reset | Not available | — | Neither action is currently provided. |
-| Export/share workflow | Partial | `ui/accounts/LocalAccountBackupScreen.kt` | Android Sharesheet exports encrypted OpenSSH private-key text after the required Gallery QR. Opening the chooser cannot prove that a target saved the key. |
+| Export/share workflow | Partial | `ui/accounts/LocalAccountBackupScreen.kt` | Android Sharesheet exports encrypted OpenSSH private-key text. Opening the chooser cannot prove that a target saved the key. |
 
 See the [stakeholder scope and roadmap](../stakeholder/scope-and-roadmap.md) for client-review context.

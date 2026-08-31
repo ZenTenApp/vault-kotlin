@@ -39,11 +39,10 @@ flowchart LR
 4. The app confirms that master backup quorum is satisfied; otherwise creation stops without saving an account.
 5. The app saves the new associated account on the device first.
 6. The app starts background consolidation, checking each destination before writing only confirmed gaps.
-7. The user saves a QR image containing the encrypted private key to Gallery.
-8. The user then exports the encrypted OpenSSH private key through the device Sharesheet to Notes, Messages, or another available app.
-9. The user returns to the account list and can check backup status.
+7. The user exports the encrypted OpenSSH private key through the device Sharesheet to Notes, Messages, or another available app.
+8. The user returns to the account list and can check backup status.
 
-**Success:** The new associated account is available locally after both required local-backup steps complete, even if remote consolidation must run again later.
+**Success:** The new associated account is available locally after the required local-backup step completes, even if remote consolidation must run again later.
 
 ## 3. Inspect or copy an associated account key
 

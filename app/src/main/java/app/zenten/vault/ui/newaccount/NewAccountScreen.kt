@@ -24,7 +24,7 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
     val state by viewModel.state.collectAsState()
     LaunchedEffect(state.created) {
         state.created?.let { account ->
-            navController.navigate(VaultDestinations.localAccountBackupQr(account.createdAt)) {
+            navController.navigate(VaultDestinations.localAccountBackupExport(account.createdAt)) {
                 popUpTo(VaultDestinations.NEW_ACCOUNT) { inclusive = true }
             }
         }

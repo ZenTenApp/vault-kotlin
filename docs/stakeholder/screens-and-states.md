@@ -8,7 +8,6 @@ This screen map reflects the current Android proof-of-concept navigation.
 | Set up master account | Import master private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | My Accounts | List associated accounts and reach master details | Add account; open account; open Master Account | Loading, empty, recovering, populated |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
-| Save account QR | Require a Gallery QR backup before account use | Save QR to Gallery | Saving, Gallery failure |
 | Export account | Require an Android Sharesheet export before account use | Export to Notes | Chooser open |
 | Account detail | Inspect account and per-source backup state | Show/copy private key | Missing, source checking/writing/present/missing/failed/unknown |
 | Master Account | Inspect master and per-source backup state | Retry/consolidate as available | Quorum/status rows, checking, partial, failure |
@@ -26,8 +25,7 @@ flowchart TD
     M -- Quorum unavailable --> M
     S -- Yes --> A
     A --> N[Create associated account]
-    N --> QR[Save account QR]
-    QR --> EX[Export account]
+    N --> EX[Export account]
     EX --> A
     A --> D[Account detail]
     A --> MA[Master Account]
@@ -58,9 +56,8 @@ flowchart TD
 
 ### Local account backup
 
-- Back navigation is blocked until both required backup routes complete.
-- The first screen saves a QR that encodes the encrypted OpenSSH private key directly to Gallery; the app advances only after `MediaStore` confirms the image write and shows a Toast result rather than a preview or confirmation dialog.
-- The following screen sends the encrypted OpenSSH private key as plain text through the Android Sharesheet, allowing targets such as Keep, Messages, or email. The app considers this step complete when it opens the chooser.
+- Back navigation is blocked until the required backup route completes.
+- The export screen sends the encrypted OpenSSH private key as plain text through the Android Sharesheet, allowing targets such as Keep, Messages, or email. The app considers this step complete when it opens the chooser.
 - This is sensitive shared-media/share-target output, despite OpenSSH passphrase encryption. The screen is protected from screenshots where Android supports it.
 
 ### Account detail and Master Account

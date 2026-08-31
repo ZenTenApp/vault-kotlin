@@ -12,9 +12,8 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 4. The app verifies that master setup is complete, meaning its required backup quorum was satisfied.
 5. The app allocates a unique creation ID, generates the key pair encrypted with the master account passphrase, and saves the associated account locally.
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
-7. Before the account can be used, the user must save an encrypted-private-key QR image to Gallery.
-8. The app then requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
-9. After the Gallery save succeeds and the Android Sharesheet opens, the account appears in **My Accounts**. The app also publishes a Nostr kind `0` profile using a deterministic identity derived from the associated account's encrypted SSH key to `wss://user.kindpag.es` and `wss://purplepag.es`; a relay failure does not block completion. Selecting the account opens its public-key details.
+7. Before the account can be used, the app requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
+8. After the Android Sharesheet opens, the account appears in **My Accounts**. The app also publishes a Nostr kind `0` profile using a deterministic identity derived from the associated account's encrypted SSH key to `wss://user.kindpag.es` and `wss://purplepag.es`; a relay failure does not block completion. Selecting the account opens its public-key details.
 
 The screen has no title or header section: it presents account cards plus two bottom-right actions. The extended **Master account** action opens master backup details and sits above the add floating action button.
 
@@ -27,8 +26,8 @@ Associated accounts use compact, credit-card-inspired cards and are listed newes
 - Creation requires the retained master-account passphrase; the generated OpenSSH private key is encrypted with that same passphrase.
 - Creation errors are shown without disclosing secret key material.
 - The account list refreshes when the app returns to the foreground, including after recovery work.
-- The mandatory local-backup screens block Back navigation. The Gallery screen advances only after the app writes the PNG through `MediaStore`; the following export screen completes when it opens the Android Sharesheet.
-- The QR image and Sharesheet text contain the passphrase-encrypted OpenSSH private key. They remain sensitive: other Gallery apps, cloud-media services, share recipients, or anyone who learns the retained passphrase may be able to use the account.
+- The mandatory local-backup screen blocks Back navigation and completes when it opens the Android Sharesheet.
+- The Sharesheet text contains the passphrase-encrypted OpenSSH private key. It remains sensitive: share recipients or anyone who learns the retained passphrase may be able to use the account.
 - Each published profile uses the account creation ID for both `name` and `display_name`. Its banner index is the first three digits of the final five ID digits modulo `100`, and its picture index is the final two digits modulo `60`, yielding `https://nostr.box/banner/{index}.svg` and `https://nostr.box/picture/{index}.svg`. Every field in the kind `0` JSON content object is also included as an individual Nostr tag.
 
 ## Current limitations
@@ -36,7 +35,7 @@ Associated accounts use compact, credit-card-inspired cards and are listed newes
 - Associated accounts cannot be renamed, rotated, deleted, or manually restored one at a time.
 - The app has no vault-reset action.
 - The creation screen includes a cancel action before creation starts; it does not remove an already-created account.
-- The app persists a pending account ID and completed QR step before entering the backup sequence, then resumes the correct required step after an app restart. It records only account IDs, and cannot verify the durability, privacy, or future availability of a Gallery or shared copy.
+- The app persists a pending account ID before entering the backup sequence, then resumes the required export step after an app restart. It records only account IDs and cannot verify the durability, privacy, or future availability of a shared copy.
 
 ## Primary implementation locations
 
