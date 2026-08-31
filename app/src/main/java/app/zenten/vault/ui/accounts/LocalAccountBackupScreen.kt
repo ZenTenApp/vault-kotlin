@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.ui.VaultDestinations
 
 @Composable
@@ -40,15 +39,28 @@ fun LocalAccountBackupExportScreen(
     SecureWindow()
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Export account", style = MaterialTheme.typography.headlineMedium)
-        Text("Export this account's encrypted OpenSSH private key to Notes, Messages, or another app. This is required before continuing.")
+        Text("Export this account's encrypted OpenSSH private key to a trusted notes app or another app. This is required before continuing.")
         if (account == null) Text("Account not found", color = MaterialTheme.colorScheme.error)
         else Button(onClick = {
+            val sendIntent = LocalAccountBackupShare.sendIntent(account.zenTenKey)
+            val preferredTargets = LocalAccountBackupShare.preferredTargetIntents(
+                context.packageManager.queryIntentActivities(sendIntent, 0),
+                account.zenTenKey,
+            )
             context.startActivity(Intent.createChooser(
-                Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, SshKeyCodec.formatAsPem(account.zenTenKey)),
+                sendIntent,
                 "Export encrypted SSH private key",
-            ))
-            viewModel.complete()
-        }, modifier = Modifier.fillMaxWidth()) { Text("Export to notes") }
+            ).putExtra(Intent.EXTRA_INITIAL_INTENTS, preferredTargets))
+            viewModel.recordExportStarted()
+        }, modifier = Modifier.fillMaxWidth()) { Text("Choose an app to save key") }
+        if (state.exportStarted) {
+            Text("After saving the key, confirm below. Android cannot verify that the receiving app retained it.")
+            Button(
+                onClick = viewModel::complete,
+                enabled = !state.completing,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (state.completing) "Confirming..." else "I saved my encrypted private key") }
+        }
     }
     LaunchedEffect(state.completed) {
         if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {

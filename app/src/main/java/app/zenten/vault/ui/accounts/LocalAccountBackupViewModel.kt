@@ -29,6 +29,8 @@ class LocalAccountBackupViewModel @Inject constructor(
 
     fun complete() {
         val accountId = _state.value.accountId ?: return
+        if (!_state.value.exportStarted || _state.value.completing) return
+        _state.value = _state.value.copy(completing = true)
         viewModelScope.launch {
             appStorage.markAccountLocallyBackedUp(accountId)
             val account = _state.value.account
@@ -36,10 +38,16 @@ class LocalAccountBackupViewModel @Inject constructor(
             _state.value = _state.value.copy(completed = true)
         }
     }
+
+    fun recordExportStarted() {
+        _state.value = _state.value.copy(exportStarted = true)
+    }
 }
 
 data class LocalAccountBackupState(
     val accountId: Long? = null,
     val account: Account? = null,
+    val exportStarted: Boolean = false,
+    val completing: Boolean = false,
     val completed: Boolean = false,
 )

@@ -26,6 +26,7 @@
 
 - Private-key/passphrase setup screen sets Android's secure-window flag.
 - Private-key disclosure requires user confirmation and its dialog sets the secure-window flag.
+- Local private-key export keeps the secure-window flag, prioritizes installed supported note apps without excluding other compatible Sharesheet targets, and requires the user's explicit confirmation after export. That confirmation is an attestation, not verification that the receiving app retained the key.
 - OpenSSH parsing, Nostr derivation/encryption, and remote record codecs have automated tests; crypto test vectors are in `app/src/test/resources/golden/`.
 - Generated associated-account OpenSSH keys use `aes256-ctr` with `bcrypt_pbkdf` and the retained master-account passphrase; Nostr backups add NIP-44 encryption around that encrypted key payload.
 - Local secure storage, source adapters, consolidation, and background scheduling have distinct implementation areas.
