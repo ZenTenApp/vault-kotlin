@@ -10,7 +10,7 @@ data class Account(
     val zenTenPass: String? = null,
     val pubkey: String? = null,
     val mnemonic: String? = null,
-    val nostr: NostrKeyPair? = null,
+    val nostr: NostrKeyPair,
 )
 
 @Serializable

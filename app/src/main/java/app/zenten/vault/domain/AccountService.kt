@@ -1,6 +1,9 @@
 package app.zenten.vault.domain
 
+import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
+import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import java.util.concurrent.ThreadLocalRandom
@@ -28,6 +31,9 @@ class AccountService(
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
             zenTenPass = masterPassphrase,
             pubkey = generated.publicKey,
+            nostr = NostrKeyDerivation.derive(
+                Seedify.fromSshKey(generated.privateKeyPem, masterPassphrase.toCharArray()),
+            ).toPersistedKeyPair(),
         )
         setupService.addAccount(master, account).getOrThrow()
         account

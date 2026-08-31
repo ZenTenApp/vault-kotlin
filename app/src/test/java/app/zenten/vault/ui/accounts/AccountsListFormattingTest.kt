@@ -2,6 +2,7 @@ package app.zenten.vault.ui.accounts
 
 import androidx.compose.ui.graphics.Color
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Test
@@ -43,8 +44,8 @@ class AccountsListFormattingTest {
     @Test
     fun `newest account is listed first`() {
         val accounts = listOf(
-            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older"),
-            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer"),
+            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
         )
 
         assertEquals(

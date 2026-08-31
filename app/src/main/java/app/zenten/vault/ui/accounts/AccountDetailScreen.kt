@@ -4,6 +4,7 @@ import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +31,8 @@ import androidx.navigation.NavHostController
 import androidx.compose.ui.text.AnnotatedString
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AccountSourceBackupState
+import app.zenten.vault.domain.hexToBytes
+import com.vitorpamplona.quartz.nip19Bech32.toNpub
 import java.text.DateFormat
 import java.util.Date
 
@@ -63,6 +66,13 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                 SshKeyCodec.fingerprint(wire.copyOfRange(wire.size - 32, wire.size))
             }.getOrNull()
             Text("Fingerprint: ${fingerprint ?: "Unavailable"}", modifier = Modifier.padding(top = 12.dp))
+        }
+        Text("Nostr public key", modifier = Modifier.padding(top = 24.dp))
+        SelectionContainer {
+            Text(
+                runCatching { account.nostr.pubkey.hexToBytes().toNpub() }.getOrNull() ?: "Unavailable",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         Button(onClick = { confirmReveal = true }, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) { Text("Show private key") }
         Text("Backup sources", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))

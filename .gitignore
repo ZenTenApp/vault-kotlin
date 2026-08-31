@@ -11,3 +11,5 @@
 *.apk
 *.aab
 *.keystore
+
+/code-review-checklist.md

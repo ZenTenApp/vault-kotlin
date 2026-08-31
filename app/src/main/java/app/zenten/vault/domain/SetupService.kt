@@ -14,7 +14,6 @@ class SetupService(
     private val workScheduler: BackupWorkScheduler? = null,
 ) {
     suspend fun performSetup(master: Account): Result<Unit> = runCatching {
-        require(master.nostr != null) { "Master account must have a Nostr identity" }
         // Keep the imported master on quorum failure so users can retry without re-entering it.
         secureStorage.addMasterAccount(master)
         appStorage.clearSetupComplete()

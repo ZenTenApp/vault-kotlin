@@ -2,6 +2,8 @@ package app.zenten.vault.domain
 
 import app.zenten.vault.bravesync.BravePasswordService
 import app.zenten.vault.crypto.Seedify
+import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +44,9 @@ class BraveSyncBackupService(
             zenTenKey = key,
             zenTenPass = passphrase,
             pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
+            nostr = NostrKeyDerivation.derive(
+                Seedify.fromSshKey(key, passphrase.toCharArray()),
+            ).toPersistedKeyPair(),
         )
     }.getOrNull()
 

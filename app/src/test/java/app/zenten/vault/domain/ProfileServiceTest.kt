@@ -4,6 +4,7 @@ import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrRelayGateway
 import app.zenten.vault.network.nostr.PublishResult
@@ -22,7 +23,7 @@ class ProfileServiceTest {
         val accountId = 1_700_000_012_345_678L
         val passphrase = "associated-passphrase"
         val generated = SshKeyCodec.generateEncrypted(accountId, passphrase.toCharArray())
-        val account = Account(createdAt = accountId, zenTenKey = generated.privateKeyPem, zenTenPass = passphrase)
+        val account = Account(createdAt = accountId, zenTenKey = generated.privateKeyPem, zenTenPass = passphrase, nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
         ProfileService(gateway, Clock.fixed(Instant.ofEpochSecond(1_700_000_000L), ZoneOffset.UTC))
             .publishAssociatedAccountProfile(account)

@@ -61,7 +61,7 @@ class SetupServiceTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getMasterAccount() } returns master
         every { fixture.appStorage.setupComplete } returns flowOf(true)
-        val account = Account(20, "associated", "pass")
+        val account = Account(20, "associated", "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
         assertTrue(fixture.service.addAccount(master, account).isSuccess)
 
@@ -75,7 +75,7 @@ class SetupServiceTest {
     fun associated_account_is_rejected_when_master_backup_quorum_is_incomplete() = runTest {
         val fixture = Fixture()
         every { fixture.appStorage.setupComplete } returns flowOf(false)
-        val account = Account(20, "associated", "pass")
+        val account = Account(20, "associated", "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
         val result = fixture.service.addAccount(master, account)
 

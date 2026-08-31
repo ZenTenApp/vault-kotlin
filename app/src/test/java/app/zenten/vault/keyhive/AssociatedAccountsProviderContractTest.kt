@@ -1,6 +1,7 @@
 package app.zenten.vault.keyhive
 
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.NostrKeyPair
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -25,6 +26,7 @@ class AssociatedAccountsProviderContractTest {
             zenTenKey = "passphrase-protected-openssh-key",
             zenTenPass = "must-not-be-shared",
             mnemonic = "must-not-be-shared",
+            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )
 
         val fields = Json.parseToJsonElement(Json.encodeToString(account.toSharedAssociatedAccount())).jsonObject

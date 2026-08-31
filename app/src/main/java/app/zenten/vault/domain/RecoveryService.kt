@@ -1,6 +1,9 @@
 package app.zenten.vault.domain
 
 import app.zenten.vault.crypto.Nip44
+import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.Seedify
+import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.network.nostr.NostrEvent
@@ -14,7 +17,7 @@ class RecoveryService(
     private val braveSyncBackupService: BraveSyncBackupService? = null,
 ) {
     suspend fun discoverAssociatedAccounts(master: Account): RecoveryResult {
-        val nostr = requireNotNull(master.nostr) { "Master Nostr identity is required for recovery" }
+        val nostr = master.nostr
         val events = relayGateway.fetchAuthenticatedByAuthorAndKind(
             nostr.pubkey,
             BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
@@ -43,7 +46,7 @@ class RecoveryService(
     }
 
     fun decodeAssociatedAccount(event: NostrEvent, master: Account): Account? = runCatching {
-        val nostr = requireNotNull(master.nostr)
+        val nostr = master.nostr
         require(NostrEventCodec.isValid(event))
         require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
         val dTag = event.tags.single { it.firstOrNull() == "d" }.getOrNull(1)
@@ -58,6 +61,9 @@ class RecoveryService(
             zenTenKey = app.zenten.vault.crypto.SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
             zenTenPass = passphrase,
             pubkey = app.zenten.vault.crypto.SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
+            nostr = NostrKeyDerivation.derive(
+                Seedify.fromSshKey(sshPrivateKey, passphrase.toCharArray()),
+            ).toPersistedKeyPair(),
         )
     }.getOrNull()
 

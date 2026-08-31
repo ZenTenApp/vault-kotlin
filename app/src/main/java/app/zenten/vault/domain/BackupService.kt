@@ -15,7 +15,7 @@ class BackupService(
     private val clock: Clock = Clock.systemUTC(),
 ) {
     suspend fun backupMaster(master: Account): PublishResult {
-        val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
+        val nostr = master.nostr
         return relayGateway.publishAuthenticated(
             buildBackupEvent(master, master, MASTER_D_TAG, MASTER_BACKUP_KIND),
             nostr.privateKey(),
@@ -23,7 +23,7 @@ class BackupService(
     }
 
     suspend fun backupAssociatedAccount(master: Account, account: Account): PublishResult {
-        val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
+        val nostr = master.nostr
         return relayGateway.publishAuthenticated(
             buildBackupEvent(master, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND),
             nostr.privateKey(),
@@ -32,7 +32,7 @@ class BackupService(
 
     /** Builds the signed backup event; the same master key signs an optional NIP-42 challenge. */
     fun buildBackupEvent(master: Account, account: Account, dTag: String, kind: Int): NostrEvent {
-        val nostr = requireNotNull(master.nostr) { "Master Nostr key pair is required to back up accounts" }
+        val nostr = master.nostr
         validateContract(account, dTag, kind)
         if (kind == ASSOCIATED_ACCOUNT_BACKUP_KIND) requireEncryptedAssociatedKey(account)
         // The NIP-44 plaintext is exactly the single-line base64 OpenSSH private key.

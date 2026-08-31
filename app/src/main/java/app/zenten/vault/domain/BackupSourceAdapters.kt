@@ -5,6 +5,9 @@ import app.zenten.vault.bravesync.BraveSyncConfig
 import app.zenten.vault.bravesync.transport.BraveSyncTransport
 import app.zenten.vault.crypto.Nip44
 import app.zenten.vault.crypto.SshKeyCodec
+import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.Seedify
+import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
@@ -37,7 +40,7 @@ class NostrBackupSource(
     private val backupService: BackupService,
 ) : AccountBackupSource {
     override suspend fun index(master: Account): Result<SourceIndex> = runCatching {
-        val nostr = requireNotNull(master.nostr)
+        val nostr = master.nostr
         val privateKey = nostr.privateKey()
         val masterEvents = gateway.fetchAuthenticatedByRelay(
             config.endpoint, nostr.pubkey, BackupService.MASTER_BACKUP_KIND, privateKey,
@@ -64,7 +67,7 @@ class NostrBackupSource(
 
     override suspend fun restoreCandidate(master: Account, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
         val event = (candidate as NostrCandidate).event
-        val nostr = requireNotNull(master.nostr)
+        val nostr = master.nostr
         require(NostrEventCodec.isValid(event))
         require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
         val id = requireNotNull(candidate.id.createdAt)
@@ -77,6 +80,9 @@ class NostrBackupSource(
             zenTenKey = normalized,
             zenTenPass = passphrase,
             pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
+            nostr = NostrKeyDerivation.derive(
+                Seedify.fromSshKey(normalized, passphrase.toCharArray()),
+            ).toPersistedKeyPair(),
         )
     }
 
@@ -86,7 +92,7 @@ class NostrBackupSource(
         } else {
             backupService.buildBackupEvent(master, account, accountId.value, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
         }
-        return gateway.publishAuthenticatedToRelay(config.endpoint, event, requireNotNull(master.nostr).privateKey())
+        return gateway.publishAuthenticatedToRelay(config.endpoint, event, master.nostr.privateKey())
     }
 
     private fun NostrEvent.canonicalId(expectedKind: Int): BackupAccountId? {

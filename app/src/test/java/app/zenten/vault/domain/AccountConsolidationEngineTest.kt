@@ -5,6 +5,8 @@ import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.NostrKeyPair
+import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.data.secure.SecureStorageService
 import io.mockk.every
 import io.mockk.just
@@ -62,15 +64,15 @@ class AccountConsolidationEngineTest {
 
             assertTrue(result.relayQuorum)
             assertFalse(result.braveQuorum)
-            assertEquals(8, factory.calls.size)
+            assertEquals(DefaultBackupSources.all.size * 2, factory.calls.size)
         }
     }
 
     @Test
     fun targeted_consolidation_only_updates_and_writes_the_selected_account() = runTest {
         fixture { engine, appStorage, storage, factory ->
-            val selected = Account(10, "selected", "pass")
-            val unrelated = Account(20, "unrelated", "pass")
+            val selected = account(10, "selected")
+            val unrelated = account(20, "unrelated")
             every { storage.getAccountById(10) } returns selected
             every { storage.getAccounts() } returns listOf(selected, unrelated)
             val selectedId = BackupAccountId.associated(10)
@@ -91,7 +93,7 @@ class AccountConsolidationEngineTest {
     @Test
     fun targeted_consolidation_does_not_write_when_selected_account_is_already_present() = runTest {
         fixture { engine, _, storage, factory ->
-            val selected = Account(10, "selected", "pass")
+            val selected = account(10, "selected")
             every { storage.getAccountById(10) } returns selected
             val present = setOf(BackupAccountId.associated(10))
             factory.sources.values.forEach { it.indexes += SourceIndex(present, emptyMap()) }
@@ -106,7 +108,7 @@ class AccountConsolidationEngineTest {
     @Test
     fun consolidation_does_not_write_accounts_already_indexed_at_a_source() = runTest {
         fixture { engine, _, storage, factory ->
-            every { storage.getAccounts() } returns listOf(Account(10, "local", "pass"))
+            every { storage.getAccounts() } returns listOf(account(10, "local"))
             val allPresent = setOf(BackupAccountId.Master, BackupAccountId.associated(10))
             factory.sources.values.forEach { source ->
                 source.indexes += SourceIndex(allPresent, emptyMap())
@@ -123,8 +125,8 @@ class AccountConsolidationEngineTest {
     @Test
     fun consolidation_restores_all_sources_before_backing_up_and_verifies_once_after_writes() = runTest {
         fixture { engine, appStorage, storage, factory ->
-            val restored = Account(20, "restored", "pass")
-            val local = mutableListOf(Account(10, "local", "pass"))
+            val restored = account(20, "restored")
+            val local = mutableListOf(account(10, "local"))
             every { storage.getAccounts() } answers { local.toList() }
             every { storage.addAccount(any()) } answers { local += firstArg<Account>() }
             factory.sources.values.forEach { source ->
@@ -216,6 +218,13 @@ class AccountConsolidationEngineTest {
     ) : RemoteAccountCandidate
 
     companion object {
-        val master = Account(1, "master", "pass")
+        val nostr = NostrKeyPair(
+            NostrKeyDerivation.derive("alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady").publicKey.hex(),
+            "01".repeat(32),
+        )
+        val master = account(1, "master")
+        fun account(id: Long, key: String) = Account(id, key, "pass", nostr = nostr)
+
+        private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
     }
 }

@@ -3,6 +3,7 @@ package app.zenten.vault.ui.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
@@ -41,7 +42,7 @@ class OnboardingViewModel @Inject constructor(
                     zenTenPass = passphrase,
                     pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
                     mnemonic = mnemonic,
-                    nostr = NostrKeyPair(nostr.publicKey.hex(), nostr.privateKey.hex()),
+                    nostr = nostr.toPersistedKeyPair(),
                 )
                 _state.value = _state.value.copy(stage = "Backing up master account…")
                 setupService.performSetup(account).getOrThrow()
@@ -73,5 +74,3 @@ data class OnboardingState(
     val error: String? = null,
     val canRetryStoredMaster: Boolean = false,
 )
-
-private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
