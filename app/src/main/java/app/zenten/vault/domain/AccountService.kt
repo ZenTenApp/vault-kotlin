@@ -16,16 +16,17 @@ class AccountService(
     fun getAccounts(): List<Account> = secureStorage.getAccounts()
     fun getAccount(id: Long): Account? = secureStorage.getAccountById(id)
 
-    suspend fun createAssociatedAccount(): Result<Account> = runCatching {
+    suspend fun createAssociatedAccount(masterPassphrase: String): Result<Account> = runCatching {
         val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
-        val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
-        require(passphrase.isNotBlank()) { "Master account passphrase is required to create an associated account" }
+        val storedPassphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
+        require(masterPassphrase.isNotBlank()) { "Master account passphrase is required to create an associated account" }
+        require(masterPassphrase == storedPassphrase) { "The passphrase does not match the master account" }
         val createdAt = nextCreatedAt()
-        val generated = SshKeyCodec.generateEncrypted(createdAt, passphrase.toCharArray())
+        val generated = SshKeyCodec.generateEncrypted(createdAt, masterPassphrase.toCharArray())
         val account = Account(
             createdAt = createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
-            zenTenPass = passphrase,
+            zenTenPass = masterPassphrase,
             pubkey = generated.publicKey,
         )
         setupService.addAccount(master, account).getOrThrow()

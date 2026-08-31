@@ -50,6 +50,7 @@ flowchart TD
 
 ### Create associated account
 
+- The screen requests the master-account passphrase and blocks creation unless it matches the securely retained passphrase. The field is obscured and the screen prevents screenshots where Android supports it.
 - The account is stored locally before remote backup begins.
 - Remote failures do not remove or disable the account.
 - The UI should make clear that source backup may continue in the background.

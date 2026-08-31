@@ -20,11 +20,11 @@ class NewAccountViewModel @Inject constructor(
     private val _state = MutableStateFlow(NewAccountState())
     val state: StateFlow<NewAccountState> = _state.asStateFlow()
 
-    fun create() {
+    fun create(masterPassphrase: String) {
         if (_state.value.creating) return
         _state.value = NewAccountState(creating = true)
         viewModelScope.launch {
-            accountService.createAssociatedAccount()
+            accountService.createAssociatedAccount(masterPassphrase)
                 .onSuccess {
                     appStorage.requireAccountLocalBackup(it.createdAt)
                     _state.value = NewAccountState(created = it)

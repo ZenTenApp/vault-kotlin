@@ -11,6 +11,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -23,7 +24,7 @@ class AccountServiceTest {
         every { storage.getMasterAccount() } returns Account(1, "master", zenTenPass = "master-passphrase", nostr = NostrKeyPair(keys.publicKey.hex(), keys.privateKey.hex()))
         coJustRun { setup.addAccount(any(), any()) }
 
-        val created = AccountService(storage, setup).createAssociatedAccount().getOrThrow()
+        val created = AccountService(storage, setup).createAssociatedAccount("master-passphrase").getOrThrow()
 
         assertTrue(created.createdAt > 1_000_000_000_000_000L)
         assertTrue(created.createdAt % 1_000L in 1L..999L)
@@ -32,6 +33,19 @@ class AccountServiceTest {
         assertEquals("master-passphrase", created.zenTenPass)
         assertTrue(created.pubkey!!.endsWith(" ${created.createdAt}"))
         coVerify(exactly = 1) { setup.addAccount(any(), created) }
+    }
+
+    @Test
+    fun create_associated_account_rejects_a_nonmatching_master_passphrase() = runTest {
+        val storage = mockk<SecureStorageService>()
+        val setup = mockk<SetupService>()
+        every { storage.getMasterAccount() } returns Account(1, "master", zenTenPass = "master-passphrase")
+
+        val result = AccountService(storage, setup).createAssociatedAccount("wrong-passphrase")
+
+        assertFalse(result.isSuccess)
+        assertEquals("The passphrase does not match the master account", result.exceptionOrNull()?.message)
+        coVerify(exactly = 0) { setup.addAccount(any(), any()) }
     }
 
 
