@@ -7,9 +7,6 @@ import app.zenten.vault.background.WorkManagerBackupWorkScheduler
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.domain.AccountConsolidationEngine
-import coil.ImageLoader
-import coil.ImageLoaderFactory
-import coil.decode.SvgDecoder
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +15,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
-class VaultApplication : Application(), Configuration.Provider, ImageLoaderFactory {
+class VaultApplication : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var scheduler: WorkManagerBackupWorkScheduler
     @Inject lateinit var engine: AccountConsolidationEngine
@@ -35,8 +32,4 @@ class VaultApplication : Application(), Configuration.Provider, ImageLoaderFacto
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
-
-    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .components { add(SvgDecoder.Factory()) }
-        .build()
 }

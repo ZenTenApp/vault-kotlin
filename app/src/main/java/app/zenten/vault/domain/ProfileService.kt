@@ -7,13 +7,7 @@ import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
 import app.zenten.vault.network.nostr.NostrRelayGateway
 import java.time.Clock
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 /** Publishes the public Nostr identity for an associated account after its local backup completes. */
@@ -21,19 +15,6 @@ class ProfileService(
     private val relayGateway: NostrRelayGateway,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    suspend fun fetchAssociatedAccountProfile(account: Account): AccountProfile? = coroutineScope {
-        val events = PROFILE_RELAYS.map { relayUrl ->
-            async {
-                relayUrl to relayGateway.fetchByRelay(relayUrl, account.nostr.pubkey, PROFILE_KIND)
-            }
-        }.awaitAll().flatMap { (_, result) ->
-            result.getOrElse { emptyList() }
-        }
-        events
-            .sortedWith(compareByDescending<NostrEvent> { it.createdAt }.thenByDescending { it.id })
-            .firstNotNullOfOrNull(::parseProfile)
-    }
-
     suspend fun publishAssociatedAccountProfile(account: Account) {
         val passphrase = requireNotNull(account.zenTenPass) { "Associated-account passphrase is required to publish its profile" }
         val keys = NostrKeyDerivation.derive(Seedify.fromSshKey(account.zenTenKey, passphrase.toCharArray()))
@@ -72,22 +53,8 @@ class ProfileService(
         )
     }
 
-    private fun parseProfile(event: NostrEvent): AccountProfile? = runCatching {
-        val fields = Json.parseToJsonElement(event.content).jsonObject
-        val displayName = (fields["display_name"] as? JsonPrimitive)?.content?.trim().orEmpty().ifBlank { null }
-        val bannerUrl = (fields["banner"] as? JsonPrimitive)?.content?.trim()
-            ?.takeIf { it.startsWith("https://") }
-        AccountProfile(displayName = displayName, bannerUrl = bannerUrl, createdAtSeconds = event.createdAt)
-    }.getOrNull()
-
     companion object {
         const val PROFILE_KIND = 0
         val PROFILE_RELAYS = listOf("wss://user.kindpag.es", "wss://purplepag.es")
     }
 }
-
-data class AccountProfile(
-    val displayName: String?,
-    val bannerUrl: String?,
-    val createdAtSeconds: Long,
-)

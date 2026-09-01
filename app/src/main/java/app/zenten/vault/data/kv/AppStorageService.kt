@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import app.zenten.vault.domain.BackupSourceConfig
 import app.zenten.vault.domain.DefaultBackupSources
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -31,7 +30,6 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     val pendingLocalBackupAccountIds: Flow<Set<String>> = dataStore.data.map { preferences ->
         decodeList<String>(preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS]).toSet()
     }
-    val cachedAccountProfiles: Flow<List<CachedAccountProfile>> = jsonFlow(CACHED_ACCOUNT_PROFILES)
 
     suspend fun setSetupComplete() = dataStore.edit { it[SETUP_COMPLETE] = true }
     suspend fun clearSetupComplete() = dataStore.edit { it.remove(SETUP_COMPLETE) }
@@ -96,22 +94,13 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS] = json.encodeToString(ids.toList())
     }
 
-    suspend fun getCachedAccountProfiles(): List<CachedAccountProfile> = cachedAccountProfiles.first()
-
-    /** Stores only public Kind 0 profile presentation data, including unsuccessful lookups. */
-    suspend fun upsertCachedAccountProfiles(profiles: List<CachedAccountProfile>) = dataStore.edit { preferences ->
-        val current = decodeList<CachedAccountProfile>(preferences[CACHED_ACCOUNT_PROFILES])
-            .associateBy { it.accountId }.toMutableMap()
-        profiles.forEach { profile -> current[profile.accountId] = profile }
-        preferences[CACHED_ACCOUNT_PROFILES] = json.encodeToString(current.values.toList())
-    }
-
-    /** Removes development-only state from the superseded grouped-target implementation. */
+    /** Removes state from superseded implementations. */
     suspend fun clearLegacyBackupState() = dataStore.edit {
         it.remove(stringPreferencesKey("failed_backup_account_ids"))
         it.remove(stringPreferencesKey("pending_account_backups"))
         it.remove(stringPreferencesKey("backup_statuses"))
         it.remove(stringPreferencesKey("qr_backed_up_account_ids_v1"))
+        it.remove(stringPreferencesKey("cached_account_profiles_v1"))
     }
 
     private inline fun <reified T> jsonFlow(key: Preferences.Key<String>): Flow<List<T>> = dataStore.data.map {
@@ -131,17 +120,8 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val LAST_CONSOLIDATION_COMPLETED = longPreferencesKey("last_consolidation_completed_v2")
         val LOCALLY_BACKED_UP_ACCOUNT_IDS = stringPreferencesKey("locally_backed_up_account_ids_v1")
         val PENDING_LOCAL_BACKUP_ACCOUNT_IDS = stringPreferencesKey("pending_local_backup_account_ids_v1")
-        val CACHED_ACCOUNT_PROFILES = stringPreferencesKey("cached_account_profiles_v1")
     }
 }
-
-@Serializable
-data class CachedAccountProfile(
-    val accountId: Long,
-    val displayName: String? = null,
-    val bannerUrl: String? = null,
-    val createdAtSeconds: Long? = null,
-)
 
 @Serializable
 data class PendingSourceWrite(

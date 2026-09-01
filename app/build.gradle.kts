@@ -101,8 +101,6 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.okhttp)
-    implementation(libs.coil.compose)
-    implementation(libs.coil.svg)
     // BouncyCastle: SSH-side crypto only (OpenSSH v1 parse, bcrypt_pbkdf, AES-CTR,
     // Ed25519) — the non-standard half no library exposes the raw seed for.
     implementation(libs.bouncycastle.prov)

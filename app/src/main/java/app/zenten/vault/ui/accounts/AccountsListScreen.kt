@@ -1,8 +1,6 @@
 package app.zenten.vault.ui.accounts
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +31,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -45,9 +42,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.domain.AccountProfile
 import app.zenten.vault.ui.VaultDestinations
-import coil.compose.rememberAsyncImagePainter
 import java.text.DateFormat
 import java.util.Base64
 import java.util.Date
@@ -125,7 +120,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
                     items = newestFirst(state.accounts),
                     key = { it.createdAt },
                 ) { account ->
-                    AccountCard(account, state.profiles[account.createdAt]) {
+                    AccountCard(account) {
                         navController.navigate(VaultDestinations.accountDetail(account.createdAt))
                     }
                 }
@@ -135,7 +130,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
 }
 
 @Composable
-private fun AccountCard(account: Account, profile: AccountProfile?, onClick: () -> Unit) {
+private fun AccountCard(account: Account, onClick: () -> Unit) {
     val foreground = Color.White
     Card(
         modifier = Modifier
@@ -147,15 +142,6 @@ private fun AccountCard(account: Account, profile: AccountProfile?, onClick: () 
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp, pressedElevation = 2.dp),
     ) {
         Box {
-            profile?.bannerUrl?.let { bannerUrl ->
-                Image(
-                    painter = rememberAsyncImagePainter(bannerUrl),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.42f)))
-            }
             Column(
                 modifier = Modifier.fillMaxSize().padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -169,14 +155,6 @@ private fun AccountCard(account: Account, profile: AccountProfile?, onClick: () 
                     letterSpacing = 0.5.sp,
                     maxLines = 1,
                 )
-                profile?.displayName?.let { displayName ->
-                    Text(
-                        text = displayName,
-                        color = foreground.copy(alpha = 0.92f),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                    )
-                }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = accountFingerprint(account.pubkey),

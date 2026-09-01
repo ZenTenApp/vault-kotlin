@@ -49,7 +49,6 @@ The current app has no custom-source management UI. The repository API is retain
 3. **Consolidation restore:** index every source and restore missing valid associated accounts from trusted sources.
 4. **Consolidation backup:** use retained phase-1 indexes to fill gaps, then perform one final read-back per successfully indexed source.
 5. **Status:** persist per-account/per-source state and coarse errors. UI observes this state in account and master details.
-6. **Account profile display:** the account list first renders each account's cached public Kind 0 display fields, then concurrently refreshes every account once per app launch from the two profile-publication relays. It uses the newest parseable profile and persists it only when its event timestamp is newer than the cached event; retrieval or parsing failure and empty results retain cached presentation data. `VaultApplication` configures Coil to load card-banner images, including SVGs through `SvgDecoder`. Public display fields and unavailable-profile outcomes are stored in `AppStorageService`, so process death and app relaunch do not replace visible cards with a loading state.
 
 ## Background execution
 
@@ -63,7 +62,7 @@ The current app has no custom-source management UI. The repository API is retain
 ## Security boundaries
 
 - Secrets are stored only through `SecureStorageService` or transiently in crypto/network operations.
-- `AppStorageService`, WorkManager input, checkpoints, status, and diagnostics contain no keys, passphrases, encrypted backup payloads, sync codes, tokens, or NIP-42 challenges. `AppStorageService` may retain public Kind 0 display-name and banner URL cache entries.
+- `AppStorageService`, WorkManager input, checkpoints, status, and diagnostics contain no keys, passphrases, encrypted backup payloads, sync codes, tokens, or NIP-42 challenges.
 - Relay authentication signs kind `22242` on the challenged connection using the master-derived Nostr identity and does not persist the challenge.
 - Remote payloads are decrypted only to restore an account missing locally.
 
