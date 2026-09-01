@@ -15,9 +15,9 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 7. Before the account can be used, the app requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
 8. After the Android Sharesheet opens, the account appears in **My Accounts**. Selecting the account opens its public-key details, including its NIP-19 `npub` identity.
 
-The screen has no title or header section: it presents account cards plus two bottom-right actions. The extended **Master account** action opens master backup details and sits above the add floating action button.
+The screen has no title or explanatory header. A full-width outlined **Master account** button at the top opens master backup details. The add-account floating action remains in the bottom-right corner.
 
-Associated accounts use compact, credit-card-inspired cards and are listed newest first by their creation ID. Each card shows the 16-digit creation ID in groups of four, a shortened SSH fingerprint (first four and last four characters), and a localized date/time decoded from the microsecond Unix creation ID. A stable dark card color is selected from an accessible palette using the account ID as the palette index; this gives the same account the same color across renders without treating color as account state. Selecting anywhere on a card opens its public-key details. The master account remains an internal recovery identity and does not appear in the routine account list.
+Associated accounts use neutral compact cards and are listed newest first by their creation ID. Accounts are grouped by creation month, marked by a centered month label between horizontal separators. Each card shows the 16-digit creation ID in groups of four and a localized date/time decoded from the microsecond Unix creation ID. Selecting anywhere on a card opens its public-key details. The master account remains an internal recovery identity and does not appear in the routine account list.
 
 ## Failure and security expectations
 

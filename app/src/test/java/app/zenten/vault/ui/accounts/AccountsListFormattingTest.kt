@@ -1,12 +1,10 @@
 package app.zenten.vault.ui.accounts
 
-import androidx.compose.ui.graphics.Color
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Test
-import java.util.Base64
 
 class AccountsListFormattingTest {
     @Test
@@ -22,23 +20,16 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `fingerprint keeps first and last four characters`() {
-        val wire = ByteArray(51) { it.toByte() }
-        val publicKeyLine = "ssh-ed25519 ${Base64.getEncoder().encodeToString(wire)} account"
+    fun `accounts are grouped by month in newest-first order`() {
+        val accounts = listOf(
+            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+        )
 
-        val shortened = accountFingerprint(publicKeyLine)
+        val grouped = accountsByMonth(accounts)
 
-        assertEquals(11, shortened.length)
-        assertEquals("...", shortened.substring(4, 7))
-    }
-
-    @Test
-    fun `account color is stable and opaque`() {
-        val first = accountCardColor(1_234_567_890_123_456L)
-
-        assertEquals(first, accountCardColor(1_234_567_890_123_456L))
-        assertEquals(1f, first.alpha)
-        assertNotEquals(Color.Unspecified, first)
+        assertEquals(2, grouped.size)
+        assertEquals(1_800_000_000_000_000L, grouped.first().second.single().createdAt)
     }
 
     @Test
