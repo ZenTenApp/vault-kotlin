@@ -43,8 +43,8 @@ flowchart TD
 ### My Accounts
 
 - Associated accounts only are listed as routine accounts; the screen has no top app bar, title, or explanatory header.
-- Each account is a tappable credit-card-style card showing its grouped 16-digit ID, shortened SSH fingerprint, and localized creation date/time.
-- Card color is stable per account ID and is decorative rather than a status signal.
+- Each account is a tappable credit-card-style card showing its grouped 16-digit ID, optional Kind 0 `display_name`, shortened SSH fingerprint, and localized creation date/time.
+- Cached Kind 0 profile fields are shown immediately. Once on each app launch, every account is refreshed concurrently from the two profile relays configured for profile publication; only a newer valid Kind 0 event replaces the cache, and failed or empty queries retain the cached card. Its HTTPS `banner` is used as the card background with a contrast scrim; absent, invalid, or unavailable profiles retain the stable per-account decorative color.
 - An extended Master Account floating action opens master source status and is stacked above the add-account floating action in the bottom-right corner.
 - Automatic restoration occurs during consolidation; valid missing accounts appear after secure local persistence.
 
