@@ -13,7 +13,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 5. The app allocates a unique creation ID, generates the key pair encrypted with the verified master account passphrase, derives its Nostr key pair from that SSH key, and saves both identities locally.
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
 7. Before the account can be used, the app requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
-8. After the Android Sharesheet opens, the account appears in **My Accounts**. The app also publishes a Nostr kind `0` profile using a deterministic identity derived from the associated account's encrypted SSH key to `wss://user.kindpag.es` and `wss://purplepag.es`; a relay failure does not block completion. Selecting the account opens its public-key details, including its NIP-19 `npub` identity.
+8. After the Android Sharesheet opens, the account appears in **My Accounts**. Selecting the account opens its public-key details, including its NIP-19 `npub` identity.
 
 The screen has no title or header section: it presents account cards plus two bottom-right actions. The extended **Master account** action opens master backup details and sits above the add floating action button.
 
@@ -29,7 +29,6 @@ Associated accounts use compact, credit-card-inspired cards and are listed newes
 - The account list refreshes when the app returns to the foreground, including after recovery work.
 - The mandatory local-backup screen blocks Back navigation and completes when it opens the Android Sharesheet.
 - The Sharesheet text contains the passphrase-encrypted OpenSSH private key. It remains sensitive: share recipients or anyone who learns the retained passphrase may be able to use the account.
-- Each published profile uses the account creation ID for both `name` and `display_name`. Its banner index is the first three digits of the final five ID digits modulo `100`, and its picture index is the final two digits modulo `60`, yielding `https://nostr.box/banner/{index}.svg` and `https://nostr.box/picture/{index}.svg`. Every field in the kind `0` JSON content object is also included as an individual Nostr tag.
 
 ## Current limitations
 
