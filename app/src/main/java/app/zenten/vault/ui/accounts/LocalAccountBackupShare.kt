@@ -18,7 +18,7 @@ internal object LocalAccountBackupShare {
 
     fun sendIntent(key: String): Intent = Intent(Intent.ACTION_SEND)
         .setType(MIME_TYPE)
-        .putExtra(Intent.EXTRA_TEXT, SshKeyCodec.formatAsPem(key))
+        .putExtra(Intent.EXTRA_TEXT, key)
 
     fun preferredTargetIntents(resolvedActivities: List<ResolveInfo>, key: String): Array<Intent> =
         preferredTargets(resolvedActivities.map { PreferredTarget(it.activityInfo.packageName, it.activityInfo.name) })
