@@ -13,7 +13,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 5. The app allocates a unique creation ID, generates the key pair encrypted with the verified master account passphrase, derives its Nostr key pair from that SSH key, and saves both identities locally.
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
 7. Before the account can be used, the app requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
-8. After the Android Sharesheet opens, the account appears in **My Accounts**. Selecting the account opens its public-key details, including its NIP-19 `npub` identity.
+8. After the Android Sharesheet opens, the account appears in **My Accounts**. Selecting the account opens its identity and backup-status details, including its NIP-19 `npub` identity.
 
 The screen has no title or explanatory header. A full-width outlined **Master account** button at the top opens master backup details. The add-account floating action remains in the bottom-right corner.
 
@@ -25,7 +25,8 @@ Associated accounts use neutral compact cards and are listed newest first by the
 - Once master quorum is satisfied, a newly created associated account remains locally available even when remote consolidation must run again later.
 - Creation requires the user to re-enter the master-account passphrase. The app compares it with the securely retained master passphrase before persistence, and encrypts the generated OpenSSH private key with that same passphrase.
 - Creation errors are shown without disclosing secret key material.
-- Every persisted associated account includes its derived Nostr key pair. The account-detail screen derives, displays, and allows selection of its NIP-19 `npub` from the stored Nostr public-key hex.
+- Every persisted associated account includes its derived Nostr key pair. The account-detail screen derives and displays its NIP-19 `npub` from the stored Nostr public-key hex.
+- Account details do not expose SSH public keys, fingerprints, or private keys. The required encrypted private-key export happens only during account creation.
 - The account list refreshes when the app returns to the foreground, including after recovery work.
 - The mandatory local-backup screen blocks Back navigation and completes when it opens the Android Sharesheet.
 - The Sharesheet text contains the passphrase-encrypted OpenSSH private key. It remains sensitive: share recipients or anyone who learns the retained passphrase may be able to use the account.

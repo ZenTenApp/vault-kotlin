@@ -9,7 +9,7 @@ This screen map reflects the current Android proof-of-concept navigation.
 | My Accounts | List associated accounts and reach master details | Add account; open account; open Master Account | Loading, empty, recovering, populated |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
 | Export account | Require an Android Sharesheet export before account use | Export to Notes | Chooser open |
-| Account detail | Inspect account and per-source backup state | Show/copy private key | Missing, source checking/writing/present/missing/failed/unknown |
+| Account detail | Inspect account identity and per-source backup state | Consolidate backup | Missing, source checking/writing/present/missing/failed/unknown |
 | Master Account | Inspect master and per-source backup state | Retry/consolidate as available | Quorum/status rows, checking, partial, failure |
 
 The former global **Backup Status** screen and navigation destination have been removed. Backup information is attached to the account it describes.
@@ -64,10 +64,6 @@ flowchart TD
 
 Each fixed source has its own row and live state: backed up, missing, checking, backing up, failed, or unknown. Internally, both a source-acknowledged write and a later read-confirmed copy display as **Backed up**; read-back is a reconciliation detail rather than a pending user action. Backed-up rows show the last successful backup time. Associated-account details provide **Consolidate backup** rather than a blind retry-write action: sources are checked first, only that account is reconciled, and existing canonical account IDs are not written again. The Master Account screen shows exactly one primary action: **Retry master setup** while quorum setup is incomplete, or **Consolidate backups** for the whole vault after setup completes. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
 
-### Sensitive private-key access
-
-Private-key disclosure requires immediate confirmation, warning, secure-window protection, and safe copy feedback. Backup status does not weaken those controls.
-
 ## States requiring client approval
 
-Before release, review final wording and behavior for quorum failure/retry, offline account creation, automatic restoration, partial and unknown source coverage, source authentication failure, account-not-found handling, and private-key warnings.
+Before release, review final wording and behavior for quorum failure/retry, offline account creation, automatic restoration, partial and unknown source coverage, source authentication failure, and account-not-found handling.

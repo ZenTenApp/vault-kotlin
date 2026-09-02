@@ -44,20 +44,18 @@ flowchart LR
 
 **Success:** The new associated account is available locally after the required local-backup step completes, even if remote consolidation must run again later.
 
-## 3. Inspect or copy an associated account key
+## 3. Inspect an associated account
 
-**User goal:** Use an associated account's generated SSH key with another service.
+**User goal:** Review an associated account's identity and backup coverage.
 
 1. The user opens an account from **My Accounts**.
-2. The app shows the public key and fingerprint.
-3. To see the private key, the user selects **Show private key**.
-4. The app warns that anyone who sees the private key can use that account.
-5. Only after confirmation does the app show the private key and offer copy.
-6. The user closes the sensitive view when finished.
+2. The app shows the account ID, creation time, and NIP-19 `npub` identity.
+3. The app lists each configured backup destination and its current status.
+4. The user can select **Consolidate backup** to reconcile that account.
 
-**Success:** The user can intentionally access the key without it appearing by default.
+**Success:** The user can review account identity and backup coverage without SSH key material appearing on screen.
 
-**Safety expectation:** Sensitive views should prevent screenshots where the device permits and should not expose private-key content in ordinary notifications or logs.
+**Safety expectation:** Account detail must not expose SSH public keys, fingerprints, private keys, or key-copy actions.
 
 ## 4. Check and consolidate backup status
 
