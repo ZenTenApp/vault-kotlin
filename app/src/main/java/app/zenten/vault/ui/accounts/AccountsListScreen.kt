@@ -117,14 +117,9 @@ private fun AccountCard(account: Account, onClick: () -> Unit) {
         ) {
             Text(
                 text = formatAccountId(account.createdAt),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.headlineMedium,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-            )
-            Text(
-                text = formatAccountCreatedAt(account.createdAt),
-                style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
             )
         }
