@@ -20,16 +20,19 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `accounts are grouped by month in newest-first order`() {
+    fun `accounts created on different days in a month share a group`() {
         val accounts = listOf(
-            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
-            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_700_444_800_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_700_876_800_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
         )
 
         val grouped = accountsByMonth(accounts)
 
-        assertEquals(2, grouped.size)
-        assertEquals(1_800_000_000_000_000L, grouped.first().second.single().createdAt)
+        assertEquals(1, grouped.size)
+        assertEquals(
+            listOf(1_700_876_800_000_000L, 1_700_444_800_000_000L),
+            grouped.single().second.map { it.createdAt },
+        )
     }
 
     @Test

@@ -40,7 +40,9 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.ui.VaultDestinations
 import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 @Composable
 fun AccountsListScreen(navController: NavHostController, viewModel: AccountsViewModel = hiltViewModel()) {
@@ -153,4 +155,4 @@ internal fun formatAccountCreatedAt(accountId: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(accountId / 1_000L))
 
 internal fun formatAccountMonth(accountId: Long): String =
-    DateFormat.getDateInstance(DateFormat.LONG).format(Date(accountId / 1_000L)).substringBeforeLast(',')
+    SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(accountId / 1_000L))
