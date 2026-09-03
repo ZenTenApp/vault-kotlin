@@ -4,6 +4,7 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class AccountsListFormattingTest {
@@ -17,6 +18,13 @@ class AccountsListFormattingTest {
         val formatted = formatAccountCreatedAt(1_700_000_000_000_000L)
 
         assertNotEquals("1700000000000000", formatted)
+    }
+
+    @Test
+    fun `Nostr public key is shortened to its npub prefix and suffix`() {
+        val shortened = formatShortNpub("00".repeat(32))
+
+        assertTrue(shortened.matches(Regex("npub\\.\\.[a-z0-9]{4}")))
     }
 
     @Test

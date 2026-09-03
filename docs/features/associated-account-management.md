@@ -17,7 +17,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 
 The screen has no title or explanatory header. A full-width outlined **Master account** button at the top opens master backup details. The add-account floating action remains in the bottom-right corner.
 
-Associated accounts use neutral compact cards and are listed newest first by their creation ID. Accounts are grouped by creation month, marked by a centered month label between horizontal separators. Each card shows only the 16-digit creation ID, in groups of four and at a prominent size. Selecting anywhere on a card opens its public-key details. The master account remains an internal recovery identity and does not appear in the routine account list.
+Associated accounts use neutral cards styled like the account identity section and are listed newest first by their creation ID. Accounts are grouped by creation month, marked by a centered month label between horizontal separators. Each card shows a shortened NIP-19 identity (`npub..` plus the final four characters), then the nearly full-width 16-digit creation ID in groups of four, followed by a local-time timestamp such as `Created on Wed Sep 2, 2026 11:56 AM`. Selecting anywhere on a card opens its public-key details. The master account remains an internal recovery identity and does not appear in the routine account list.
 
 ## Failure and security expectations
 

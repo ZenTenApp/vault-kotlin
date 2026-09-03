@@ -38,11 +38,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.domain.hexToBytes
 import app.zenten.vault.ui.VaultDestinations
-import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.vitorpamplona.quartz.nip19Bech32.toNpub
 
 @Composable
 fun AccountsListScreen(navController: NavHostController, viewModel: AccountsViewModel = hiltViewModel()) {
@@ -114,15 +115,27 @@ private fun AccountCard(account: Account, onClick: () -> Unit) {
             .clickable(onClick = onClick),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = formatAccountId(account.createdAt),
-                style = MaterialTheme.typography.headlineMedium,
+                text = formatShortNpub(account.nostr.pubkey),
+                style = MaterialTheme.typography.labelLarge,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
+            )
+            Text(
+                text = formatAccountId(account.createdAt),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+            )
+            Text(
+                text = "Created on ${formatAccountCreatedAt(account.createdAt)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -145,6 +158,12 @@ private fun MonthSeparator(month: String) {
 internal fun formatAccountId(accountId: Long): String =
     accountId.toString().chunked(4).joinToString(" ")
 
+internal fun formatShortNpub(publicKey: String): String =
+    runCatching { publicKey.hexToBytes().toNpub() }
+        .getOrNull()
+        ?.let { "${it.take(4)}..${it.takeLast(4)}" }
+        ?: "Unavailable"
+
 internal fun newestFirst(accounts: List<Account>): List<Account> =
     accounts.sortedByDescending { it.createdAt }
 
@@ -152,7 +171,7 @@ internal fun accountsByMonth(accounts: List<Account>): List<Pair<String, List<Ac
     newestFirst(accounts).groupBy { account -> formatAccountMonth(account.createdAt) }.toList()
 
 internal fun formatAccountCreatedAt(accountId: Long): String =
-    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(accountId / 1_000L))
+    SimpleDateFormat("EEE MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(accountId / 1_000L))
 
 internal fun formatAccountMonth(accountId: Long): String =
     SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(accountId / 1_000L))
