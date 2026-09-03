@@ -1,5 +1,9 @@
 # Repository instructions for AI assistants
 
+## Code comments
+
+- Add concise explanatory comments for non-obvious code so a beginner can understand what the logic does and why. Cover intent, constraints, invariants, and non-trivial decisions without restating self-evident code. Keep comments accurate and update or remove them when the code changes.
+
 ## Documentation maintenance
 
 Whenever a change modifies implemented behavior, user-visible flows, security properties, configuration, architecture, dependencies, tests that establish a contract, or known limitations, update the relevant documentation in the same change.
