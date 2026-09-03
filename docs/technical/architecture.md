@@ -10,7 +10,7 @@ app.zenten.vault
 ├── data/         Secure account storage and non-secret operational preferences
 ├── network/      Nostr relay transport, event encoding, and NIP-42 authentication
 ├── bravesync/    Brave Sync client, crypto, password records, and transport
-├── background/   WorkManager account backup, retry, and periodic consolidation
+├── background/   WorkManager targeted and full-vault consolidation, retry, and periodic work
 └── di/           Hilt dependency injection
 ```
 
@@ -52,7 +52,8 @@ The current app has no custom-source management UI. The repository API is retain
 
 ## Background execution
 
-- One-time account backup work is unique per account.
+- One `AccountConsolidationWorker` handles both targeted and full-vault work. An optional account ID selects targeted work; otherwise it runs a full-vault cycle.
+- One-time targeted work is unique per account.
 - Pending-write retry is unique work.
 - Immediate consolidation is unique work after setup.
 - Periodic consolidation runs every hour with a connected-network constraint.

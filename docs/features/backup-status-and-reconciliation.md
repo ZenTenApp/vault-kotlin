@@ -85,7 +85,7 @@ Setup attempts all enabled sources sequentially. It writes the master only after
 - Source persistence: `domain/BackupSourceRepository.kt`
 - Adapters: `domain/BackupSourceAdapters.kt`
 - Orchestration: `domain/AccountConsolidationEngine.kt`
-- Workers: `background/BackupWorkers.kt`
+- Worker: `background/BackupWorkers.kt` (`AccountConsolidationWorker` handles targeted and full-vault cycles)
 - Status persistence: `data/kv/AppStorageService.kt`
 - UI: `ui/accounts/AccountDetailScreen.kt`, `ui/master/MasterAccountDetailScreen.kt`
 - Core tests: `domain/AccountConsolidationEngineTest.kt`, `domain/BackupSourceRepositoryTest.kt`, `data/kv/AppStorageServiceTest.kt`
