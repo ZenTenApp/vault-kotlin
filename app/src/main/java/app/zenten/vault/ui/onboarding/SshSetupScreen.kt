@@ -29,6 +29,7 @@ import app.zenten.vault.ui.VaultDestinations
 fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewModel = hiltViewModel()) {
     var keyInput by remember { mutableStateOf("") }
     var passphrase by remember { mutableStateOf("") }
+    var step by remember { mutableStateOf(SetupStep.PRIVATE_KEY) }
     val state by viewModel.state.collectAsState()
     val view = LocalView.current
     // Prevent screenshots while users paste a private key or passphrase.
@@ -46,24 +47,40 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Set up your master account", style = MaterialTheme.typography.headlineMedium)
-        Text("Paste your OpenSSH Ed25519 private key. It is encrypted locally and backed up only after NIP-44 encryption.")
-        OutlinedTextField(
-            value = keyInput,
-            onValueChange = { keyInput = it },
-            modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-            label = { Text("SSH private key") },
-            minLines = 6,
-            enabled = !state.inProgress,
-        )
-        OutlinedTextField(
-            value = passphrase,
-            onValueChange = { passphrase = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("SSH key passphrase") },
-            visualTransformation = PasswordVisualTransformation(),
-            enabled = !state.inProgress,
-        )
+        when (step) {
+            SetupStep.PRIVATE_KEY -> {
+                Text("Set up your master account", style = MaterialTheme.typography.headlineMedium)
+                Text("Step 1 of 2: Paste your OpenSSH Ed25519 private key.")
+                OutlinedTextField(
+                    value = keyInput,
+                    onValueChange = { keyInput = it },
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+                    label = { Text("SSH private key") },
+                    minLines = 6,
+                    enabled = !state.inProgress,
+                )
+                Button(
+                    onClick = { step = SetupStep.PASSPHRASE },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = keyInput.isNotBlank() && !state.inProgress,
+                ) {
+                    Text("Continue")
+                }
+            }
+
+            SetupStep.PASSPHRASE -> {
+                Text("Enter your passphrase", style = MaterialTheme.typography.headlineMedium)
+                Text("Step 2 of 2: Enter the passphrase that protects your SSH private key.")
+                OutlinedTextField(
+                    value = passphrase,
+                    onValueChange = { passphrase = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("SSH key passphrase") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    enabled = !state.inProgress,
+                )
+            }
+        }
         state.stage?.let { Text(it) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (state.canRetryStoredMaster) {
@@ -71,13 +88,31 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                 Text("Retry backup without re-importing")
             }
         }
-        Button(
-            onClick = { viewModel.performSetup(keyInput, passphrase) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = keyInput.isNotBlank() && !state.inProgress,
-        ) {
-            if (state.inProgress) CircularProgressIndicator() else Text("Create and back up master account")
+        if (step == SetupStep.PASSPHRASE) {
+            Button(
+                onClick = { viewModel.performSetup(keyInput, passphrase) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = passphrase.isNotBlank() && !state.inProgress,
+            ) {
+                if (state.inProgress) CircularProgressIndicator() else Text("Create and back up master account")
+            }
         }
-        Button(onClick = { navController.popBackStack() }, modifier = Modifier.fillMaxWidth(), enabled = !state.inProgress) { Text("Back") }
+        Button(
+            onClick = {
+                if (step == SetupStep.PASSPHRASE) {
+                    viewModel.clearError()
+                    step = SetupStep.PRIVATE_KEY
+                } else {
+                    navController.popBackStack()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.inProgress,
+        ) { Text("Back") }
     }
+}
+
+private enum class SetupStep {
+    PRIVATE_KEY,
+    PASSPHRASE,
 }

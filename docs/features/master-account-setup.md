@@ -7,7 +7,7 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 ## Current behavior
 
 1. The user opens **Get started** and proceeds to **Set up your master account**.
-2. The user pastes a passphrase-protected OpenSSH private key and enters its passphrase. Unencrypted private keys are rejected.
+2. The user pastes a passphrase-protected OpenSSH private key, then continues to a separate screen to enter its passphrase. Each setup step presents one secret input; unencrypted private keys are rejected.
 3. The app validates the material locally and derives the vault identity.
 4. The app stores the master account securely and attempts all enabled sources sequentially.
 5. Setup completes only after at least one eligible Nostr relay and one eligible Brave Sync server already contain or acknowledge the master backup.
