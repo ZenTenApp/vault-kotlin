@@ -17,7 +17,7 @@ flowchart LR
 
 **Starting point:** The app is new.
 
-1. The user selects **Import SSH Key** and provides the Ed25519 OpenSSH private key and passphrase for their master account.
+1. The user selects **Import SSH Key**, provides the Ed25519 OpenSSH private key, and then enters its passphrase on the next screen.
 2. The app validates the material locally and prepares the vault identity.
 3. The app creates the required initial protected backup and reports progress.
 4. When setup succeeds, the user reaches **My Accounts**.

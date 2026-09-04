@@ -28,7 +28,8 @@ The app resumes the mandatory export screen after a restart when an account has 
 
 ```mermaid
 flowchart TD
-    Start["Paste encrypted Ed25519 OpenSSH key and passphrase"] --> Validate{"Key and passphrase valid?"}
+    Start["Paste encrypted Ed25519 OpenSSH key"] --> Passphrase["Enter key passphrase"]
+    Passphrase --> Validate{"Key and passphrase valid?"}
     Validate -->|No| Error["Show safe error and remain on setup"]
     Validate -->|Yes| Store["Store master account securely"]
     Store --> Sources["Check enabled backup sources sequentially"]
