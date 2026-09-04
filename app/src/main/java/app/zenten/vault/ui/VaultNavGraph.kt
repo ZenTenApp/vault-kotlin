@@ -63,7 +63,7 @@ fun VaultNavGraph(
         }
 
         composable(VaultDestinations.MASTER_ACCOUNT) {
-            MasterAccountDetailScreen(navController)
+            MasterAccountDetailScreen()
         }
     }
 }
