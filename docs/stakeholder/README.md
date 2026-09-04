@@ -7,10 +7,11 @@ It is intentionally more accessible than the technical documentation, but it is 
 ## Read in this order
 
 1. [Product overview](product-overview.md) — purpose, audience, and key concepts.
-2. [User journeys](user-journeys.md) — first-time setup, account creation, viewing a key, backup checks, and automatic recovery.
-3. [Screens and states](screens-and-states.md) — current screen map and important loading, error, and empty states.
-4. [Backup and recovery](backup-and-recovery.md) — what users can expect and what they must retain.
-5. [Scope and roadmap](scope-and-roadmap.md) — implemented, partial, planned, and excluded capabilities.
+2. [App flowcharts](flowcharts.md) — visual maps of navigation, setup, account creation, backup, and recovery.
+3. [User journeys](user-journeys.md) — first-time setup, account creation, viewing a key, backup checks, and automatic recovery.
+4. [Screens and states](screens-and-states.md) — current screen map and important loading, error, and empty states.
+5. [Backup and recovery](backup-and-recovery.md) — what users can expect and what they must retain.
+6. [Scope and roadmap](scope-and-roadmap.md) — implemented, partial, planned, and excluded capabilities.
 
 ## Terminology used here
 

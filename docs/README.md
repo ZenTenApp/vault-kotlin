@@ -11,10 +11,11 @@ The [stakeholder guide](stakeholder/README.md) is written for clients, product o
 Start here:
 
 1. [Product overview](stakeholder/product-overview.md)
-2. [User journeys](stakeholder/user-journeys.md)
-3. [Screens and states](stakeholder/screens-and-states.md)
-4. [Backup and recovery](stakeholder/backup-and-recovery.md)
-5. [Scope and roadmap](stakeholder/scope-and-roadmap.md)
+2. [App flowcharts](stakeholder/flowcharts.md)
+3. [User journeys](stakeholder/user-journeys.md)
+4. [Screens and states](stakeholder/screens-and-states.md)
+5. [Backup and recovery](stakeholder/backup-and-recovery.md)
+6. [Scope and roadmap](stakeholder/scope-and-roadmap.md)
 
 ## For developers and security reviewers
 
