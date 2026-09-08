@@ -2,6 +2,8 @@
 
 ## Android application structure
 
+The Compose theme and the Android launch-window theme are fixed to the app's dark palette. They deliberately do not read the system night-mode preference, preventing a light launch flash or a runtime theme change when the device setting changes.
+
 ```text
 app.zenten.vault
 ├── ui/           Compose screens, navigation, and view models

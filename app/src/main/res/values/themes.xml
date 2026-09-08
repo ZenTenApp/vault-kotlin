@@ -1,3 +1,8 @@
 <resources>
-    <style name="Theme.ZenTenVault" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Match the launch window to Compose's fixed dark color scheme. -->
+    <style name="Theme.ZenTenVault" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">#121212</item>
+    </style>
 </resources>
