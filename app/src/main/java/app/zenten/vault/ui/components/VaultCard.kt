@@ -1,0 +1,21 @@
+package app.zenten.vault.ui.components
+
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+
+/** Applies the app's approved surface color to standard content cards. */
+@Composable
+fun VaultCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        content = content,
+    )
+}

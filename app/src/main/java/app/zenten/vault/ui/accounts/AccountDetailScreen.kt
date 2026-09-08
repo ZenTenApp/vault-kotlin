@@ -10,8 +10,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,13 +25,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AccountSourceBackupState
+import app.zenten.vault.ui.components.VaultCard
+import app.zenten.vault.ui.theme.VaultColors
 
 @Composable
 fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewModel: AccountDetailViewModel = hiltViewModel()) {
@@ -47,34 +57,13 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Account details", style = MaterialTheme.typography.headlineMedium)
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = formatShortNpub(account.nostr.pubkey),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                )
-                Text(
-                    text = formatAccountId(account.createdAt),
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontFamily = FontFamily.Monospace,
-                    maxLines = 1,
-                )
-                Text(
-                    "Created on ${formatAccountCreatedAt(account.createdAt)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text("Backup Status", style = MaterialTheme.typography.titleMedium)
+        AccountCard(account = account, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Backup status",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
         state.sources.forEach { SourceStatusRow(it) }
         Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth()) { Text("Consolidate backup") }
     }
@@ -82,7 +71,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
 
 @Composable
 fun SourceStatusRow(source: BackupSourceRow) {
-    val backedUp = source.state == AccountSourceBackupState.PRESENT || source.state == AccountSourceBackupState.WRITE_CONFIRMED
     val statusText = when (source.state) {
         AccountSourceBackupState.PRESENT, AccountSourceBackupState.WRITE_CONFIRMED -> source.lastSuccessfulBackupAtMillis?.let {
             "Backed up ${formatRelativeTime(it)}"
@@ -93,25 +81,53 @@ fun SourceStatusRow(source: BackupSourceRow) {
         AccountSourceBackupState.BACKUP_FAILED -> source.error?.let { "Backup failed: ${formatBackupError(it)}" } ?: "Backup failed"
         AccountSourceBackupState.UNKNOWN -> "Unavailable / unknown"
     }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val (statusIcon, statusColor) = backupStatusStyle(source.state)
+    VaultCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(source.endpoint, style = MaterialTheme.typography.titleMedium)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = when {
-                        backedUp -> MaterialTheme.colorScheme.primary
-                        source.error != null -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
+            Text(
+                text = source.endpoint,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = statusIcon,
+                        contentDescription = null,
+                        tint = statusColor,
+                    )
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = statusColor,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun backupStatusStyle(state: AccountSourceBackupState): Pair<ImageVector, Color> = when (state) {
+    AccountSourceBackupState.PRESENT,
+    AccountSourceBackupState.WRITE_CONFIRMED,
+    -> Icons.Outlined.CheckCircle to VaultColors.Success
+    AccountSourceBackupState.BACKUP_FAILED -> Icons.Outlined.ErrorOutline to MaterialTheme.colorScheme.error
+    AccountSourceBackupState.MISSING -> Icons.Outlined.CloudOff to MaterialTheme.colorScheme.onSurfaceVariant
+    AccountSourceBackupState.CHECKING,
+    AccountSourceBackupState.BACKING_UP,
+    -> Icons.Outlined.Sync to MaterialTheme.colorScheme.primary
+    AccountSourceBackupState.UNKNOWN -> Icons.AutoMirrored.Outlined.HelpOutline to MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 internal fun formatRelativeTime(timestampMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {

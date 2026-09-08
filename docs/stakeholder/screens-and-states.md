@@ -2,6 +2,10 @@
 
 This screen map reflects the current Android proof-of-concept navigation. The app always uses its dark visual theme; it does not follow the device's light or dark preference and offers no theme switcher.
 
+## Visual palette
+
+The fixed dark theme uses the approved palette throughout Compose UI and the launcher icon: primary `#D9D9D9`, accent `#3A3A3A`, surface `#232323`, background `#121212`, error `#F36262`, and success `#62F3B6`. Success is exposed as an app-specific semantic color. Text and accessible state labels continue to identify status without relying only on color.
+
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
 | Get started | Introduce setup | Import SSH key | New installation |
@@ -43,8 +47,8 @@ flowchart TD
 ### My Accounts
 
 - Associated accounts only are listed as routine accounts; the screen has no top app bar, title, or explanatory header.
-- A full-width outlined Master Account button opens master source status. Associated accounts are grouped by month with a centered month label between horizontal separators.
-- Each account is a tappable neutral card showing its grouped 16-digit ID and localized creation date/time. The add-account floating action remains in the bottom-right corner.
+- A full-width, surface-colored outlined Master Account button opens master source status. The high-contrast add-account floating action remains in the bottom-right corner. Associated accounts are grouped by month with a centered month label between horizontal separators.
+- Each account is a tappable neutral card showing a user-avatar icon followed by its shortened npub in 20sp regular text with `#E5E5E5`, a 16-digit ID rendered as four evenly distributed four-digit groups in 32sp semi-bold text with `#FFFFFF`, and a right-aligned localized creation date/time in 14sp regular text with `#B6B6B6`. These styles inherit the app's default font family. The add-account floating action remains in the bottom-right corner.
 - Automatic restoration occurs during consolidation; valid missing accounts appear after secure local persistence.
 
 ### Create associated account
@@ -62,7 +66,7 @@ flowchart TD
 
 ### Account detail and Master Account
 
-Each fixed source has its own card in the **Backup Status** section, separated by a consistent small gap, and a live state: backed up, missing, checking, backing up, failed, or unknown. Internally, both a source-acknowledged write and a later read-confirmed copy display as **Backed up**; read-back is a reconciliation detail rather than a pending user action. Backed-up rows show the last successful backup time. Associated-account details provide **Consolidate backup** rather than a blind retry-write action: sources are checked first, only that account is reconciled, and existing canonical account IDs are not written again. The Master Account screen does not disclose its SSH public key and shows exactly one primary action: **Retry master setup** while quorum setup is incomplete, or **Consolidate backups** for the whole vault after setup completes. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
+Account detail reuses the same account summary card shown in the account list, without list-navigation click behavior. Each fixed source has its own card with the endpoint as its title and a right-aligned icon-and-text state row: backed up, missing, checking, backing up, failed, or unknown. Internally, both a source-acknowledged write and a later read-confirmed copy display as **Backed up**; read-back is a reconciliation detail rather than a pending user action. Backed-up rows show the last successful backup time. Associated-account details provide **Consolidate backup** rather than a blind retry-write action: sources are checked first, only that account is reconciled, and existing canonical account IDs are not written again. The Master Account screen does not disclose its SSH public key and shows exactly one primary action: **Retry master setup** while quorum setup is incomplete, or **Consolidate backups** for the whole vault after setup completes. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
 
 ## States requiring client approval
 
