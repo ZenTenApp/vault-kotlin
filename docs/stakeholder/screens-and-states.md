@@ -4,6 +4,7 @@ This screen map reflects the current Android proof-of-concept navigation.
 
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
+| App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Open date/time settings; check again | No verified internet, automatic date/time disabled, or both |
 | Get started | Introduce setup | Import SSH key | New installation |
 | Set up master account | Import master private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | My Accounts | List associated accounts and reach master details | Add account; open account; open Master Account | Loading, empty, recovering, populated |
@@ -14,11 +15,18 @@ This screen map reflects the current Android proof-of-concept navigation.
 
 The former global **Backup Status** screen and navigation destination have been removed. Backup information is attached to the account it describes.
 
+## App unavailable
+
+The app does not expose vault navigation until it has a system-validated internet connection and Android automatic date/time is enabled. A captive portal or a merely connected local network is not sufficient. The blocking screen lists every unmet prerequisite, explains that incorrect time can invalidate backup authentication, opens Android date/time settings when required, and provides a **Check again** action. It automatically clears as connectivity or the device-time setting changes.
+
 ## Navigation map
 
 ```mermaid
 flowchart TD
-    R[App launch] --> S{Setup complete?}
+    R[App launch] --> P{Verified internet and automatic time?}
+    P -- No --> U[App unavailable: show all errors/warnings]
+    U --> P
+    P -- Yes --> S{Setup complete?}
     S -- No --> G[Get started]
     G --> M[Set up master account]
     M -- Quorum succeeds --> A[My Accounts]

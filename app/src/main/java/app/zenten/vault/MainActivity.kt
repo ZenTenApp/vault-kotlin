@@ -9,9 +9,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import app.zenten.vault.ui.VaultNavGraph
+import app.zenten.vault.ui.availability.AppAccessGuard
+import app.zenten.vault.ui.availability.AppBlockedScreen
 import app.zenten.vault.ui.theme.ZenTenVaultTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -30,14 +37,25 @@ class MainActivity : ComponentActivity() {
 private fun VaultApp() {
     ZenTenVaultTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            val navController = rememberNavController()
-            Scaffold { innerPadding ->
-                VaultNavGraph(
-                    navController = navController,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
+            val context = LocalContext.current
+            val accessGuard = remember(context) { AppAccessGuard(context) }
+            val accessState by accessGuard.state.collectAsState()
+            DisposableEffect(accessGuard) {
+                onDispose(accessGuard::close)
+            }
+
+            if (!accessState.canUseApp) {
+                AppBlockedScreen(accessState.blockers, accessGuard::refresh)
+            } else {
+                val navController = rememberNavController()
+                Scaffold { innerPadding ->
+                    VaultNavGraph(
+                        navController = navController,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                    )
+                }
             }
         }
     }

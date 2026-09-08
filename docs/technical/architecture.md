@@ -18,6 +18,7 @@ app.zenten.vault
 
 ```mermaid
 flowchart TD
+    Guard[AppAccessGuard: validated network + automatic time] --> UI[Compose UI]
     UI[Compose UI] --> VM[View models]
     VM --> Setup[SetupService / AccountService]
     Setup --> Engine[AccountConsolidationEngine]
@@ -49,6 +50,10 @@ The current app has no custom-source management UI. The repository API is retain
 3. **Consolidation restore:** index every source and restore missing valid associated accounts from trusted sources.
 4. **Consolidation backup:** use retained phase-1 indexes to fill gaps, then perform one final read-back per successfully indexed source.
 5. **Status:** persist per-account/per-source state and coarse errors. UI observes this state in account and master details.
+
+## App-entry safety gate
+
+`AppAccessGuard` is scoped to the activity UI and observes Android's default network plus date/time change broadcasts. It allows navigation only when the active network has `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and `Settings.Global.AUTO_TIME` is enabled. Otherwise `AppBlockedScreen` replaces the navigation graph, lists every unmet requirement, and offers Android date/time settings plus a manual recheck. This is a deliberate availability policy for timestamped remote authentication; it does not assert that a reachable network is trustworthy or that Android time is cryptographically authenticated.
 
 ## Background execution
 
