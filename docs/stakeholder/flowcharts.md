@@ -6,7 +6,10 @@ These diagrams are a discussion aid for the currently implemented Android proof 
 
 ```mermaid
 flowchart TD
-    Launch["App launch"] --> Root["Root checks persisted state"]
+    Launch["App launch"] --> Prerequisites{"Verified internet and automatic device time?"}
+    Prerequisites -->|No| Blocked["Unavailable screen: explain errors/warnings and link to date/time settings"]
+    Blocked --> Prerequisites
+    Prerequisites -->|Yes| Root["Root checks persisted state"]
     Root --> Setup{"Master setup complete?"}
     Setup -->|No| Welcome["Get started"]
     Welcome --> Import["Import SSH key"]
