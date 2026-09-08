@@ -8,7 +8,7 @@ The fixed dark theme uses the approved palette throughout Compose UI and the lau
 
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
-| App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Open date/time settings; check again | No verified internet, automatic date/time disabled, or both |
+| App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Check again | No verified internet, device clock differs from HTTPS server time by over two minutes, or both |
 | Get started | Introduce setup | Import SSH key | New installation |
 | Set up master account | Import master private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | My Accounts | List associated accounts and reach master details | Add account; open account; open Master Account | Loading, empty, recovering, populated |
@@ -21,13 +21,13 @@ The former global **Backup Status** screen and navigation destination have been 
 
 ## App unavailable
 
-The app does not expose vault navigation until it has a system-validated internet connection and Android automatic date/time is enabled. A captive portal or a merely connected local network is not sufficient. The blocking screen lists every unmet prerequisite, explains that incorrect time can invalidate backup authentication, opens Android date/time settings when required, and provides a **Check again** action. It automatically clears as connectivity or the device-time setting changes.
+The app does not expose vault navigation until it has a system-validated internet connection and its clock is within two minutes of HTTPS server time. A captive portal or a merely connected local network is not sufficient. The app makes `HEAD` requests to Google and Cloudflare in order, uses their HTTP `Date` response header, and offsets the server value by half the request round-trip time. The first usable response is compared with the device clock. If neither source can provide time, the app does not claim that the clock is wrong and allows navigation once internet is validated. The blocking screen lists every proven unmet prerequisite, explains that incorrect time can invalidate backup authentication, and provides a **Check again** action. It rechecks on launch, resume, network changes, and manually.
 
 ## Navigation map
 
 ```mermaid
 flowchart TD
-    R[App launch] --> P{Verified internet and automatic time?}
+    R[App launch] --> P{Verified internet and clock within 2 min of HTTPS server time?}
     P -- No --> U[App unavailable: show all errors/warnings]
     U --> P
     P -- Yes --> S{Setup complete?}

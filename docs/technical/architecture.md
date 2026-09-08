@@ -22,7 +22,7 @@ app.zenten.vault
 
 ```mermaid
 flowchart TD
-    Guard[AppAccessGuard: validated network + automatic time] --> UI[Compose UI]
+    Guard[AppAccessGuard: validated network + HTTPS clock-skew check] --> UI[Compose UI]
     UI[Compose UI] --> VM[View models]
     VM --> Setup[SetupService / AccountService]
     Setup --> Engine[AccountConsolidationEngine]
@@ -57,7 +57,7 @@ The current app has no custom-source management UI. The repository API is retain
 
 ## App-entry safety gate
 
-`AppAccessGuard` is scoped to the activity UI and observes Android's default network plus date/time change broadcasts. It allows navigation only when the active network has `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and `Settings.Global.AUTO_TIME` is enabled. Otherwise `AppBlockedScreen` replaces the navigation graph, lists every unmet requirement, and offers Android date/time settings plus a manual recheck. This is a deliberate availability policy for timestamped remote authentication; it does not assert that a reachable network is trustworthy or that Android time is cryptographically authenticated.
+`AppAccessGuard` is scoped to the activity UI and observes Android's default network. It allows navigation only when the active network has `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and the device clock is within two minutes of trusted HTTPS server time. The guard makes non-cached `HEAD` requests to `https://www.google.com/generate_204` and then `https://cloudflare.com`, parses the first usable HTTP `Date` header, and adjusts the result by half of the measured request round-trip time before comparing it to the wall clock. It rechecks on creation, resume, network changes, and manual retry. If neither server is available or supplies a valid `Date` header, it allows navigation because this failure cannot prove a device-time error. `AppBlockedScreen` replaces the navigation graph for proven internet or clock-skew failures and lists every unmet requirement. HTTPS/TLS protects the response in transit, but the check does not independently prove either endpoint's clock or the network is trustworthy.
 
 ## Background execution
 

@@ -7,17 +7,25 @@ import org.junit.jupiter.api.Test
 
 class AppAccessPolicyTest {
     @Test
-    fun `allows the app only with verified internet and automatic time`() {
-        assertTrue(AppAccessPolicy.evaluate(hasValidatedInternet = true, automaticTimeEnabled = true).canUseApp)
+    fun `allows the app when verified internet and server time agree`() {
+        assertTrue(AppAccessPolicy.evaluate(hasValidatedInternet = true, clockSkewMillis = 120_000).canUseApp)
     }
 
     @Test
-    fun `reports every unmet access requirement`() {
-        val state = AppAccessPolicy.evaluate(hasValidatedInternet = false, automaticTimeEnabled = false)
+    fun `blocks a clock more than two minutes from server time`() {
+        val state = AppAccessPolicy.evaluate(hasValidatedInternet = true, clockSkewMillis = 120_001)
+
+        assertFalse(state.canUseApp)
+        assertEquals(setOf(AppAccessBlocker.DEVICE_TIME_INCORRECT), state.blockers)
+    }
+
+    @Test
+    fun `reports network and clock failures together`() {
+        val state = AppAccessPolicy.evaluate(hasValidatedInternet = false, clockSkewMillis = -120_001)
 
         assertFalse(state.canUseApp)
         assertEquals(
-            setOf(AppAccessBlocker.INTERNET_UNAVAILABLE, AppAccessBlocker.AUTOMATIC_TIME_DISABLED),
+            setOf(AppAccessBlocker.INTERNET_UNAVAILABLE, AppAccessBlocker.DEVICE_TIME_INCORRECT),
             state.blockers,
         )
     }
