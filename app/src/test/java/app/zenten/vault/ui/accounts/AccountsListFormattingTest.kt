@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 class AccountsListFormattingTest {
     @Test
     fun `account ID is grouped like a card number`() {
+        assertEquals(listOf("1234", "5678", "9012", "3456"), accountIdChunks(1_234_567_890_123_456L))
         assertEquals("1234 5678 9012 3456", formatAccountId(1_234_567_890_123_456L))
     }
 

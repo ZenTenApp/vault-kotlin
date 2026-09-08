@@ -1,6 +1,6 @@
 package app.zenten.vault.ui.accounts
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,13 +8,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material3.Card
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -30,20 +31,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.domain.hexToBytes
 import app.zenten.vault.ui.VaultDestinations
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.vitorpamplona.quartz.nip19Bech32.toNpub
 
 @Composable
 fun AccountsListScreen(navController: NavHostController, viewModel: AccountsViewModel = hiltViewModel()) {
@@ -59,7 +59,12 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate(VaultDestinations.NEW_ACCOUNT) }) {
+            FloatingActionButton(
+                onClick = { navController.navigate(VaultDestinations.NEW_ACCOUNT) },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add account")
             }
         },
@@ -67,10 +72,24 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp)) {
             OutlinedButton(
                 onClick = { navController.navigate(VaultDestinations.MASTER_ACCOUNT) },
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
             ) {
                 Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
-                Text("Master account", modifier = Modifier.padding(start = 8.dp))
+                Text(
+                    text = "Master account",
+                    modifier = Modifier.padding(start = 10.dp),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
 
             when {
@@ -96,47 +115,15 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
                     accountsByMonth(state.accounts).forEach { (month, accounts) ->
                         item(key = month) { MonthSeparator(month) }
                         items(items = accounts, key = { it.createdAt }) { account ->
-                            AccountCard(account) {
-                                navController.navigate(VaultDestinations.accountDetail(account.createdAt))
-                            }
+                            AccountCard(
+                                account = account,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { navController.navigate(VaultDestinations.accountDetail(account.createdAt)) },
+                            )
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun AccountCard(account: Account, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                text = formatShortNpub(account.nostr.pubkey),
-                style = MaterialTheme.typography.labelLarge,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-            )
-            Text(
-                text = formatAccountId(account.createdAt),
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontFamily = FontFamily.Monospace,
-                maxLines = 1,
-            )
-            Text(
-                text = "Created on ${formatAccountCreatedAt(account.createdAt)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -155,23 +142,11 @@ private fun MonthSeparator(month: String) {
     }
 }
 
-internal fun formatAccountId(accountId: Long): String =
-    accountId.toString().chunked(4).joinToString(" ")
-
-internal fun formatShortNpub(publicKey: String): String =
-    runCatching { publicKey.hexToBytes().toNpub() }
-        .getOrNull()
-        ?.let { "${it.take(4)}..${it.takeLast(4)}" }
-        ?: "Unavailable"
-
 internal fun newestFirst(accounts: List<Account>): List<Account> =
     accounts.sortedByDescending { it.createdAt }
 
 internal fun accountsByMonth(accounts: List<Account>): List<Pair<String, List<Account>>> =
     newestFirst(accounts).groupBy { account -> formatAccountMonth(account.createdAt) }.toList()
-
-internal fun formatAccountCreatedAt(accountId: Long): String =
-    SimpleDateFormat("EEE MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(accountId / 1_000L))
 
 internal fun formatAccountMonth(accountId: Long): String =
     SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(accountId / 1_000L))

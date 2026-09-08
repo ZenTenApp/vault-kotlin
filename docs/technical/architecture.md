@@ -4,6 +4,8 @@
 
 The Compose theme and the Android launch-window theme are fixed to the app's dark palette. They deliberately do not read the system night-mode preference, preventing a light launch flash or a runtime theme change when the device setting changes.
 
+`ui/theme/Theme.kt` exposes the approved base palette through `VaultColors`; the Material color scheme maps those values to component roles. Standard content cards use `ui/components/VaultCard.kt`, which applies the approved surface color consistently while callers provide their layout, padding, and interaction behavior.
+
 ```text
 app.zenten.vault
 ├── ui/           Compose screens, navigation, and view models
