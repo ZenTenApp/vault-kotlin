@@ -6,8 +6,8 @@ These diagrams are a discussion aid for the currently implemented Android proof 
 
 ```mermaid
 flowchart TD
-    Launch["App launch"] --> Prerequisites{"Verified internet and automatic device time?"}
-    Prerequisites -->|No| Blocked["Unavailable screen: explain errors/warnings and link to date/time settings"]
+    Launch["App launch"] --> Prerequisites{"Verified internet and device time within 2 min of HTTPS server time?"}
+    Prerequisites -->|No| Blocked["Unavailable screen: explain errors/warnings and offer a recheck"]
     Blocked --> Prerequisites
     Prerequisites -->|Yes| Root["Root checks persisted state"]
     Root --> Setup{"Master setup complete?"}

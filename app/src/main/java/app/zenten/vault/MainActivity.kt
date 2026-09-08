@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -41,7 +43,14 @@ private fun VaultApp() {
             val accessGuard = remember(context) { AppAccessGuard(context) }
             val accessState by accessGuard.state.collectAsState()
             DisposableEffect(accessGuard) {
-                onDispose(accessGuard::close)
+                val observer = object : DefaultLifecycleObserver {
+                    override fun onResume(owner: LifecycleOwner) = accessGuard.refresh()
+                }
+                (context as ComponentActivity).lifecycle.addObserver(observer)
+                onDispose {
+                    (context as ComponentActivity).lifecycle.removeObserver(observer)
+                    accessGuard.close()
+                }
             }
 
             if (!accessState.canUseApp) {
