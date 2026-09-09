@@ -26,7 +26,7 @@ class ProfileServiceTest {
         ProfileService(gateway, Clock.fixed(Instant.ofEpochSecond(1_700_000_000L), ZoneOffset.UTC))
             .publishAssociatedAccountProfile(account)
 
-        val displayName = keys.pubKey.toNpub().let { "${it.take(4)}..${it.takeLast(4)}" }
+        val displayName = keys.pubKey.toNpub().let { "${it.take(4)}...${it.takeLast(4)}" }
         assertEquals(
             listOf(
                 listOf("name", account.createdAt.toString()),
