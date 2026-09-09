@@ -7,26 +7,20 @@ import org.junit.jupiter.api.Test
 
 class AppAccessPolicyTest {
     @Test
-    fun `allows the app when verified internet and server time agree`() {
-        assertTrue(AppAccessPolicy.evaluate(hasValidatedInternet = true, clockSkewMillis = 120_000).canUseApp)
+    fun `allows navigation when server time is valid or unavailable`() {
+        assertFalse(AppAccessPolicy.evaluate(RemoteOperationReadiness.READY).canUseApp)
+        assertTrue(AppAccessPolicy.evaluate(RemoteOperationReadiness.READY).copy(hasCompletedCheck = true).canUseApp)
+        assertTrue(AppAccessPolicy.evaluate(RemoteOperationReadiness.TIME_UNVERIFIABLE).copy(hasCompletedCheck = true).canUseApp)
     }
 
     @Test
-    fun `blocks a clock more than two minutes from server time`() {
-        val state = AppAccessPolicy.evaluate(hasValidatedInternet = true, clockSkewMillis = 120_001)
+    fun `blocks navigation for known invalid prerequisites`() {
+        val offline = AppAccessPolicy.evaluate(RemoteOperationReadiness.NO_VALIDATED_INTERNET)
+        val incorrectTime = AppAccessPolicy.evaluate(RemoteOperationReadiness.DEVICE_TIME_INCORRECT)
 
-        assertFalse(state.canUseApp)
-        assertEquals(setOf(AppAccessBlocker.DEVICE_TIME_INCORRECT), state.blockers)
-    }
-
-    @Test
-    fun `reports network and clock failures together`() {
-        val state = AppAccessPolicy.evaluate(hasValidatedInternet = false, clockSkewMillis = -120_001)
-
-        assertFalse(state.canUseApp)
-        assertEquals(
-            setOf(AppAccessBlocker.INTERNET_UNAVAILABLE, AppAccessBlocker.DEVICE_TIME_INCORRECT),
-            state.blockers,
-        )
+        assertFalse(offline.canUseApp)
+        assertEquals(setOf(AppAccessBlocker.INTERNET_UNAVAILABLE), offline.blockers)
+        assertFalse(incorrectTime.canUseApp)
+        assertEquals(setOf(AppAccessBlocker.DEVICE_TIME_INCORRECT), incorrectTime.blockers)
     }
 }

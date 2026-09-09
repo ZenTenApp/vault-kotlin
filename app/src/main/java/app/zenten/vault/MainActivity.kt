@@ -54,7 +54,11 @@ private fun VaultApp() {
             }
 
             if (!accessState.canUseApp) {
-                AppBlockedScreen(accessState.blockers, accessGuard::refresh)
+                AppBlockedScreen(
+                    blockers = accessState.blockers,
+                    isChecking = accessState.isCheckingTime,
+                    onRetry = { accessGuard.refresh(showChecking = true) },
+                )
             } else {
                 val navController = rememberNavController()
                 Scaffold { innerPadding ->

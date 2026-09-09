@@ -17,7 +17,11 @@ import androidx.compose.ui.unit.dp
 
 /** Full-screen gate shown instead of navigation until all backup safety prerequisites are met. */
 @Composable
-fun AppBlockedScreen(blockers: Set<AppAccessBlocker>, onRetry: () -> Unit) {
+fun AppBlockedScreen(
+    blockers: Set<AppAccessBlocker>,
+    isChecking: Boolean,
+    onRetry: () -> Unit,
+) {
     val hasInternetProblem = AppAccessBlocker.INTERNET_UNAVAILABLE in blockers
     val hasTimeProblem = AppAccessBlocker.DEVICE_TIME_INCORRECT in blockers
 
@@ -52,6 +56,8 @@ fun AppBlockedScreen(blockers: Set<AppAccessBlocker>, onRetry: () -> Unit) {
             )
         }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onRetry) { Text("Check again") }
+        Button(onClick = onRetry, enabled = !isChecking) {
+            Text(if (isChecking) "Checking…" else "Check again")
+        }
     }
 }

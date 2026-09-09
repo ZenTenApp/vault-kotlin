@@ -16,6 +16,8 @@ import androidx.work.WorkerParameters
 import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.BackupWorkScheduler
+import app.zenten.vault.ui.availability.RemoteOperationPrecondition
+import app.zenten.vault.ui.availability.RemoteOperationReadiness
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -34,26 +36,38 @@ class AccountConsolidationWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted parameters: WorkerParameters,
     private val engine: AccountConsolidationEngine,
+    private val remoteOperationPrecondition: RemoteOperationPrecondition,
 ) : CoroutineWorker(context, parameters) {
-    override suspend fun doWork(): Result = try {
-        val accountId = inputData.getLong(ACCOUNT_ID, NO_ACCOUNT_ID)
-        if (accountId != NO_ACCOUNT_ID) {
-            // Targeted cycles avoid changing statuses or records for unrelated accounts.
-            engine.consolidateAccount(accountId)
-        } else {
-            val trigger = inputData.getString(TRIGGER)
-                ?.let { triggerName -> runCatching { ConsolidationTrigger.valueOf(triggerName) }.getOrNull() }
-                ?: ConsolidationTrigger.PERIODIC
-            engine.consolidate(trigger, force = trigger == ConsolidationTrigger.MANUAL)
+    override suspend fun doWork(): Result {
+        return try {
+            when (remoteOperationPrecondition.check()) {
+                RemoteOperationReadiness.READY,
+                // A time-source outage does not prove that the device clock is incorrect.
+                RemoteOperationReadiness.TIME_UNVERIFIABLE -> Unit
+                RemoteOperationReadiness.NO_VALIDATED_INTERNET,
+                // Never generate timestamped backup/authentication data with known bad time.
+                RemoteOperationReadiness.DEVICE_TIME_INCORRECT -> return Result.retry()
+            }
+
+            val accountId = inputData.getLong(ACCOUNT_ID, NO_ACCOUNT_ID)
+            if (accountId != NO_ACCOUNT_ID) {
+                // Targeted cycles avoid changing statuses or records for unrelated accounts.
+                engine.consolidateAccount(accountId)
+            } else {
+                val trigger = inputData.getString(TRIGGER)
+                    ?.let { triggerName -> runCatching { ConsolidationTrigger.valueOf(triggerName) }.getOrNull() }
+                    ?: ConsolidationTrigger.PERIODIC
+                engine.consolidate(trigger, force = trigger == ConsolidationTrigger.MANUAL)
+            }
+            Result.success()
+        } catch (exception: CancellationException) {
+            // WorkManager deliberately stops work when replacing or cancelling it.
+            throw exception
+        } catch (_: Exception) {
+            // The engine records recoverable source-level failures itself; an escaped exception
+            // means this whole request did not finish and should be retried with backoff.
+            Result.retry()
         }
-        Result.success()
-    } catch (exception: CancellationException) {
-        // WorkManager deliberately stops work when replacing or cancelling it.
-        throw exception
-    } catch (_: Exception) {
-        // The engine records recoverable source-level failures itself; an escaped exception
-        // means this whole request did not finish and should be retried with backoff.
-        Result.retry()
     }
 
     companion object {
