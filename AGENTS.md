@@ -1,5 +1,9 @@
 # Repository instructions for AI assistants
 
+## Android versioning
+
+- When changing the Android app version, follow the shared-APK versioning policy in `docs/technical/build-and-test.md`.
+
 ## Code comments
 
 - Add concise explanatory comments for non-obvious code so a beginner can understand what the logic does and why. Cover intent, constraints, invariants, and non-trivial decisions without restating self-evident code. Keep comments accurate and update or remove them when the code changes.

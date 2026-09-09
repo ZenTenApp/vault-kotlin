@@ -19,6 +19,14 @@ The debug APK is produced at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## Versioning shared APKs
+
+The Android version is configured in `app/build.gradle.kts`:
+
+- `versionName` is the team-visible SemVer version. Use development pre-releases for shared in-progress APKs, such as `0.0.1-dev.1`, and reserve the corresponding plain version (`0.0.1`) for an internally approved baseline.
+- `versionCode` is Android's install/upgrade integer. Increment it for every APK distributed to the team; never reuse or decrease it.
+- For additional builds in the same milestone, increment the pre-release number (`0.0.1-dev.1` → `0.0.1-dev.2`). Use patch versions for compatible fixes (`0.0.2`), minor versions for meaningful feature milestones (`0.1.0`), and `1.0.0` for the first stable/public release.
+
 ## Test coverage areas
 
 The current test suite includes SSH key-codec behavior, deterministic crypto parity/golden vectors, Nostr event encoding, Brave Sync encoding/crypto components, source/status persistence, fixed-source policy, master quorum, sequential two-phase consolidation, local-first account behavior, and navigation destinations. Real default-relay/server verification is an integration concern and should remain opt-in rather than making host unit tests depend on external services.
