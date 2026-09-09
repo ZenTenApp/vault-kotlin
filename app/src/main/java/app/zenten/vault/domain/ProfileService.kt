@@ -75,7 +75,7 @@ class ProfileService(
         val npub = account.nostr.publicKey().toNpub()
         return listOf(
             "name" to account.createdAt.toString(),
-            "display_name" to "${npub.take(4)}..${npub.takeLast(4)}",
+            "display_name" to "${npub.take(4)}...${npub.takeLast(4)}",
             "banner" to "",
             "picture" to "",
             "about" to "",
