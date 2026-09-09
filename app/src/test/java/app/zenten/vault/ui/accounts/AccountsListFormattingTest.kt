@@ -25,7 +25,22 @@ class AccountsListFormattingTest {
     fun `Nostr public key is shortened to its npub prefix and suffix`() {
         val shortened = formatShortNpub("00".repeat(32))
 
-        assertTrue(shortened.matches(Regex("npub\\.\\.[a-z0-9]{4}")))
+        assertTrue(shortened.matches(Regex("npub\\.\\.\\.[a-z0-9]{4}")))
+    }
+
+    @Test
+    fun `profile display name replaces the shortened npub`() {
+        assertEquals("Profile name", accountCardIdentity(" Profile name ", "00".repeat(32)))
+    }
+
+    @Test
+    fun `long profile display name is truncated to sixteen characters`() {
+        assertEquals("1234567890123456...", accountCardIdentity("12345678901234567", "00".repeat(32)))
+    }
+
+    @Test
+    fun `missing profile display name falls back to the shortened npub`() {
+        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity("  ", "00".repeat(32)))
     }
 
     @Test

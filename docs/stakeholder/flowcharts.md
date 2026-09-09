@@ -63,10 +63,12 @@ flowchart TD
     Choose --> Confirm{"User confirms the encrypted key was saved?"}
     Confirm -->|No| Export
     Confirm -->|Yes| Clear["Clear pending export"]
-    Clear --> Accounts["Open My Accounts"]
+    Clear --> QueueProfile["Queue durable kind 0 profile publication"]
+    QueueProfile --> Accounts["Open My Accounts without waiting"]
+    QueueProfile --> ProfileWorker["Background publish to both profile relays with retry"]
 ```
 
-Opening the Android chooser is recorded, but Android cannot confirm that the receiving app retained the key. Back navigation is blocked on the export screen until the user confirms the export.
+Opening the Android chooser is recorded, but Android cannot confirm that the receiving app retained the key. Back navigation is blocked on the export screen until the user confirms the export. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **My Accounts**.
 
 ## Full-vault consolidation and automatic recovery
 

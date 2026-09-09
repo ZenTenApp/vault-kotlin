@@ -62,7 +62,11 @@ interface NostrRelayGateway {
 
     /** Failure is distinct from a successfully checked relay with no matching events. */
     suspend fun fetchByRelay(relayUrl: String, authorPubkey: String, kind: Int): Result<List<NostrEvent>> =
-        runCatching { fetchByAuthorAndKind(authorPubkey, kind) }
+        fetchByRelay(relayUrl, setOf(authorPubkey), kind)
+
+    /** Fetches several authors through one relay subscription and connection. */
+    suspend fun fetchByRelay(relayUrl: String, authorPubkeys: Set<String>, kind: Int): Result<List<NostrEvent>> =
+        runCatching { authorPubkeys.flatMap { fetchByAuthorAndKind(it, kind) }.distinctBy { it.id } }
 
     suspend fun fetchAuthenticatedByRelay(relayUrl: String, authorPubkey: String, kind: Int, privateKey: ByteArray): Result<List<NostrEvent>> =
         fetchByRelay(relayUrl, authorPubkey, kind)
@@ -129,15 +133,23 @@ class NostrRelayService(
     }
 
     override suspend fun fetchByRelay(relayUrl: String, authorPubkey: String, kind: Int): Result<List<NostrEvent>> =
-        fetchByRelay(relayUrl, authorPubkey, kind, null)
+        fetchByRelay(relayUrl, setOf(authorPubkey), kind, null)
+
+    override suspend fun fetchByRelay(relayUrl: String, authorPubkeys: Set<String>, kind: Int): Result<List<NostrEvent>> =
+        fetchByRelay(relayUrl, authorPubkeys, kind, null)
 
     override suspend fun fetchAuthenticatedByRelay(relayUrl: String, authorPubkey: String, kind: Int, privateKey: ByteArray): Result<List<NostrEvent>> =
-        fetchByRelay(relayUrl, authorPubkey, kind, privateKey)
+        fetchByRelay(relayUrl, setOf(authorPubkey), kind, privateKey)
 
-    private suspend fun fetchByRelay(relayUrl: String, authorPubkey: String, kind: Int, authPrivateKey: ByteArray?): Result<List<NostrEvent>> = runCatching {
+    private suspend fun fetchByRelay(relayUrl: String, authorPubkeys: Set<String>, kind: Int, authPrivateKey: ByteArray?): Result<List<NostrEvent>> = runCatching {
+        if (authorPubkeys.isEmpty()) return@runCatching emptyList()
         val relay = NormalizedRelayUrl(relayUrl)
         withClient(authPrivateKey) { client, monitor ->
-            val filters = mapOf(relay to listOf(Filter(authors = listOf(authorPubkey), kinds = listOf(kind))))
+            // Keep relay filters reasonably sized while sending every batch over one subscription
+            // and one websocket connection.
+            val filters = mapOf(relay to authorPubkeys.sorted().chunked(MAX_AUTHORS_PER_FILTER).map { authors ->
+                Filter(authors = authors, kinds = listOf(kind))
+            })
             val keepAliveSubscriptionId = UUID.randomUUID().toString()
             if (authPrivateKey != null) {
                 // fetchAll always unsubscribes when CLOSED arrives. Keep another request in
@@ -165,7 +177,7 @@ class NostrRelayService(
                     monitor.currentConnectionFailure(relay)?.let { throw it }
                 }
                 result.map { it.toAppEvent() }.filter {
-                    it.kind == kind && it.pubkey == authorPubkey && NostrEventCodec.isValid(it)
+                    it.kind == kind && it.pubkey in authorPubkeys && NostrEventCodec.isValid(it)
                 }.distinctBy { it.id }
             } finally {
                 if (authPrivateKey != null) client.unsubscribe(keepAliveSubscriptionId)
@@ -332,6 +344,7 @@ class NostrRelayService(
         const val ATTEMPT_TIMEOUT_MILLIS = 8_000L
         const val MAX_ATTEMPTS = 3
         const val RETRY_DELAY_MILLIS = 250L
+        internal const val MAX_AUTHORS_PER_FILTER = 100
         private fun newQuartzClient(scope: CoroutineScope): NostrClient {
             val okHttp = OkHttpClient.Builder()
                 .connectTimeout(ATTEMPT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)

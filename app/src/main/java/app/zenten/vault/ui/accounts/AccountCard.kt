@@ -30,6 +30,7 @@ import java.util.Locale
 @Composable
 fun AccountCard(
     account: Account,
+    displayName: String? = null,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
@@ -49,7 +50,7 @@ fun AccountCard(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = formatShortNpub(account.nostr.pubkey),
+                    text = accountCardIdentity(displayName, account.nostr.pubkey),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp,
                     maxLines = 1,
@@ -87,8 +88,13 @@ internal fun formatAccountId(accountId: Long): String = accountIdChunks(accountI
 internal fun formatShortNpub(publicKey: String): String =
     runCatching { publicKey.hexToBytes().toNpub() }
         .getOrNull()
-        ?.let { "${it.take(4)}..${it.takeLast(4)}" }
+        ?.let { "${it.take(4)}...${it.takeLast(4)}" }
         ?: "Unavailable"
+
+internal fun accountCardIdentity(displayName: String?, publicKey: String): String =
+    displayName?.trim()?.takeIf { it.isNotEmpty() }?.let {
+        if (it.length > 16) "${it.take(16)}..." else it
+    } ?: formatShortNpub(publicKey)
 
 internal fun formatAccountCreatedAt(accountId: Long): String =
     SimpleDateFormat("EEEE, MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(accountId / 1_000L))
