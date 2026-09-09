@@ -57,7 +57,11 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Account details", style = MaterialTheme.typography.headlineMedium)
-        AccountCard(account = account, modifier = Modifier.fillMaxWidth())
+        AccountCard(
+            account = account,
+            displayName = state.profile?.displayName,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             text = "Backup status",

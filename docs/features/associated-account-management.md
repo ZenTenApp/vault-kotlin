@@ -13,11 +13,12 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 5. The app allocates a unique creation ID, generates the key pair encrypted with the verified master account passphrase, derives its Nostr key pair from that SSH key, and saves both identities locally.
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
 7. Before the account can be used, the app requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
-8. After the Android Sharesheet opens, the account appears in **My Accounts**. Selecting the account opens its identity and backup-status details, including its shortened NIP-19 `npub` identity.
+8. After the user confirms that the encrypted key was saved, the app clears the pending export and queues durable background publication of a kind `0` Nostr profile. The profile sets `name` to the account creation ID and `display_name` to `npub..` plus the final four npub characters; `banner`, `picture`, and `about` are published as blank. Publication does not delay completion and retries with backoff until both profile relays acknowledge it.
+9. The account appears in **My Accounts**. Selecting it opens its identity and backup-status details.
 
 The screen has no title or explanatory header. A full-width outlined **Master account** button at the top opens master backup details. The add-account floating action remains in the bottom-right corner.
 
-Associated accounts use neutral cards and are listed newest first by their creation ID. Accounts are grouped by creation month, marked by a centered month label between horizontal separators. Each list card and its account-detail identity card show a shortened NIP-19 identity (`npub..` plus the final four characters), then the nearly full-width 16-digit creation ID in groups of four, followed by a local-time timestamp such as `Created on Wed Sep 2, 2026 11:56 AM`. The detail screen does not show a separate Nostr identity section. Selecting anywhere on a list card opens the account backup-status details. The master account remains an internal recovery identity and does not appear in the routine account list.
+Associated accounts use neutral cards and are listed newest first by their creation ID. Accounts are grouped by creation month, marked by a centered month label between horizontal separators. Each list card and its account-detail identity card show the latest nonblank kind `0` `display_name`, truncated to its first 16 characters followed by `...` when longer; while it is unavailable or missing, they fall back to the locally derived shortened NIP-19 identity (`npub..` plus the final four characters). The card then shows the nearly full-width 16-digit creation ID in groups of four and a local-time timestamp such as `Created on Wed Sep 2, 2026 11:56 AM`. The detail screen does not show a separate Nostr identity section. Selecting anywhere on a list card opens the account backup-status details. The master account remains an internal recovery identity and does not appear in the routine account list.
 
 ## Failure and security expectations
 
@@ -25,10 +26,12 @@ Associated accounts use neutral cards and are listed newest first by their creat
 - Once master quorum is satisfied, a newly created associated account remains locally available even when remote consolidation must run again later.
 - Creation requires the user to re-enter the master-account passphrase. The app compares it with the securely retained master passphrase before persistence, and encrypts the generated OpenSSH private key with that same passphrase.
 - Creation errors are shown without disclosing secret key material.
-- Every persisted associated account includes its derived Nostr key pair. Account list and detail identity cards derive and display a shortened NIP-19 `npub` from the stored Nostr public-key hex.
+- Every persisted associated account includes its derived Nostr key pair. The account signs its own kind `0` profile, and its private key is not sent to relays.
+- Profile presentation data is public and cached separately from encrypted account secrets. Cards retain the locally derived shortened `npub` as a reliable fallback when relay retrieval fails or `display_name` is missing.
 - Account details do not expose SSH public keys, fingerprints, or private keys. The required encrypted private-key export happens only during account creation.
 - The account list refreshes when the app returns to the foreground, including after recovery work.
-- The mandatory local-backup screen blocks Back navigation and completes when it opens the Android Sharesheet.
+- Profile retrieval is shared by the list and detail screens. Each relay connection receives bounded filters containing all requested account public keys, cached values render first, and each relay response updates cards independently. Overlapping list/detail requests reuse the active fetch, while later account-list refreshes retry previous relay failures.
+- The mandatory local-backup screen blocks Back navigation and completes only after the Sharesheet has opened and the user confirms that the encrypted key was saved.
 - The Sharesheet text contains the passphrase-encrypted OpenSSH private key. It remains sensitive: share recipients or anyone who learns the retained passphrase may be able to use the account.
 
 ## Current limitations

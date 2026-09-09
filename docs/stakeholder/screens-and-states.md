@@ -56,7 +56,7 @@ flowchart TD
 
 - Associated accounts only are listed as routine accounts; the screen has no top app bar, title, or explanatory header.
 - A full-width, surface-colored outlined Master Account button opens master source status. The high-contrast add-account floating action remains in the bottom-right corner. Associated accounts are grouped by month with a centered month label between horizontal separators.
-- Each account is a tappable neutral card showing a user-avatar icon followed by its shortened npub in 20sp regular text with `#E5E5E5`, a 16-digit ID rendered as four evenly distributed four-digit groups in 32sp semi-bold text with `#FFFFFF`, and a right-aligned localized creation date/time in 14sp regular text with `#B6B6B6`. These styles inherit the app's default font family. The add-account floating action remains in the bottom-right corner.
+- Each account is a tappable neutral card showing a user-avatar icon followed by its fetched Nostr profile display name in 20sp regular text with `#E5E5E5`; names longer than 16 characters show their first 16 characters followed by `...`, and a missing or unavailable display name falls back to the shortened npub. The card also shows a 16-digit ID rendered as four evenly distributed four-digit groups in 32sp semi-bold text with `#FFFFFF`, and a right-aligned localized creation date/time in 14sp regular text with `#B6B6B6`. These styles inherit the app's default font family. The add-account floating action remains in the bottom-right corner.
 - Automatic restoration occurs during consolidation; valid missing accounts appear after secure local persistence.
 
 ### Create associated account
@@ -69,7 +69,7 @@ flowchart TD
 ### Local account backup
 
 - Back navigation is blocked until the required backup route completes.
-- The export screen sends the encrypted OpenSSH private key as plain text through the Android Sharesheet, allowing targets such as Keep, Messages, or email. The app considers this step complete when it opens the chooser.
+- The export screen sends the encrypted OpenSSH private key as plain text through the Android Sharesheet, allowing targets such as Keep, Messages, or email. The app considers this step complete after the chooser opens and the user confirms that the encrypted key was saved.
 - This is sensitive shared-media/share-target output, despite OpenSSH passphrase encryption. The screen is protected from screenshots where Android supports it.
 
 ### Account detail and Master Account

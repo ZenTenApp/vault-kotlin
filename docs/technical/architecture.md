@@ -57,7 +57,7 @@ The current app has no custom-source management UI. The repository API is retain
 
 ## App-entry safety gate
 
-`RemoteOperationPrecondition` is the single prerequisite policy for timestamp-sensitive remote operations. It requires an active network with `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and a device clock within two minutes of HTTPS server time. It makes non-cached `HEAD` requests to `https://www.google.com/generate_204` and then `https://cloudflare.com`, parses the first usable HTTP `Date` header, and adjusts the result by half of the measured request round-trip time before comparing it to the wall clock. `AppAccessGuard` applies this policy on creation, resume, network changes, and manual retry, replacing navigation with `AppBlockedScreen` for proven internet or clock-skew failures. `AccountConsolidationWorker` applies the same policy before invoking the engine: it retries without producing timestamped remote authentication when internet is not validated or clock skew is known bad. If neither server is available or supplies a valid `Date` header, both paths continue because that failure cannot prove a device-time error. HTTPS/TLS protects the response in transit, but the check does not independently prove either endpoint's clock or the network is trustworthy.
+`RemoteOperationPrecondition` is the single prerequisite policy for timestamp-sensitive remote operations. It requires an active network with `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and a device clock within two minutes of HTTPS server time. It makes non-cached `HEAD` requests to `https://www.google.com/generate_204` and then `https://cloudflare.com`, parses the first usable HTTP `Date` header, and adjusts the result by half of the measured request round-trip time before comparing it to the wall clock. `AppAccessGuard` applies this policy on creation, resume, network changes, and manual retry, replacing navigation with `AppBlockedScreen` for proven internet or clock-skew failures. `AccountConsolidationWorker` and `ProfilePublicationWorker` apply the same policy before producing timestamped remote data and retry when internet is not validated or clock skew is known bad. If neither server is available or supplies a valid `Date` header, both paths continue because that failure cannot prove a device-time error. HTTPS/TLS protects the response in transit, but the check does not independently prove either endpoint's clock or the network is trustworthy.
 
 ## Background execution
 
@@ -66,8 +66,11 @@ The current app has no custom-source management UI. The repository API is retain
 - Pending-write retry is unique work.
 - Immediate consolidation is unique work after setup.
 - Periodic consolidation runs every hour with a connected-network constraint.
+- Kind `0` publication is unique work per account with a connected-network constraint and exponential backoff. WorkManager input contains only the account ID; the worker reads encrypted account state at execution time and requires acknowledgement from both profile relays.
 - `VaultApplication` supplies WorkManager's Hilt worker factory through `Configuration.Provider`; the manifest removes the default WorkManager startup initializer to avoid initializing it without that configuration.
 - A persisted checkpoint describes interrupted progress; operations are idempotent by canonical account ID.
+
+`DefaultAccountProfileRepository` is the shared profile read path for account list and detail screens. It emits public DataStore cache state before network access, coalesces overlapping account requests, and accepts progressive relay results only when their replaceable-event timestamp is newer. Nostr profile requests use one websocket connection per relay and split large author sets into bounded filters on the same subscription.
 
 ## Security boundaries
 
@@ -84,5 +87,7 @@ The current app has no custom-source management UI. The repository API is retain
 - `domain/AccountConsolidationEngine.kt`
 - `domain/SetupService.kt`
 - `background/BackupWorkers.kt`
+- `background/ProfilePublicationWorker.kt`
+- `domain/AccountProfileRepository.kt`
 - `network/nostr/NostrRelayService.kt`
 - `data/kv/AppStorageService.kt`
