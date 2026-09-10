@@ -30,6 +30,9 @@ object VaultDestinations {
     /** Master account and its per-source backup coverage. */
     const val MASTER_ACCOUNT = "master-account"
 
+    /** App settings and vault management entry points. */
+    const val SETTINGS = "settings"
+
     fun accountDetail(id: Long): String = "accounts/$id"
     fun localAccountBackupExport(id: Long): String = "accounts/$id/local-backup/export"
 }

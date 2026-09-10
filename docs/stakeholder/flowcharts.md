@@ -16,11 +16,12 @@ flowchart TD
     Import --> MasterSetup["Set up master account"]
     Setup -->|Yes| PendingExport{"Pending local key export?"}
     PendingExport -->|Yes| Export["Export account"]
-    PendingExport -->|No| Accounts["My Accounts"]
+    PendingExport -->|No| Accounts["Accounts"]
     Export --> Accounts
     Accounts --> Create["Create new SSH account"]
     Accounts --> Detail["Account details"]
-    Accounts --> Master["Master Account"]
+    Accounts --> Settings["Settings"]
+    Settings --> Master["Master Account"]
     Detail --> Accounts
     Master --> Accounts
 ```
@@ -52,7 +53,7 @@ The setup screen does not show supplied secret material in errors. A failed sour
 
 ```mermaid
 flowchart TD
-    Add["Select Add account"] --> EnterPassphrase["Enter master passphrase"]
+    Add["Select Create New Account"] --> EnterPassphrase["Enter master passphrase"]
     EnterPassphrase --> Check{"Passphrase valid and master quorum complete?"}
     Check -->|No| Rejected["Show error and do not create account"]
     Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH account"]
@@ -64,7 +65,7 @@ flowchart TD
     Confirm -->|No| Export
     Confirm -->|Yes| Clear["Clear pending export"]
     Clear --> QueueProfile["Queue durable kind 0 profile publication"]
-    QueueProfile --> Accounts["Open My Accounts without waiting"]
+    QueueProfile --> Accounts["Open Accounts without waiting"]
     QueueProfile --> ProfileWorker["Background publish to both profile relays with retry"]
 ```
 
@@ -136,11 +137,12 @@ Targeted consolidation only checks, writes, and updates status for the selected 
 
 ```mermaid
 flowchart LR
-    Accounts["My Accounts"] --> Account["Open associated account"]
+    Accounts["Accounts"] --> Account["Open associated account"]
     Account --> Status["Review per-source status"]
     Status --> One["Select Consolidate backup"]
     One --> Targeted["Run targeted consolidation"]
-    Accounts --> Master["Open Master Account"]
+    Accounts --> Settings["Open Settings"]
+    Settings --> Master["Open Master Account"]
     Master --> MasterState{"Master quorum complete?"}
     MasterState -->|No| Retry["Retry master setup"]
     MasterState -->|Yes| All["Select Consolidate backups"]

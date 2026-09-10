@@ -20,10 +20,10 @@ flowchart LR
 1. The user selects **Import SSH Key**, provides the Ed25519 OpenSSH private key, and then enters its passphrase on the next screen.
 2. The app validates the material locally and prepares the vault identity.
 3. The app creates the required initial protected backup and reports progress.
-4. When setup succeeds, the user reaches **My Accounts**.
+4. When setup succeeds, the user reaches **Accounts**.
 5. The app looks for associated accounts already available from backup and restores every valid discovered account automatically.
 
-**Success:** The vault is ready for use, and any valid discovered associated accounts are added to **My Accounts**.
+**Success:** The vault is ready for use, and any valid discovered associated accounts are added to **Accounts**.
 
 **Important failure behavior:** An invalid key or wrong passphrase is explained without displaying the supplied secret. If the required initial backup cannot be confirmed, setup remains incomplete and the user can retry rather than being told the vault is ready.
 
@@ -33,7 +33,7 @@ flowchart LR
 
 **Starting point:** Setup is complete and the required master backup quorum has been satisfied.
 
-1. The user selects **Add account** or the add button from **My Accounts**.
+1. The user selects **Create New Account** from the bottom center of **Accounts**.
 2. The app explains that it will generate a fresh Ed25519 OpenSSH key pair.
 3. The user selects **Create account**.
 4. The app confirms that master backup quorum is satisfied; otherwise creation stops without saving an account.
@@ -48,7 +48,7 @@ flowchart LR
 
 **User goal:** Review an associated account's identity and backup coverage.
 
-1. The user opens an account from **My Accounts**.
+1. The user opens an account from **Accounts**.
 2. The app shows the account ID, creation time, and NIP-19 `npub` identity, which the user can copy.
 3. The app lists each configured backup destination and its current status.
 4. The user can select **Consolidate backup** to reconcile that account.
@@ -61,7 +61,7 @@ flowchart LR
 
 **User goal:** Understand whether an account has known backup coverage.
 
-1. The user opens an account or the dedicated Master Account screen.
+1. The user opens an account, or opens **Settings** and selects **Master account**.
 2. The app lists each configured destination and its current status.
 3. From an associated-account screen, the user selects **Consolidate backup** to reconcile only that account. From the Master Account screen, the user selects **Consolidate backups** to reconcile the whole vault.
 4. The app checks every source before writing and does not push an account to a source that already reports its canonical ID. Full-vault consolidation can also restore valid missing local accounts; targeted consolidation does not process unrelated accounts.
@@ -77,7 +77,7 @@ flowchart LR
 2. The user completes setup using the same master account private key and passphrase.
 3. The app uses that identity to look for protected backup copies.
 4. Every valid discovered associated account is restored automatically.
-5. Restored accounts appear in **My Accounts** and are available locally.
+5. Restored accounts appear in **Accounts** and are available locally.
 
 **Success:** The user regains all valid discovered associated accounts when usable remote backups can be found.
 
