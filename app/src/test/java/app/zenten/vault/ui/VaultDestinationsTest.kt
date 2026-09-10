@@ -6,6 +6,11 @@ import org.junit.jupiter.api.Test
 class VaultDestinationsTest {
 
     @Test
+    fun settings_hasStableRoute() {
+        assertEquals("settings", VaultDestinations.SETTINGS)
+    }
+
+    @Test
     fun accountDetail_buildsRouteFromId() {
         assertEquals("accounts/1234567890", VaultDestinations.accountDetail(1234567890L))
     }

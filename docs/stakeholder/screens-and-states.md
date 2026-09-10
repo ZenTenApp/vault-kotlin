@@ -11,7 +11,8 @@ The fixed dark theme uses the approved palette throughout Compose UI and the lau
 | App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Check again | No verified internet, device clock differs from HTTPS server time by over two minutes, or both |
 | Get started | Introduce setup | Import SSH key | New installation |
 | Set up master account | Import master private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
-| My Accounts | List associated accounts and reach master details | Add account; open account; open Master Account | Loading, empty, recovering, populated |
+| Accounts | List associated accounts and reach app settings | Create account; open account; open Settings | Loading, empty, recovering, populated |
+| Settings | Provide vault-management entry points | Open Master account | Ready |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
 | Export account | Require an Android Sharesheet export before account use | Export to Notes | Chooser open |
 | Account detail | Inspect account identity and per-source backup state | Consolidate backup | Missing, source checking/writing/present/missing/failed/unknown |
@@ -33,14 +34,15 @@ flowchart TD
     P -- Yes --> S{Setup complete?}
     S -- No --> G[Get started]
     G --> M[Set up master account]
-    M -- Quorum succeeds --> A[My Accounts]
+    M -- Quorum succeeds --> A[Accounts]
     M -- Quorum unavailable --> M
     S -- Yes --> A
     A --> N[Create associated account]
     N --> EX[Export account]
     EX --> A
     A --> D[Account detail]
-    A --> MA[Master Account]
+    A --> ST[Settings]
+    ST --> MA[Master Account]
 ```
 
 ## Review notes
@@ -52,12 +54,17 @@ flowchart TD
 - Errors distinguish missing relay versus Brave coverage without including secret data.
 - The screen remains protected from screenshots where supported.
 
-### My Accounts
+### Accounts
 
-- Associated accounts only are listed as routine accounts; the screen has no top app bar, title, or explanatory header.
-- A full-width, surface-colored outlined Master Account button opens master source status. The high-contrast add-account floating action remains in the bottom-right corner. Associated accounts are grouped by month with a centered month label between horizontal separators.
-- Each account is a tappable neutral card showing a user-avatar icon followed by its fetched Nostr profile display name in 20sp regular text with `#E5E5E5`; names longer than 16 characters show their first 16 characters followed by `...`, and a missing or unavailable display name falls back to the shortened npub. The card also shows a 16-digit ID rendered as four evenly distributed four-digit groups in 32sp semi-bold text with `#FFFFFF`, and a right-aligned localized creation date/time in 14sp regular text with `#B6B6B6`. These styles inherit the app's default font family. The add-account floating action remains in the bottom-right corner.
+- Associated accounts only are listed as routine accounts. A centered **Accounts** title identifies the landing screen, which intentionally has no Back action.
+- The top-right settings cog opens **Settings**. A labeled, high-contrast **Create New Account** button is centered at the bottom over a subtle background gradient and shadow. Associated accounts are grouped by month with a centered month label between horizontal separators.
+- Each account is a tappable neutral card showing a user-avatar icon followed by its fetched Nostr profile display name in 20sp regular text with `#E5E5E5`; names longer than 16 characters show their first 16 characters followed by `...`, and a missing or unavailable display name falls back to the shortened npub. The card also shows a 16-digit ID rendered as four evenly distributed four-digit groups in 32sp semi-bold text with `#FFFFFF`, and a right-aligned localized creation date/time in 14sp regular text with `#B6B6B6`. These styles inherit the app's default font family.
 - Automatic restoration occurs during consolidation; valid missing accounts appear after secure local persistence.
+
+### Settings
+
+- Settings uses a centered title and a Back action that returns to **Accounts**.
+- The current vault section contains one full-width **Master account** item with supporting text. It opens master source status and full-vault consolidation controls.
 
 ### Create associated account
 

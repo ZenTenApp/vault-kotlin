@@ -6,7 +6,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 
 ## Current behavior
 
-1. From **My Accounts**, the user selects the add floating action button.
+1. From **Accounts**, the user selects the bottom-centered **Create New Account** button.
 2. The app displays **Create new SSH account** and explains that a fresh Ed25519 OpenSSH key pair will be generated.
 3. The user enters their master-account passphrase and selects **Create account**.
 4. The app compares the entered passphrase with the securely retained master-account passphrase, then verifies that master setup is complete, meaning its required backup quorum was satisfied.
@@ -14,9 +14,9 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
 7. Before the account can be used, the app requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
 8. After the user confirms that the encrypted key was saved, the app clears the pending export and queues durable background publication of a kind `0` Nostr profile. The profile sets `name` to the account creation ID and `display_name` to `npub...` plus the final four npub characters; `banner`, `picture`, and `about` are published as blank. Publication does not delay completion and retries with backoff until both profile relays acknowledge it.
-9. The account appears in **My Accounts**. Selecting it opens its identity and backup-status details.
+9. The account appears in **Accounts**. Selecting it opens its identity and backup-status details.
 
-The screen has no title or explanatory header. A full-width outlined **Master account** button at the top opens master backup details. The add-account floating action remains in the bottom-right corner.
+The landing screen has a centered **Accounts** title and no Back action because it is the app's main destination. A settings cog at the top right opens **Settings**, where the **Master account** item opens master backup details. A labeled **Create New Account** button stays centered at the bottom over a subtle gradient and shadow so the primary action remains prominent without obscuring the account list.
 
 Associated accounts use neutral cards and are listed newest first by their creation ID. Accounts are grouped by creation month, marked by a centered month label between horizontal separators. Each list card and its account-detail identity card show the latest nonblank kind `0` `display_name`, truncated to its first 16 characters followed by `...` when longer; while it is unavailable or missing, they fall back to the locally derived shortened NIP-19 identity (`npub...` plus the final four characters). The card then shows the nearly full-width 16-digit creation ID in groups of four and a local-time timestamp such as `Created on Wed Sep 2, 2026 11:56 AM`. Below the identity card, the detail screen shows the account's full locally derived NIP-19 `npub` in a dedicated card with a copy action. Selecting anywhere on a list card opens the account backup-status details. The master account remains an internal recovery identity and does not appear in the routine account list.
 
