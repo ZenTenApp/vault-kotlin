@@ -1,5 +1,6 @@
 package app.zenten.vault.ui.accounts
 
+import android.content.ClipData
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,10 +15,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,10 +28,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,6 +42,7 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.ui.components.VaultCard
 import app.zenten.vault.ui.theme.VaultColors
+import kotlinx.coroutines.launch
 
 @Composable
 fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewModel: AccountDetailViewModel = hiltViewModel()) {
@@ -62,6 +69,7 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             displayName = state.profile?.displayName,
             modifier = Modifier.fillMaxWidth(),
         )
+        NostrIdentityCard(formatNpub(account.nostr.pubkey))
         Spacer(Modifier.height(8.dp))
         Text(
             text = "Backup status",
@@ -70,6 +78,47 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         )
         state.sources.forEach { SourceStatusRow(it) }
         Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth()) { Text("Consolidate backup") }
+    }
+}
+
+@Composable
+private fun NostrIdentityCard(npub: String) {
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
+    VaultCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Nostr identity",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            clipboard.setClipEntry(ClipData.newPlainText("Nostr public key", npub).toClipEntry())
+                        }
+                    },
+                    enabled = npub != "Unavailable",
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ContentCopy,
+                        contentDescription = "Copy npub",
+                    )
+                }
+            }
+            Text(
+                text = npub,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
     }
 }
 

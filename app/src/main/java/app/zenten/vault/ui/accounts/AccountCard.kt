@@ -85,11 +85,15 @@ internal fun accountIdChunks(accountId: Long): List<String> = accountId.toString
 
 internal fun formatAccountId(accountId: Long): String = accountIdChunks(accountId).joinToString(" ")
 
-internal fun formatShortNpub(publicKey: String): String =
+internal fun formatNpub(publicKey: String): String =
     runCatching { publicKey.hexToBytes().toNpub() }
         .getOrNull()
-        ?.let { "${it.take(4)}...${it.takeLast(4)}" }
         ?: "Unavailable"
+
+internal fun formatShortNpub(publicKey: String): String =
+    formatNpub(publicKey).let { npub ->
+        if (npub == "Unavailable") npub else "${npub.take(4)}...${npub.takeLast(4)}"
+    }
 
 internal fun accountCardIdentity(displayName: String?, publicKey: String): String =
     displayName?.trim()?.takeIf { it.isNotEmpty() }?.let {

@@ -49,13 +49,13 @@ flowchart LR
 **User goal:** Review an associated account's identity and backup coverage.
 
 1. The user opens an account from **My Accounts**.
-2. The app shows the account ID, creation time, and NIP-19 `npub` identity.
+2. The app shows the account ID, creation time, and NIP-19 `npub` identity, which the user can copy.
 3. The app lists each configured backup destination and its current status.
 4. The user can select **Consolidate backup** to reconcile that account.
 
 **Success:** The user can review account identity and backup coverage without SSH key material appearing on screen.
 
-**Safety expectation:** Account detail must not expose SSH public keys, fingerprints, private keys, or key-copy actions.
+**Safety expectation:** Account detail must not expose SSH public keys, fingerprints, private keys, or actions that copy SSH or private key material. Its copy action copies only the public NIP-19 `npub`.
 
 ## 4. Check and consolidate backup status
 
