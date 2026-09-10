@@ -29,6 +29,14 @@ class AccountsListFormattingTest {
     }
 
     @Test
+    fun `Nostr public key is formatted as a full npub for account details`() {
+        val npub = formatNpub("00".repeat(32))
+
+        assertTrue(npub.matches(Regex("npub1[a-z0-9]+")))
+        assertTrue(npub.length > formatShortNpub("00".repeat(32)).length)
+    }
+
+    @Test
     fun `profile display name replaces the shortened npub`() {
         assertEquals("Profile name", accountCardIdentity(" Profile name ", "00".repeat(32)))
     }
