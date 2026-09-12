@@ -6,7 +6,7 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 
 ## Current behavior
 
-1. The user opens **Get started** and proceeds to **Set up your master account**.
+1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Set up your master account**. Importing an existing key is the only implemented entry path; the **Create MasterKey** and federated sign-in actions on that screen are design placeholders that report "coming soon".
 2. The user pastes a passphrase-protected OpenSSH private key, then continues to a separate screen to enter its passphrase. Each setup step presents one secret input; unencrypted private keys are rejected.
 3. The app validates the material locally and derives the vault identity.
 4. The app stores the master account securely and attempts all enabled sources sequentially.
@@ -26,6 +26,8 @@ If remote quorum is unavailable, setup remains incomplete but the validated mast
 ## Current limitations
 
 - The current UI supports pasted key material. File import and QR intake are not available.
+- In-app master-key generation (**Create MasterKey**) is not implemented. The user must already hold an Ed25519 OpenSSH key.
+- Federated sign-in (Google, Apple, Microsoft) is not implemented. Its meaning for a key-rooted vault is an open product decision, since the root of trust is a keypair rather than a provider account.
 - Production review is still required for supported key formats, error language, storage, backup destinations, and end-to-end setup recovery.
 
 ## Primary implementation locations

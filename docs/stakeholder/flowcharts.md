@@ -12,8 +12,9 @@ flowchart TD
     Prerequisites -->|Yes| Root["Root checks persisted state"]
     Root --> Setup{"Master setup complete?"}
     Setup -->|No| Welcome["Get started"]
-    Welcome --> Import["Import SSH key"]
-    Import --> MasterSetup["Set up master account"]
+    Welcome -->|"Login with MasterKey"| MasterSetup["Set up master account"]
+    Welcome -->|"Create MasterKey / Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
+    ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
     PendingExport -->|Yes| Export["Export account"]
     PendingExport -->|No| Accounts["Accounts"]

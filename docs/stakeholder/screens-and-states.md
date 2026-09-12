@@ -9,7 +9,7 @@ The fixed dark theme uses the approved palette throughout Compose UI and the lau
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
 | App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Check again | No verified internet, device clock differs from HTTPS server time by over two minutes, or both |
-| Get started | Introduce setup | Import SSH key | New installation |
+| Get started | Introduce the vault and offer first-run entry paths | Login with MasterKey | New installation; unimplemented action tapped ("coming soon") |
 | Set up master account | Import master private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | Accounts | List associated accounts and reach app settings | Create account; open account; open Settings | Loading, empty, recovering, populated |
 | Settings | Provide vault-management entry points | Open Master account | Ready |
@@ -46,6 +46,16 @@ flowchart TD
 ```
 
 ## Review notes
+
+### Get started
+
+- The screen shows the ZenTen brand mark on a circular themed plate, a welcome title, a short purpose description, and a bottom-anchored copyright line.
+- **Create MasterKey** is the visually emphasized action (inverted light container with a bold label) because it is the design's intended primary path, but in-app key generation is not implemented yet.
+- **Login with MasterKey** is the only implemented action and opens **Set up master account** to import an existing Ed25519 OpenSSH key.
+- An "or continue with" separator precedes **Google**, **Apple**, and **Microsoft** buttons. None are implemented.
+- Every unimplemented action shows a short "coming soon" snackbar naming the action. A new message replaces any visible one, so repeated taps do not queue up.
+- All colors come from the app theme. Multi-color third-party brand marks are the deliberate exception: their colors live inside the vector assets because brand guidelines forbid recoloring. The monochrome ZenTen and Apple marks are tinted from the theme.
+- The content scrolls vertically so short screens cannot clip the buttons or footer.
 
 ### Set up master account
 
