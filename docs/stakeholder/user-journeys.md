@@ -36,7 +36,7 @@ flowchart LR
 1. The user selects **Create New Account** from the bottom center of **Accounts**.
 2. The app explains that it will generate a fresh Ed25519 OpenSSH key pair.
 3. The user selects **Create account**.
-4. The app confirms that master backup quorum is satisfied; otherwise creation stops without saving an account.
+4. The app confirms that master backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
 5. The app saves the new associated account on the device first.
 6. The app starts background consolidation, checking each destination before writing only confirmed gaps.
 7. The user exports the encrypted OpenSSH private key through the device Sharesheet to Notes, Messages, or another available app.

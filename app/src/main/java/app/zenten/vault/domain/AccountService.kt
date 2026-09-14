@@ -24,6 +24,11 @@ class AccountService(
         val storedPassphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
         require(masterPassphrase.isNotBlank()) { "Master account passphrase is required to create an associated account" }
         require(masterPassphrase == storedPassphrase) { "The passphrase does not match the master account" }
+        // Enforce the 99-account ceiling only for user-initiated creation. Consolidation and
+        // recovery write through SecureStorageService directly so restored accounts are exempt.
+        require(secureStorage.getAccounts().size < MAX_ASSOCIATED_ACCOUNTS) {
+            "You can create up to $MAX_ASSOCIATED_ACCOUNTS associated accounts"
+        }
         val createdAt = nextCreatedAt()
         val generated = SshKeyCodec.generateEncrypted(createdAt, masterPassphrase.toCharArray())
         val account = Account(
@@ -47,5 +52,10 @@ class AccountService(
             val next = maxOf(candidate, previous + 1)
             if (lastCreatedAt.compareAndSet(previous, next)) return next
         }
+    }
+
+    companion object {
+        /** Maximum number of user-creatable associated accounts; the master is tracked separately. */
+        const val MAX_ASSOCIATED_ACCOUNTS = 99
     }
 }
