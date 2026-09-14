@@ -98,7 +98,7 @@ val seed = private.encoded
 val public = private.generatePublicKey().encoded
 ```
 
-It serializes the generated material into an OpenSSH-v1 container encrypted with the retained master-account passphrase (`aes256-ctr` and `bcrypt_pbkdf`). Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding. The generated public-key line also uses `createdAt` as its comment.
+It serializes the generated material into an OpenSSH-v1 container encrypted with the retained master-account passphrase (`aes256-ctr` and `bcrypt_pbkdf`) using a work factor of 128 rounds. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding. The generated public-key line also uses `createdAt` as its comment. Parsing uses the round count stored in each container, so keys generated previously with a different work factor remain readable.
 
 ### Important distinction
 
