@@ -34,8 +34,8 @@ flowchart LR
 **Starting point:** Setup is complete and the required master backup quorum has been satisfied.
 
 1. The user selects **Create New Account** from the bottom center of **Accounts**.
-2. The app explains that it will generate a fresh Ed25519 OpenSSH key pair.
-3. The user selects **Create account**.
+2. The app displays **Create New Account** and asks for the **MasterKey Passphrase**, which the user can show or hide.
+3. The user selects **Create account**, or selects **Cancel** to return without creating one.
 4. The app confirms that master backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
 5. The app saves the new associated account on the device first.
 6. The app starts background consolidation, checking each destination before writing only confirmed gaps.

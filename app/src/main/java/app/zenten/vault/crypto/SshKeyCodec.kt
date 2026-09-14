@@ -19,7 +19,7 @@ object SshKeyCodec {
     private const val Bcrypt = "bcrypt"
 
     /** OpenSSH bcrypt_pbkdf work factor for generated private keys. */
-    const val BCRYPT_PBKDF_ROUNDS = 1
+    const val BCRYPT_PBKDF_ROUNDS = 128
 
     data class ParsedKey(
         val seed: ByteArray,

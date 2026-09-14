@@ -7,8 +7,8 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 ## Current behavior
 
 1. From **Accounts**, the user selects the bottom-centered **Create New Account** button.
-2. The app displays **Create new SSH account** and explains that a fresh Ed25519 OpenSSH key pair will be generated.
-3. The user enters their master-account passphrase and selects **Create account**.
+2. The app displays **Create New Account** with a **MasterKey Passphrase** field. The user can show or hide the entered passphrase.
+3. The user enters their master-account passphrase and selects **Create account**, or selects the outlined **Cancel** action to return without creating one. During key derivation, the primary button displays a spinner and **Creating account** while the cryptographic work runs off the UI thread.
 4. The app compares the entered passphrase with the securely retained master-account passphrase, rejects the request when 99 associated accounts already exist, then verifies that master setup is complete, meaning its required backup quorum was satisfied.
 5. The app allocates a unique creation ID, generates the key pair encrypted with the verified master account passphrase, derives its Nostr key pair from that SSH key, and saves both identities locally.
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.

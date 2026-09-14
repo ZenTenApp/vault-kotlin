@@ -2,12 +2,23 @@ package app.zenten.vault.ui.newaccount
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,9 +28,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -28,6 +41,7 @@ import app.zenten.vault.ui.VaultDestinations
 @Composable
 fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountViewModel = hiltViewModel()) {
     var masterPassphrase by remember { mutableStateOf("") }
+    var passphraseVisible by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
     val view = LocalView.current
     androidx.compose.runtime.DisposableEffect(view) {
@@ -46,14 +60,21 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Create new SSH account", style = MaterialTheme.typography.headlineMedium)
-        Text("A fresh Ed25519 OpenSSH key pair will be generated and backed up to relays. If the relay backup is unavailable, it will retry automatically.")
+        Text("Create New Account", style = MaterialTheme.typography.headlineMedium)
         OutlinedTextField(
             value = masterPassphrase,
             onValueChange = { masterPassphrase = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Master account passphrase") },
-            visualTransformation = PasswordVisualTransformation(),
+            label = { Text("MasterKey Passphrase") },
+            visualTransformation = if (passphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passphraseVisible = !passphraseVisible }) {
+                    Icon(
+                        imageVector = if (passphraseVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                        contentDescription = if (passphraseVisible) "Hide passphrase" else "Show passphrase",
+                    )
+                }
+            },
             enabled = !state.creating,
         )
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -62,8 +83,27 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
             modifier = Modifier.fillMaxWidth(),
             enabled = masterPassphrase.isNotBlank() && !state.creating,
         ) {
-            if (state.creating) CircularProgressIndicator() else Text("Create account")
+            if (state.creating) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("Creating Account", style = MaterialTheme.typography.titleMedium)
+                }
+            } else {
+                Text("Create Account", style = MaterialTheme.typography.titleMedium)
+            }
         }
-        Button(onClick = { navController.popBackStack() }, modifier = Modifier.fillMaxWidth(), enabled = !state.creating) { Text("Cancel") }
+        OutlinedButton(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.creating,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary),
+        ) {
+            Text("Cancel")
+        }
     }
 }

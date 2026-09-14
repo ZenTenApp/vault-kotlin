@@ -8,6 +8,8 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** User-facing associated account lifecycle. The master remains an internal-only identity. */
 class AccountService(
@@ -19,7 +21,7 @@ class AccountService(
     fun getAccounts(): List<Account> = secureStorage.getAccounts()
     fun getAccount(id: Long): Account? = secureStorage.getAccountById(id)
 
-    suspend fun createAssociatedAccount(masterPassphrase: String): Result<Account> = runCatching {
+    suspend fun createAssociatedAccount(masterPassphrase: String): Result<Account> = withContext(Dispatchers.Default) { runCatching {
         val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
         val storedPassphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
         require(masterPassphrase.isNotBlank()) { "Master account passphrase is required to create an associated account" }
@@ -42,7 +44,7 @@ class AccountService(
         )
         setupService.addAccount(master, account).getOrThrow()
         account
-    }
+    } }
 
 
     private fun nextCreatedAt(): Long {
