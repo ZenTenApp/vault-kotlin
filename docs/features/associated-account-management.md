@@ -9,7 +9,7 @@ After setup has satisfied the master backup quorum, a user can generate a separa
 1. From **Accounts**, the user selects the bottom-centered **Create New Account** button.
 2. The app displays **Create new SSH account** and explains that a fresh Ed25519 OpenSSH key pair will be generated.
 3. The user enters their master-account passphrase and selects **Create account**.
-4. The app compares the entered passphrase with the securely retained master-account passphrase, then verifies that master setup is complete, meaning its required backup quorum was satisfied.
+4. The app compares the entered passphrase with the securely retained master-account passphrase, rejects the request when 99 associated accounts already exist, then verifies that master setup is complete, meaning its required backup quorum was satisfied.
 5. The app allocates a unique creation ID, generates the key pair encrypted with the verified master account passphrase, derives its Nostr key pair from that SSH key, and saves both identities locally.
 6. Targeted consolidation starts after the local save. It reconciles only the new account, indexes every source, and writes only where its canonical ID is absent; it never blindly pushes another entry to a source that already has the account.
 7. Before the account can be used, the app requires the user to export the encrypted OpenSSH private key through the Android Sharesheet.
@@ -23,6 +23,7 @@ Associated accounts use neutral cards and are listed newest first by their creat
 ## Failure and security expectations
 
 - Creation is rejected before local persistence when master backup quorum has not been satisfied; no associated account or backup job is created.
+- A user can create at most 99 associated accounts. The 100th creation attempt is rejected with a clear message before any key material is generated or persisted. This ceiling applies only to user-initiated creation; accounts restored by consolidation or recovery are not counted against or blocked by it.
 - Once master quorum is satisfied, a newly created associated account remains locally available even when remote consolidation must run again later.
 - Creation requires the user to re-enter the master-account passphrase. The app compares it with the securely retained master passphrase before persistence, and encrypts the generated OpenSSH private key with that same passphrase.
 - Creation errors are shown without disclosing secret key material.

@@ -55,7 +55,7 @@ The setup screen does not show supplied secret material in errors. A failed sour
 ```mermaid
 flowchart TD
     Add["Select Create New Account"] --> EnterPassphrase["Enter master passphrase"]
-    EnterPassphrase --> Check{"Passphrase valid and master quorum complete?"}
+    EnterPassphrase --> Check{"Passphrase valid, master quorum complete, and fewer than 99 associated accounts?"}
     Check -->|No| Rejected["Show error and do not create account"]
     Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH account"]
     Generate --> Save["Save account locally and record pending export"]
