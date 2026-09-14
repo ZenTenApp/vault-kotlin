@@ -6,8 +6,8 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 
 ## Current behavior
 
-1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Set up your master account**. Importing an existing key is the only implemented entry path; the **Create MasterKey** and federated sign-in actions on that screen are design placeholders that report "coming soon".
-2. The user pastes a passphrase-protected OpenSSH private key, then continues to a separate screen to enter its passphrase. Each setup step presents one secret input; unencrypted private keys are rejected.
+1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Setup Master Account**. Importing an existing key is the only implemented entry path; the **Create MasterKey** and federated sign-in actions on that screen are design placeholders that report "coming soon".
+2. On **Setup Master Account**, the user copies a passphrase-protected OpenSSH private key and selects **Paste MasterKey**. The app reads the first clipboard item without displaying it, clears the clipboard immediately, and validates that it is a supported encrypted OpenSSH-v1 Ed25519 container before proceeding to the passphrase step. PEM, raw Base64, and the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper are accepted; malformed, unencrypted, non-Ed25519, and unsupported containers are rejected on the paste step.
 3. The app validates the material locally and derives the vault identity.
 4. The app stores the master account securely and attempts all enabled sources sequentially.
 5. Setup completes only after at least one eligible Nostr relay and one eligible Brave Sync server already contain or acknowledge the master backup.
@@ -18,6 +18,8 @@ If remote quorum is unavailable, setup remains incomplete but the validated mast
 ## Failure and security expectations
 
 - Invalid input and wrong-passphrase errors must not echo private-key or passphrase content.
+- The private key is never rendered during import. It remains in memory only while the passphrase step is active and is discarded if the user returns to the paste step.
+- Clipboard clearing is best-effort: Vault clears Android's current clipboard entry before proceeding, but the operating system, a keyboard, or another clipboard-history provider may retain an earlier copy outside Vault's control. If Vault cannot read or clear the clipboard, it does not proceed.
 - The setup screen is protected from screenshots on supported Android devices.
 - The primary setup action is unavailable while processing is in progress.
 - The master account is not shown as a normal associated-account item; its per-source state is available from the dedicated **Master Account** screen.
@@ -25,7 +27,7 @@ If remote quorum is unavailable, setup remains incomplete but the validated mast
 
 ## Current limitations
 
-- The current UI supports pasted key material. File import and QR intake are not available.
+- The current UI supports clipboard paste only. Manual text entry, file import, and QR intake are not available.
 - In-app master-key generation (**Create MasterKey**) is not implemented. The user must already hold an Ed25519 OpenSSH key.
 - Federated sign-in (Google, Apple, Microsoft) is not implemented. Its meaning for a key-rooted vault is an open product decision, since the root of trust is a keypair rather than a provider account.
 - Production review is still required for supported key formats, error language, storage, backup destinations, and end-to-end setup recovery.

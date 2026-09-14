@@ -17,7 +17,7 @@ flowchart LR
 
 **Starting point:** The app is new.
 
-1. The user selects **Login with MasterKey** on **Get started**, provides the Ed25519 OpenSSH private key, and then enters its passphrase on the next screen. The other first-run options (**Create MasterKey**, Google, Apple, Microsoft) are not implemented yet and report "coming soon".
+1. The user selects **Login with MasterKey** on **Get started**, copies the Ed25519 OpenSSH private key, selects **Paste MasterKey**, and then enters its passphrase in step two. The key is not displayed, and the app clears the current clipboard entry before advancing. The other first-run options (**Create MasterKey**, Google, Apple, Microsoft) are not implemented yet and report "coming soon".
 2. The app validates the material locally and prepares the vault identity.
 3. The app creates the required initial protected backup and reports progress.
 4. When setup succeeds, the user reaches **Accounts**.

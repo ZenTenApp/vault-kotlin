@@ -12,7 +12,7 @@ object VaultDestinations {
     /** Welcome / onboarding root. */
     const val GET_STARTED = "get-started"
 
-    /** SSH key entry + passphrase + setup progress. */
+    /** Secure SSH key paste + passphrase + setup progress. */
     const val GET_STARTED_SSH = "get-started/ssh"
 
     /** Accounts list (main screen after setup). */

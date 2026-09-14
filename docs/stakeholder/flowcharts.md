@@ -33,7 +33,11 @@ The app resumes the mandatory export screen after a restart when an account has 
 
 ```mermaid
 flowchart TD
-    Start["Paste encrypted Ed25519 OpenSSH key"] --> Passphrase["Enter key passphrase"]
+    Start["Select Paste MasterKey"] --> Clipboard{"Clipboard text read and current entry cleared?"}
+    Clipboard -->|No| PasteError["Show safe error and remain on paste step"]
+    Clipboard -->|Yes| KeyFormat{"Supported encrypted OpenSSH-v1 Ed25519 container?"}
+    KeyFormat -->|No| PasteError
+    KeyFormat -->|Yes| Passphrase["Keep key off-screen and enter key passphrase"]
     Passphrase --> Validate{"Key and passphrase valid?"}
     Validate -->|No| Error["Show safe error and remain on setup"]
     Validate -->|Yes| Store["Store master account securely"]
@@ -48,7 +52,7 @@ flowchart TD
     Retry --> Sources
 ```
 
-The setup screen does not show supplied secret material in errors. A failed source check is treated as unknown, not as permission to write another backup.
+The setup screen never renders the supplied key and does not show secret material in errors. Vault clears the current Android clipboard entry before opening the passphrase step, but operating-system or third-party clipboard history can remain outside its control. A failed source check is treated as unknown, not as permission to write another backup.
 
 ## Associated-account creation and local export
 

@@ -34,26 +34,29 @@ object SshKeyCodec {
         val createdAt: Long,
     )
 
+    private data class EncryptedContainer(
+        val bytes: ByteArray,
+        val publicKey: ByteArray,
+        val encryptedPrivate: ByteArray,
+        val salt: ByteArray,
+        val rounds: Int,
+    )
+
     /** Parses only passphrase-protected OpenSSH-v1 Ed25519 private keys. */
     fun parse(privateKeyPem: String, passphrase: CharArray): ParsedKey {
-        val container = decodePem(privateKeyPem)
-        require(container.take(magic.size).toByteArray().contentEquals(magic)) { "Not an OpenSSH v1 private key" }
-        val reader = SshReader(container, magic.size)
-        val cipherName = reader.stringAscii()
-        val kdfName = reader.stringAscii()
-        val kdfOptions = reader.bytes()
-        require(reader.uInt() == 1L) { "Only one OpenSSH key is supported" }
-        val outerPublic = readPublicBlob(reader.bytes())
-        val encryptedPrivate = reader.bytes()
-        require(reader.atEnd()) { "Trailing OpenSSH container data" }
-
-        require(cipherName == Aes256Ctr) { "Unencrypted OpenSSH private keys are not supported" }
-        val privateBlob = decryptBcrypt(encryptedPrivate, kdfName, kdfOptions, passphrase)
-        return parsePrivateBlob(privateBlob, outerPublic, encrypted = true)
+        val container = readEncryptedContainer(privateKeyPem)
+        val privateBlob = cryptBcrypt(Cipher.DECRYPT_MODE, container.encryptedPrivate, container.salt, container.rounds, passphrase)
+        return parsePrivateBlob(privateBlob, container.publicKey, encrypted = true)
     }
 
     /** Converts PEM, raw base64, or {"OPENSSH PRIVATE KEY":"..."} input to canonical single-line base64. */
     fun normalizeToSingleLineBase64(input: String): String = Base64.getEncoder().encodeToString(decodePem(input))
+
+    /** Validates the encrypted OpenSSH-v1 Ed25519 container without requiring its passphrase. */
+    fun validateAndNormalizeEncryptedPrivateKey(input: String): String {
+        val container = readEncryptedContainer(input)
+        return Base64.getEncoder().encodeToString(container.bytes)
+    }
 
     /** Formats a stored canonical key for OpenSSH-compatible export. */
     fun formatAsPem(input: String): String = pemEncode(decodePem(input))
@@ -107,15 +110,6 @@ object SshKeyCodec {
     private fun encryptBcrypt(plaintext: ByteArray, salt: ByteArray, rounds: Int, passphrase: CharArray): ByteArray =
         cryptBcrypt(Cipher.ENCRYPT_MODE, plaintext, salt, rounds, passphrase)
 
-    private fun decryptBcrypt(ciphertext: ByteArray, kdfName: String, options: ByteArray, passphrase: CharArray): ByteArray {
-        require(kdfName == Bcrypt) { "Unsupported OpenSSH KDF: $kdfName" }
-        val optionsReader = SshReader(options)
-        val salt = optionsReader.bytes()
-        val rounds = optionsReader.uInt().toInt()
-        require(rounds > 0 && optionsReader.atEnd()) { "Invalid bcrypt KDF options" }
-        return cryptBcrypt(Cipher.DECRYPT_MODE, ciphertext, salt, rounds, passphrase)
-    }
-
     private fun cryptBcrypt(mode: Int, input: ByteArray, salt: ByteArray, rounds: Int, passphrase: CharArray): ByteArray {
         val derived = ByteArray(48)
         BCrypt().pbkdf(String(passphrase).toByteArray(StandardCharsets.UTF_8), salt, rounds, derived)
@@ -148,6 +142,26 @@ object SshKeyCodec {
         val public = reader.bytes()
         require(public.size == 32 && reader.atEnd()) { "Invalid Ed25519 public key" }
         return public
+    }
+
+    private fun readEncryptedContainer(input: String): EncryptedContainer {
+        val bytes = decodePem(input)
+        require(bytes.take(magic.size).toByteArray().contentEquals(magic)) { "Not an OpenSSH v1 private key" }
+        val reader = SshReader(bytes, magic.size)
+        val cipherName = reader.stringAscii()
+        val kdfName = reader.stringAscii()
+        val kdfOptions = reader.bytes()
+        require(reader.uInt() == 1L) { "Only one OpenSSH key is supported" }
+        val publicKey = readPublicBlob(reader.bytes())
+        val encryptedPrivate = reader.bytes()
+        require(encryptedPrivate.isNotEmpty() && reader.atEnd()) { "Invalid OpenSSH private-key container" }
+        require(cipherName == Aes256Ctr) { "Unencrypted OpenSSH private keys are not supported" }
+        require(kdfName == Bcrypt) { "Unsupported OpenSSH KDF: $kdfName" }
+        val optionsReader = SshReader(kdfOptions)
+        val salt = optionsReader.bytes()
+        val rounds = optionsReader.uInt().toInt()
+        require(salt.isNotEmpty() && rounds > 0 && optionsReader.atEnd()) { "Invalid bcrypt KDF options" }
+        return EncryptedContainer(bytes, publicKey, encryptedPrivate, salt, rounds)
     }
 
     private fun verifyPadding(padding: ByteArray) {

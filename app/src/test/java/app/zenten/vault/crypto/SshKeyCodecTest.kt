@@ -57,6 +57,26 @@ class SshKeyCodecTest {
     }
 
     @Test
+    fun validates_supported_encrypted_key_formats_without_a_passphrase() {
+        val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
+        val canonical = SshKeyCodec.normalizeToSingleLineBase64(pem)
+
+        assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pem))
+        assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(canonical))
+        assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey("{\"OPENSSH PRIVATE KEY\":\"$canonical\"}"))
+    }
+
+    @Test
+    fun prevalidation_rejects_invalid_and_unencrypted_private_keys() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey("not an SSH key")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(value(vector("unencrypted-ed25519"), "sshKeyPem"))
+        }
+    }
+
+    @Test
     fun formats_canonical_key_as_open_ssh_pem_for_export() {
         val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
 
