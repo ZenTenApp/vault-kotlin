@@ -65,7 +65,7 @@ flowchart TD
     Generate --> Save["Save account locally and record pending export"]
     Save --> Queue["Queue targeted background consolidation"]
     Queue --> Export["Open required Export account screen"]
-    Export --> Choose["Choose a trusted app from Android Sharesheet"]
+    Export --> Choose["Choose a trusted text-capable app from the in-app picker"]
     Choose --> Confirm{"User confirms the encrypted key was saved?"}
     Confirm -->|No| Export
     Confirm -->|Yes| Clear["Clear pending export"]
@@ -74,7 +74,7 @@ flowchart TD
     QueueProfile --> ProfileWorker["Background publish to both profile relays with retry"]
 ```
 
-Opening the Android chooser is recorded, but Android cannot confirm that the receiving app retained the key. Back navigation is blocked on the export screen until the user confirms the export. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **My Accounts**.
+Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. Back navigation is blocked on the export screen until the user confirms the export. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **My Accounts**.
 
 ## Full-vault consolidation and automatic recovery
 

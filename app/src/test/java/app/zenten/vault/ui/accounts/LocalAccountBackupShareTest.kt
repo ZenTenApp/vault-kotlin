@@ -5,20 +5,42 @@ import org.junit.jupiter.api.Test
 
 class LocalAccountBackupShareTest {
     @Test
-    fun prioritizes_installed_supported_note_apps_only_once() {
-        val targets = LocalAccountBackupShare.preferredTargets(
+    fun prioritizes_supported_note_apps_then_orders_other_apps_by_label() {
+        val targets = LocalAccountBackupShare.orderedTargets(
             listOf(
-                target("com.google.android.keep", "KeepActivity"),
-                target("com.google.android.keep", "AnotherKeepActivity"),
-                target("example.messaging", "MessageActivity"),
-                target("md.obsidian", "ObsidianActivity"),
+                target("Messenger", "example.messaging", "MessageActivity"),
+                target("Obsidian", "md.obsidian", "ObsidianActivity"),
+                target("Archive", "example.archive", "ArchiveActivity"),
+                target("Keep", "com.google.android.keep", "KeepActivity"),
             ),
         )
 
-        assertEquals(listOf("com.google.android.keep", "md.obsidian"), targets.map { it.packageName })
-        assertEquals(listOf("KeepActivity", "ObsidianActivity"), targets.map { it.activityName })
+        assertEquals(listOf("Keep", "Obsidian", "Archive", "Messenger"), targets.map { it.label })
     }
 
-    private fun target(packageName: String, activityName: String) =
-        LocalAccountBackupShare.PreferredTarget(packageName, activityName)
+    @Test
+    fun removes_only_duplicate_activities() {
+        val first = target("Keep", "com.google.android.keep", "KeepActivity")
+        val targets = LocalAccountBackupShare.orderedTargets(
+            listOf(
+                first,
+                first,
+                target("Keep alternate", "com.google.android.keep", "AlternateActivity"),
+            ),
+        )
+
+        assertEquals(listOf("KeepActivity", "AlternateActivity"), targets.map { it.activityName })
+    }
+
+    private fun target(label: String, packageName: String, activityName: String) = TestTarget(
+        label = label,
+        packageName = packageName,
+        activityName = activityName,
+    )
+
+    private data class TestTarget(
+        override val label: String,
+        override val packageName: String,
+        override val activityName: String,
+    ) : LocalAccountBackupShare.Target
 }

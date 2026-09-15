@@ -14,7 +14,7 @@ The fixed dark theme uses the approved palette throughout Compose UI and the lau
 | Accounts | List associated accounts and reach app settings | Create account; open account; open Settings | Loading, empty, recovering, populated |
 | Settings | Provide vault-management entry points | Open Master account | Ready |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
-| Export account | Require an Android Sharesheet export before account use | Export to Notes | Chooser open |
+| Export account | Require a text export before account use | Choose an app to save key | In-app app picker open, no compatible apps, launch rejected |
 | Account detail | Inspect account identity and per-source backup state | Consolidate backup | Missing, source checking/writing/present/missing/failed/unknown |
 | Master Account | Inspect master and per-source backup state | Retry/consolidate as available | Quorum/status rows, checking, partial, failure |
 
