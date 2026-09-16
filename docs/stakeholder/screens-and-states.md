@@ -60,7 +60,7 @@ flowchart TD
 ### Set up master account
 
 - The screen accepts a passphrase-protected Ed25519 OpenSSH master key.
-- **Setup Master Account** uses a two-segment progress indicator for its two steps. The first step shows a **Paste MasterKey** action instead of a key text field and an outlined **Cancel** action. It reads the clipboard, clears the current clipboard entry, and validates the encrypted OpenSSH-v1 Ed25519 container without rendering it. PEM, raw Base64, and the supported JSON wrapper are accepted; clipboard or key-format errors remain on the first step with a safe message.
+- **Setup MasterKey Account** uses a two-segment progress indicator for its two steps. The first step shows a **Paste MasterKey** action instead of a key text field and an outlined **Cancel** action. It reads the clipboard, clears the current clipboard entry, and validates the encrypted OpenSSH-v1 Ed25519 container without rendering it. PEM, raw Base64, and the supported JSON wrapper are accepted; clipboard or key-format errors remain on the first step with a safe message.
 - On remote quorum failure, the imported master remains securely stored and retry does not require re-entry.
 - Errors distinguish missing relay versus Brave coverage without including secret data.
 - The screen remains protected from screenshots where supported.
