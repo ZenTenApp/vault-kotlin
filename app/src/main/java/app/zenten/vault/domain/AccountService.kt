@@ -9,6 +9,7 @@ import app.zenten.vault.data.secure.SecureStorageService
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 
 /** User-facing associated account lifecycle. The master remains an internal-only identity. */
@@ -18,6 +19,7 @@ class AccountService(
 ) {
     private val lastCreatedAt = AtomicLong(0)
 
+    val accountUpdates: StateFlow<List<Account>> get() = secureStorage.accountUpdates
     fun getAccounts(): List<Account> = secureStorage.getAccounts()
     fun getAccount(id: Long): Account? = secureStorage.getAccountById(id)
 

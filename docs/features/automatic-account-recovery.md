@@ -19,6 +19,8 @@ For each enabled source in stable order:
 
 A failed source does not prevent later sources from restoring accounts. Invalid records are skipped. Recovery never overwrites an existing local account.
 
+Secure account storage publishes account-list changes within the app process. When background consolidation restores an account after the **Accounts** screen is already visible, the list updates immediately without requiring an app refresh or foreground transition.
+
 ## Nostr validation
 
 A Nostr candidate is eligible only when:
@@ -67,4 +69,5 @@ Recovered accounts are written only through `SecureStorageService`. Status, pend
 - Orchestration: `domain/AccountConsolidationEngine.kt`
 - Source adapters/validation: `domain/BackupSourceAdapters.kt`
 - Secure storage: `data/secure/SecureStorageService.kt`
+- Reactive account list: `ui/accounts/AccountsViewModel.kt`
 - Core sequencing tests: `domain/AccountConsolidationEngineTest.kt`

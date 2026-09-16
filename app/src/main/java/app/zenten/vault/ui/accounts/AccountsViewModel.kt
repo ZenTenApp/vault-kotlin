@@ -30,6 +30,13 @@ class AccountsViewModel @Inject constructor(
                 _state.update { it.copy(profiles = profiles.filterKeys(accountIds::contains)) }
             }
         }
+        viewModelScope.launch {
+            accountService.accountUpdates.collect { accounts ->
+                val accountIds = accounts.mapTo(mutableSetOf()) { it.createdAt }
+                val profiles = profileRepository.profiles.value.filterKeys(accountIds::contains)
+                _state.update { it.copy(loading = false, accounts = accounts, profiles = profiles) }
+            }
+        }
         refresh()
     }
 
