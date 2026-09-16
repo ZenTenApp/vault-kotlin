@@ -59,8 +59,11 @@ The setup screen never renders the supplied key and does not show secret materia
 ```mermaid
 flowchart TD
     Add["Select Create New Account"] --> EnterPassphrase["Enter master passphrase"]
-    EnterPassphrase --> Check{"Passphrase valid, master quorum complete, and fewer than 99 associated accounts?"}
-    Check -->|No| Rejected["Show error and do not create account"]
+    EnterPassphrase --> Verify{"Passphrase valid?"}
+    Verify -->|No| Rejected["Show error and do not create account"]
+    Verify -->|Yes| EnterName["Enter mandatory account name, 8-128 characters"]
+    EnterName --> Check{"Name valid, master quorum complete, and fewer than 99 associated accounts?"}
+    Check -->|No| Rejected
     Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH account"]
     Generate --> Save["Save account locally and record pending export"]
     Save --> Queue["Queue targeted background consolidation"]
@@ -69,7 +72,7 @@ flowchart TD
     Choose --> Confirm{"User confirms the encrypted key was saved?"}
     Confirm -->|No| Export
     Confirm -->|Yes| Clear["Clear pending export"]
-    Clear --> QueueProfile["Queue durable kind 0 profile publication"]
+    Clear --> QueueProfile["Queue durable kind 0 profile with account name as display_name"]
     QueueProfile --> Accounts["Open Accounts without waiting"]
     QueueProfile --> ProfileWorker["Background publish to both profile relays with retry"]
 ```

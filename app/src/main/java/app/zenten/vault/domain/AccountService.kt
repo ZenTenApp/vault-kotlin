@@ -23,11 +23,20 @@ class AccountService(
     fun getAccounts(): List<Account> = secureStorage.getAccounts()
     fun getAccount(id: Long): Account? = secureStorage.getAccountById(id)
 
-    suspend fun createAssociatedAccount(masterPassphrase: String): Result<Account> = withContext(Dispatchers.Default) { runCatching {
+    fun verifyMasterPassphrase(masterPassphrase: String): Result<Unit> = runCatching {
         val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
         val storedPassphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
         require(masterPassphrase.isNotBlank()) { "Master account passphrase is required to create an associated account" }
         require(masterPassphrase == storedPassphrase) { "The passphrase does not match the master account" }
+    }
+
+    suspend fun createAssociatedAccount(masterPassphrase: String, accountName: String): Result<Account> = withContext(Dispatchers.Default) { runCatching {
+        verifyMasterPassphrase(masterPassphrase).getOrThrow()
+        val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
+        val normalizedAccountName = accountName.trim()
+        require(normalizedAccountName.length in MIN_ACCOUNT_NAME_LENGTH..MAX_ACCOUNT_NAME_LENGTH) {
+            "Account name must be between $MIN_ACCOUNT_NAME_LENGTH and $MAX_ACCOUNT_NAME_LENGTH characters"
+        }
         // Enforce the 99-account ceiling only for user-initiated creation. Consolidation and
         // recovery write through SecureStorageService directly so restored accounts are exempt.
         require(secureStorage.getAccounts().size < MAX_ASSOCIATED_ACCOUNTS) {
@@ -43,6 +52,7 @@ class AccountService(
             nostr = NostrKeyDerivation.derive(
                 Seedify.fromSshKey(generated.privateKeyPem, masterPassphrase.toCharArray()),
             ).toPersistedKeyPair(),
+            accountName = normalizedAccountName,
         )
         setupService.addAccount(master, account).getOrThrow()
         account
@@ -61,5 +71,7 @@ class AccountService(
     companion object {
         /** Maximum number of user-creatable associated accounts; the master is tracked separately. */
         const val MAX_ASSOCIATED_ACCOUNTS = 99
+        const val MIN_ACCOUNT_NAME_LENGTH = 8
+        const val MAX_ACCOUNT_NAME_LENGTH = 128
     }
 }

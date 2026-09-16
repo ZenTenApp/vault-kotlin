@@ -11,6 +11,7 @@ data class Account(
     val pubkey: String? = null,
     val mnemonic: String? = null,
     val nostr: NostrKeyPair,
+    val accountName: String? = null,
 )
 
 @Serializable

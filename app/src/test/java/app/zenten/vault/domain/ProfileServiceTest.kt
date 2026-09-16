@@ -6,7 +6,6 @@ import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrRelayGateway
 import app.zenten.vault.network.nostr.PublishResult
 import com.vitorpamplona.quartz.nip01Core.crypto.KeyPair
-import com.vitorpamplona.quartz.nip19Bech32.toNpub
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -21,12 +20,12 @@ class ProfileServiceTest {
     fun publishes_name_and_display_name_with_blank_optional_profile_fields() = runTest {
         val gateway = RecordingGateway()
         val keys = KeyPair()
-        val account = account(keys)
+        val account = account(keys).copy(accountName = "Personal laptop")
 
         ProfileService(gateway, Clock.fixed(Instant.ofEpochSecond(1_700_000_000L), ZoneOffset.UTC))
             .publishAssociatedAccountProfile(account)
 
-        val displayName = keys.pubKey.toNpub().let { "${it.take(4)}...${it.takeLast(4)}" }
+        val displayName = "Personal laptop"
         assertEquals(
             listOf(
                 listOf("name", account.createdAt.toString()),

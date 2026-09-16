@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.zenten.vault.data.model.Account
@@ -50,10 +51,12 @@ fun AccountCard(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = accountCardIdentity(displayName, account.nostr.pubkey),
+                    text = accountCardIdentity(displayName, account),
+                    modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Row(
@@ -95,10 +98,10 @@ internal fun formatShortNpub(publicKey: String): String =
         if (npub == "Unavailable") npub else "${npub.take(4)}...${npub.takeLast(4)}"
     }
 
-internal fun accountCardIdentity(displayName: String?, publicKey: String): String =
-    displayName?.trim()?.takeIf { it.isNotEmpty() }?.let {
-        if (it.length > 16) "${it.take(16)}..." else it
-    } ?: formatShortNpub(publicKey)
+internal fun accountCardIdentity(displayName: String?, account: Account): String =
+    listOf(displayName, account.accountName).firstNotNullOfOrNull { name ->
+        name?.trim()?.takeIf { it.isNotEmpty() }
+    } ?: formatShortNpub(account.nostr.pubkey)
 
 internal fun formatAccountCreatedAt(accountId: Long): String =
     SimpleDateFormat("EEEE, MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(accountId / 1_000L))
