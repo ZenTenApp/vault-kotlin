@@ -38,17 +38,22 @@ class AccountsListFormattingTest {
 
     @Test
     fun `profile display name replaces the shortened npub`() {
-        assertEquals("Profile name", accountCardIdentity(" Profile name ", "00".repeat(32)))
+        assertEquals("Profile name", accountCardIdentity(" Profile name ", account("Account name")))
     }
 
     @Test
-    fun `long profile display name is truncated to sixteen characters`() {
-        assertEquals("1234567890123456...", accountCardIdentity("12345678901234567", "00".repeat(32)))
+    fun `long profile display name is returned in full for layout ellipsis`() {
+        assertEquals("12345678901234567", accountCardIdentity("12345678901234567", account("Account name")))
     }
 
     @Test
-    fun `missing profile display name falls back to the shortened npub`() {
-        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity("  ", "00".repeat(32)))
+    fun `missing profile display name falls back to the persisted account name`() {
+        assertEquals("Account name", accountCardIdentity("  ", account(" Account name ")))
+    }
+
+    @Test
+    fun `missing profile and account names fall back to the shortened npub`() {
+        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity(null, account(null)))
     }
 
     @Test
@@ -79,4 +84,11 @@ class AccountsListFormattingTest {
             newestFirst(accounts).map { it.createdAt },
         )
     }
+
+    private fun account(accountName: String?) = Account(
+        createdAt = 1L,
+        zenTenKey = "key",
+        nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
+        accountName = accountName,
+    )
 }

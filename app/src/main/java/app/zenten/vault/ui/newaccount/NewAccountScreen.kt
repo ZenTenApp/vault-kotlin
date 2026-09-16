@@ -36,11 +36,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import app.zenten.vault.domain.AccountService
 import app.zenten.vault.ui.VaultDestinations
 
 @Composable
 fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountViewModel = hiltViewModel()) {
     var masterPassphrase by remember { mutableStateOf("") }
+    var accountName by remember { mutableStateOf("") }
     var passphraseVisible by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
     val view = LocalView.current
@@ -61,27 +63,48 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Create New Account", style = MaterialTheme.typography.headlineMedium)
-        OutlinedTextField(
-            value = masterPassphrase,
-            onValueChange = { masterPassphrase = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("MasterKey Passphrase") },
-            visualTransformation = if (passphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passphraseVisible = !passphraseVisible }) {
-                    Icon(
-                        imageVector = if (passphraseVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                        contentDescription = if (passphraseVisible) "Hide passphrase" else "Show passphrase",
-                    )
-                }
-            },
-            enabled = !state.creating,
-        )
+        if (!state.passphraseVerified) {
+            OutlinedTextField(
+                value = masterPassphrase,
+                onValueChange = { masterPassphrase = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("MasterKey Passphrase") },
+                visualTransformation = if (passphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { passphraseVisible = !passphraseVisible }) {
+                        Icon(
+                            imageVector = if (passphraseVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                            contentDescription = if (passphraseVisible) "Hide passphrase" else "Show passphrase",
+                        )
+                    }
+                },
+            )
+        } else {
+            OutlinedTextField(
+                value = accountName,
+                onValueChange = { accountName = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Account Name") },
+                supportingText = { Text("8-128 characters") },
+                isError = accountName.isNotEmpty() && accountName.trim().length !in
+                    AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH,
+                enabled = !state.creating,
+                singleLine = true,
+            )
+        }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
-            onClick = { viewModel.create(masterPassphrase) },
+            onClick = {
+                if (state.passphraseVerified) viewModel.create(masterPassphrase, accountName)
+                else viewModel.verifyPassphrase(masterPassphrase)
+            },
             modifier = Modifier.fillMaxWidth(),
-            enabled = masterPassphrase.isNotBlank() && !state.creating,
+            enabled = if (state.passphraseVerified) {
+                accountName.trim().length in AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH &&
+                    !state.creating
+            } else {
+                masterPassphrase.isNotBlank()
+            },
         ) {
             if (state.creating) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -94,7 +117,10 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
                     Text("Creating Account", style = MaterialTheme.typography.titleMedium)
                 }
             } else {
-                Text("Create Account", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (state.passphraseVerified) "Create Account" else "Verify Passphrase",
+                    style = MaterialTheme.typography.titleMedium,
+                )
             }
         }
         OutlinedButton(

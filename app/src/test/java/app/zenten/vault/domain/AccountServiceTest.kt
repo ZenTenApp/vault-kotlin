@@ -25,13 +25,16 @@ class AccountServiceTest {
         every { storage.getAccounts() } returns emptyList()
         coJustRun { setup.addAccount(any(), any()) }
 
-        val created = AccountService(storage, setup).createAssociatedAccount("master-passphrase").getOrThrow()
+        val created = AccountService(storage, setup)
+            .createAssociatedAccount("master-passphrase", "Work account")
+            .getOrThrow()
 
         assertTrue(created.createdAt > 1_000_000_000_000_000L)
         assertTrue(created.createdAt % 1_000L in 1L..999L)
         assertEquals(created.createdAt.toString(), SshKeyCodec.parse(created.zenTenKey, "master-passphrase".toCharArray()).comment)
         assertTrue(SshKeyCodec.parse(created.zenTenKey, "master-passphrase".toCharArray()).encrypted)
         assertEquals("master-passphrase", created.zenTenPass)
+        assertEquals("Work account", created.accountName)
         assertTrue(created.pubkey!!.endsWith(" ${created.createdAt}"))
         assertEquals(
             NostrKeyDerivation.derive(
@@ -48,7 +51,7 @@ class AccountServiceTest {
         val setup = mockk<SetupService>()
         every { storage.getMasterAccount() } returns Account(1, "master", zenTenPass = "master-passphrase", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
-        val result = AccountService(storage, setup).createAssociatedAccount("wrong-passphrase")
+        val result = AccountService(storage, setup).createAssociatedAccount("wrong-passphrase", "Work account")
 
         assertFalse(result.isSuccess)
         assertEquals("The passphrase does not match the master account", result.exceptionOrNull()?.message)
@@ -62,10 +65,23 @@ class AccountServiceTest {
         every { storage.getMasterAccount() } returns Account(1, "master", zenTenPass = "master-passphrase", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
         every { storage.getAccounts() } returns List(99) { Account(it + 1L, "account", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))) }
 
-        val result = AccountService(storage, setup).createAssociatedAccount("master-passphrase")
+        val result = AccountService(storage, setup).createAssociatedAccount("master-passphrase", "Work account")
 
         assertFalse(result.isSuccess)
         assertEquals("You can create up to 99 associated accounts", result.exceptionOrNull()?.message)
+        coVerify(exactly = 0) { setup.addAccount(any(), any()) }
+    }
+
+    @Test
+    fun create_associated_account_requires_an_8_to_128_character_trimmed_name() = runTest {
+        val storage = mockk<SecureStorageService>()
+        val setup = mockk<SetupService>()
+        every { storage.getMasterAccount() } returns Account(1, "master", zenTenPass = "master-passphrase", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+
+        val result = AccountService(storage, setup).createAssociatedAccount("master-passphrase", " short ")
+
+        assertFalse(result.isSuccess)
+        assertEquals("Account name must be between 8 and 128 characters", result.exceptionOrNull()?.message)
         coVerify(exactly = 0) { setup.addAccount(any(), any()) }
     }
 

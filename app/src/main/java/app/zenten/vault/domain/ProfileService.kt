@@ -73,9 +73,11 @@ class ProfileService(
 
     private fun profileFields(account: Account): List<Pair<String, String>> {
         val npub = account.nostr.publicKey().toNpub()
+        // Legacy accounts predate locally stored names, so preserve their existing profile fallback.
+        val displayName = account.accountName ?: "${npub.take(4)}...${npub.takeLast(4)}"
         return listOf(
             "name" to account.createdAt.toString(),
-            "display_name" to "${npub.take(4)}...${npub.takeLast(4)}",
+            "display_name" to displayName,
             "banner" to "",
             "picture" to "",
             "about" to "",

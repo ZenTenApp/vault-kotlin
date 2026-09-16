@@ -34,13 +34,14 @@ flowchart LR
 **Starting point:** Setup is complete and the required master backup quorum has been satisfied.
 
 1. The user selects **Create New Account** from the bottom center of **Accounts**.
-2. The app displays **Create New Account** and asks for the **MasterKey Passphrase**, which the user can show or hide.
-3. The user selects **Create account**, or selects **Cancel** to return without creating one.
-4. The app confirms that master backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
-5. The app saves the new associated account on the device first.
-6. The app starts background consolidation, checking each destination before writing only confirmed gaps.
-7. The user exports the encrypted OpenSSH private key through the device Sharesheet to Notes, Messages, or another available app.
-8. The user returns to the account list and can check backup status.
+2. The app asks for the **MasterKey Passphrase**, which the user can show or hide, and verifies it before continuing.
+3. The app asks for a mandatory **Account Name** containing 8 to 128 characters.
+4. The user selects **Create Account**, or selects **Cancel** to return without creating one.
+5. The app confirms that master backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
+6. The app saves the new associated account and its name on the device first.
+7. The app starts background consolidation, checking each destination before writing only confirmed gaps.
+8. The user exports the encrypted OpenSSH private key through the device Sharesheet to Notes, Messages, or another available app. The account name is later published publicly as its Nostr profile `display_name`.
+9. The user returns to the account list and can check backup status.
 
 **Success:** The new associated account is available locally after the required local-backup step completes, even if remote consolidation must run again later.
 
