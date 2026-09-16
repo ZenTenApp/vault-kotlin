@@ -78,7 +78,8 @@ fun LocalAccountBackupExportScreen(
     }
     LaunchedEffect(state.completed) {
         if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {
-            popUpTo(VaultDestinations.ACCOUNTS) { inclusive = true }
+            popUpTo(VaultDestinations.LOCAL_ACCOUNT_BACKUP_EXPORT) { inclusive = true }
+            launchSingleTop = true
         }
     }
     targets?.let { availableTargets ->
