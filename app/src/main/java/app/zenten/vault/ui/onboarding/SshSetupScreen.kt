@@ -68,7 +68,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Setup Master Account",
+            text = "Setup MasterKey Account",
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
         )
@@ -77,7 +77,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         when (step) {
             SetupStep.PRIVATE_KEY -> {
                 Text(
-                    text = "Copy your encrypted Ed25519 OpenSSH private key, then paste it from your clipboard.",
+                    text = "Copy your MasterKey, then paste it from your clipboard.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -131,12 +131,12 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
             }
 
             SetupStep.PASSPHRASE -> {
-                Text("Enter the passphrase that protects your SSH private key.")
+                Text("Enter the passphrase that protects your MasterKey.")
                 OutlinedTextField(
                     value = passphrase,
                     onValueChange = { passphrase = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("SSH key passphrase") },
+                    placeholder = { Text("MasterKey Passphase") },
                     visualTransformation = PasswordVisualTransformation(),
                     enabled = !state.inProgress,
                 )
@@ -155,7 +155,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                 modifier = Modifier.fillMaxWidth(),
                 enabled = passphrase.isNotBlank() && !state.inProgress,
             ) {
-                if (state.inProgress) CircularProgressIndicator() else Text("Create and back up master account")
+                if (state.inProgress) CircularProgressIndicator() else Text("Create MasterKey Account")
             }
         }
         OutlinedButton(

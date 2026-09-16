@@ -6,8 +6,8 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 
 ## Current behavior
 
-1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Setup Master Account**. Importing an existing key is the only implemented entry path; the **Create MasterKey** and federated sign-in actions on that screen are design placeholders that report "coming soon".
-2. On **Setup Master Account**, the user copies a passphrase-protected OpenSSH private key and selects **Paste MasterKey**. The app reads the first clipboard item without displaying it, clears the clipboard immediately, and validates that it is a supported encrypted OpenSSH-v1 Ed25519 container before proceeding to the passphrase step. PEM, raw Base64, and the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper are accepted; malformed, unencrypted, non-Ed25519, and unsupported containers are rejected on the paste step.
+1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Setup MasterKey Account**. Importing an existing key is the only implemented entry path; the **Create MasterKey** and federated sign-in actions on that screen are design placeholders that report "coming soon".
+2. On **Setup MasterKey Account**, the user copies a passphrase-protected OpenSSH private key and selects **Paste MasterKey**. The app reads the first clipboard item without displaying it, clears the clipboard immediately, and validates that it is a supported encrypted OpenSSH-v1 Ed25519 container before proceeding to the passphrase step. PEM, raw Base64, and the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper are accepted; malformed, unencrypted, non-Ed25519, and unsupported containers are rejected on the paste step.
 3. The app validates the material locally and derives the vault identity.
 4. The app stores the master account securely and attempts all enabled sources sequentially.
 5. Setup completes only after at least one eligible Nostr relay and one eligible Brave Sync server already contain or acknowledge the master backup.
