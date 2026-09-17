@@ -13,7 +13,10 @@ flowchart TD
     Root --> Setup{"Master setup complete?"}
     Setup -->|No| Welcome["Get started"]
     Welcome -->|"Login with MasterKey"| MasterSetup["Set up master account"]
-    Welcome -->|"Create MasterKey / Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
+    Welcome -->|"Create MasterKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
+    CreateIntro -->|"Back"| Welcome
+    CreateIntro -->|"Confirm (consent checked)"| CreateNotImplemented["Rest of generation wizard not implemented yet"]
+    Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
     PendingExport -->|Yes| Export["Export account"]

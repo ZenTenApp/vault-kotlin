@@ -15,6 +15,15 @@ object VaultDestinations {
     /** Secure SSH key paste + passphrase + setup progress. */
     const val GET_STARTED_SSH = "get-started/ssh"
 
+    /**
+     * First screen of the in-app MasterKey generation flow.
+     *
+     * This is a multi-screen wizard; more routes will be added under the
+     * `get-started/create-master-key/` prefix as each subsequent screen is
+     * implemented.
+     */
+    const val CREATE_MASTER_KEY_INTRO = "get-started/create-master-key/intro"
+
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
 

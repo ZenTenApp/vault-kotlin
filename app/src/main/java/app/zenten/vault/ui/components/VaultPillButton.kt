@@ -34,6 +34,8 @@ private val PillIconSpacing = 12.dp
  * Material's default so every stacked button lines up.
  *
  * @param emphasized when true, render as the screen's single primary action.
+ * @param enabled when false, the button is inert and rendered with Material's
+ *   default disabled treatment (e.g. gating "Confirm" behind a checkbox).
  * @param icon optional leading content; it is grouped with the label and the
  *   pair is centered together, matching the approved design.
  */
@@ -43,6 +45,7 @@ fun VaultPillButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     emphasized: Boolean = false,
+    enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
 ) {
     val colors = if (emphasized) {
@@ -62,6 +65,7 @@ fun VaultPillButton(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = PillHeight),
+        enabled = enabled,
         shape = RoundedCornerShape(PillCornerRadius),
         colors = colors,
         // The design shows flat buttons; elevation would tint the container.

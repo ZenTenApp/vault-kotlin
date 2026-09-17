@@ -28,6 +28,12 @@ object VaultColors {
     val Error = Color(0xFFF36262)
     val Success = Color(0xFF62F3B6)
 
+    // iOS-style system blue used for the top-left "Back" navigation link in
+    // the master-key creation flow. Kept as an app-specific accent rather
+    // than colorScheme.primary because it is only used for this link style,
+    // not for primary actions.
+    val Link = Color(0xFF007AFF)
+
     // Borders
     val Outline = Color(0xFF6F6F6F)
     val OutlineVariant = Color(0xFF3A3A3A)

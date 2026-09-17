@@ -11,6 +11,11 @@ class VaultDestinationsTest {
     }
 
     @Test
+    fun createMasterKeyIntro_hasStableRoute() {
+        assertEquals("get-started/create-master-key/intro", VaultDestinations.CREATE_MASTER_KEY_INTRO)
+    }
+
+    @Test
     fun accountDetail_buildsRouteFromId() {
         assertEquals("accounts/1234567890", VaultDestinations.accountDetail(1234567890L))
     }
