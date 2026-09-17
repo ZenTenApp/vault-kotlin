@@ -117,12 +117,12 @@ fun GetStartedScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(40.dp))
 
-            // Emphasized rank marks the design's single primary action, even
-            // though in-app key generation is not implemented yet.
+            // Emphasized rank marks the design's single primary action. The
+            // wizard past the intro screen is not implemented yet.
             VaultPillButton(
                 label = createLabel,
                 emphasized = true,
-                onClick = { showComingSoon(createLabel) },
+                onClick = { navController.navigate(VaultDestinations.CREATE_MASTER_KEY_INTRO) },
             )
 
             Spacer(Modifier.height(ButtonSpacing))
