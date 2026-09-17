@@ -24,6 +24,12 @@ object VaultDestinations {
      */
     const val CREATE_MASTER_KEY_INTRO = "get-started/create-master-key/intro"
 
+    /** Second screen: choose the passphrase that will protect the new MasterKey. */
+    const val CREATE_MASTER_KEY_PASSPHRASE = "get-started/create-master-key/passphrase"
+
+    /** Third screen: re-enter the chosen passphrase to catch typos. */
+    const val CREATE_MASTER_KEY_CONFIRM_PASSPHRASE = "get-started/create-master-key/confirm-passphrase"
+
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
 

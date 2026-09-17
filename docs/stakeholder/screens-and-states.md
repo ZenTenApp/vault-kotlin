@@ -50,12 +50,23 @@ flowchart TD
 ### Get started
 
 - The screen shows the ZenTen brand mark on a circular themed plate, a welcome title, a short purpose description, and a bottom-anchored copyright line.
-- **Create MasterKey** is the visually emphasized action (inverted light container with a bold label) because it is the design's intended primary path, but in-app key generation is not implemented yet.
+- **Create MasterKey** is the visually emphasized action (inverted light container with a bold label) because it is the design's intended primary path. It opens the Create MasterKey wizard, whose implemented screens collect consent and a passphrase; actual key generation is not implemented yet.
 - **Login with MasterKey** is the only implemented action and opens **Set up master account** to import an existing Ed25519 OpenSSH key.
 - An "or continue with" separator precedes **Google**, **Apple**, and **Microsoft** buttons. None are implemented.
 - Every unimplemented action shows a short "coming soon" snackbar naming the action. A new message replaces any visible one, so repeated taps do not queue up.
 - All colors come from the app theme. Multi-color third-party brand marks are the deliberate exception: their colors live inside the vector assets because brand guidelines forbid recoloring. The monochrome ZenTen and Apple marks are tinted from the theme.
 - The content scrolls vertically so short screens cannot clip the buttons or footer.
+
+### Create MasterKey wizard
+
+- All wizard steps share one page frame: a top-left blue **< Back** link, a centered circular illustration placeholder standing in for artwork that is not ready, a centered title, step content, a bottom-anchored action button, and the copyright footer. Each page scrolls so a short screen cannot clip the button or footer. Supporting copy is not part of the shared frame; each step supplies its own if it needs one.
+- When the soft keyboard opens on a passphrase step, the page frame shrinks by the keyboard height rather than sliding beneath it, so the action button (**Confirm** or **Verify**) moves up and stays visible and tappable above the keyboard while the upper content remains scrollable.
+- Step 1 (**Getting Started**) shows the unrecoverable-loss warning and the consent checkbox that gates **Confirm**.
+- Step 2 (**MasterKey Passphrase**) shows only its title and a labeled **Passphrase** field, obscured by default with an eye toggle to reveal it. It carries no explanatory paragraph. **Confirm** is disabled while the field is empty.
+- Step 3 (**Confirm Passphrase**) likewise shows only its title and a labeled **Re-enter Passphrase** field with the same eye toggle. **Verify** is enabled once text is entered but currently performs no action, because passphrase matching and key generation are not implemented; nothing is generated or persisted by this wizard yet.
+- Step 1 is currently the only step with descriptive body copy.
+- Both passphrase steps prevent screenshots and screen recording where Android supports it, and the passphrase is kept only in screen state, never in a navigation argument or storage.
+- The passphrase fields use the password keyboard type so the platform keyboard does not learn or suggest secret material.
 
 ### Set up master account
 

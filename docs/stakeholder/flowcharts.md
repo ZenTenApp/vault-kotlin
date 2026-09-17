@@ -15,7 +15,11 @@ flowchart TD
     Welcome -->|"Login with MasterKey"| MasterSetup["Set up master account"]
     Welcome -->|"Create MasterKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
-    CreateIntro -->|"Confirm (consent checked)"| CreateNotImplemented["Rest of generation wizard not implemented yet"]
+    CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["MasterKey Passphrase: choose passphrase"]
+    CreatePassphrase -->|"Back"| CreateIntro
+    CreatePassphrase -->|"Confirm (passphrase entered)"| CreateConfirm["Confirm Passphrase: re-enter passphrase"]
+    CreateConfirm -->|"Back"| CreatePassphrase
+    CreateConfirm -->|"Verify"| CreateNotImplemented["No action yet: matching and key generation not implemented"]
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}

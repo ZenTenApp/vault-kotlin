@@ -28,4 +28,18 @@
     <string name="create_master_key_intro_warning">Warning: Backup is unrecoverable if lost.</string>
     <string name="create_master_key_intro_consent">I understand that if I don\u2019t properly write down and store this information offline somewhere safe I could lose full access to my credentials.</string>
     <string name="create_master_key_intro_confirm">Confirm</string>
+
+    <!-- Create MasterKey flow: shared passphrase-field accessibility labels -->
+    <string name="create_master_key_passphrase_show">Show passphrase</string>
+    <string name="create_master_key_passphrase_hide">Hide passphrase</string>
+
+    <!-- Create MasterKey flow: step 2, choose the MasterKey passphrase -->
+    <string name="create_master_key_passphrase_title">MasterKey Passphrase</string>
+    <string name="create_master_key_passphrase_label">Passphrase</string>
+    <string name="create_master_key_passphrase_confirm">Confirm</string>
+
+    <!-- Create MasterKey flow: step 3, re-enter the passphrase -->
+    <string name="create_master_key_confirm_passphrase_title">Confirm Passphrase</string>
+    <string name="create_master_key_confirm_passphrase_label">Re-enter Passphrase</string>
+    <string name="create_master_key_confirm_passphrase_verify">Verify</string>
 </resources>

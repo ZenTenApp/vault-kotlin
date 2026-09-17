@@ -16,6 +16,15 @@ class VaultDestinationsTest {
     }
 
     @Test
+    fun createMasterKeyPassphraseSteps_haveStableRoutes() {
+        assertEquals("get-started/create-master-key/passphrase", VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE)
+        assertEquals(
+            "get-started/create-master-key/confirm-passphrase",
+            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE,
+        )
+    }
+
+    @Test
     fun accountDetail_buildsRouteFromId() {
         assertEquals("accounts/1234567890", VaultDestinations.accountDetail(1234567890L))
     }
