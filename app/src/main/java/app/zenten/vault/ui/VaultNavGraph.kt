@@ -13,7 +13,9 @@ import app.zenten.vault.ui.master.MasterAccountDetailScreen
 import app.zenten.vault.ui.newaccount.NewAccountScreen
 import app.zenten.vault.ui.onboarding.GetStartedScreen
 import app.zenten.vault.ui.onboarding.SshSetupScreen
+import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyConfirmPassphraseScreen
 import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyIntroScreen
+import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyPassphraseScreen
 import app.zenten.vault.ui.root.RootScreen
 import app.zenten.vault.ui.settings.SettingsScreen
 import androidx.compose.runtime.Composable
@@ -42,6 +44,14 @@ fun VaultNavGraph(
 
         composable(VaultDestinations.CREATE_MASTER_KEY_INTRO) {
             CreateMasterKeyIntroScreen(navController)
+        }
+
+        composable(VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE) {
+            CreateMasterKeyPassphraseScreen(navController)
+        }
+
+        composable(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE) {
+            CreateMasterKeyConfirmPassphraseScreen(navController)
         }
 
         composable(VaultDestinations.ACCOUNTS) {
