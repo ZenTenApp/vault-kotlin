@@ -51,7 +51,6 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
         actions = {
             VaultPillButton(
                 label = stringResource(R.string.create_master_key_confirm_passphrase_verify),
-                emphasized = true,
                 enabled = reEnteredPassphrase.isNotEmpty(),
                 onClick = {
                     // Intentionally does nothing yet: passphrase matching and

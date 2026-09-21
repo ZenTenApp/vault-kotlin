@@ -1,6 +1,7 @@
 package app.zenten.vault.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,7 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 
 /** Height and corner radius shared by every first-run action button. */
@@ -24,39 +25,44 @@ private val PillCornerRadius = 12.dp
 /** Gap between a leading icon and its label inside a pill button. */
 private val PillIconSpacing = 12.dp
 
+/** Visual priority for onboarding action buttons. */
+enum class VaultPillButtonStyle {
+    Primary,
+    Secondary,
+}
+
 /**
  * Full-width rounded action button used by the onboarding screens.
  *
- * Two visual ranks are supported. The emphasized rank pins the container to the
- * theme's primary color so the single primary action stands out; the default
- * rank keeps Material's own `Button` colors untouched so the design system stays
- * the single source of truth. Buttons keep a fixed minimum height instead of
- * relying on Material's default so every stacked button lines up.
+ * Primary buttons use Material's default action colors. Secondary buttons use
+ * the theme's raised neutral surface, keeping their visual priority below a
+ * primary action without introducing a hard-coded color. Buttons keep a fixed
+ * minimum height instead of relying on Material's default so every stacked
+ * button lines up.
  *
- * @param emphasized when true, render as the screen's single primary action.
+ * @param style visual priority of the button; defaults to [VaultPillButtonStyle.Primary].
  * @param enabled when false, the button is inert and rendered with Material's
  *   default disabled treatment (e.g. gating "Confirm" behind a checkbox).
  * @param icon optional leading content; it is grouped with the label and the
  *   pair is centered together, matching the approved design.
+ * @param trailingLabel optional small text aligned to the button's right edge.
  */
 @Composable
 fun VaultPillButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    emphasized: Boolean = false,
+    style: VaultPillButtonStyle = VaultPillButtonStyle.Primary,
     enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
+    trailingLabel: String? = null,
 ) {
-    // Only the emphasized rank overrides colors; the default rank inherits the
-    // design system's Button palette (including its disabled treatment).
-    val colors = if (emphasized) {
-        ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
+    val colors = when (style) {
+        VaultPillButtonStyle.Primary -> ButtonDefaults.buttonColors()
+        VaultPillButtonStyle.Secondary -> ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         )
-    } else {
-        ButtonDefaults.buttonColors()
     }
 
     Button(
@@ -71,19 +77,32 @@ fun VaultPillButton(
         elevation = null,
         contentPadding = ButtonDefaults.ContentPadding,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            if (icon != null) {
-                icon()
-                Spacer(Modifier.width(PillIconSpacing))
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.align(Alignment.Center),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                if (icon != null) {
+                    icon()
+                    Spacer(Modifier.width(PillIconSpacing))
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                )
             }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Normal,
-            )
+
+            if (trailingLabel != null) {
+                Text(
+                    text = trailingLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    // A secondary label should not compete with the provider name.
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .alpha(0.7f),
+                )
+            }
         }
     }
 }
