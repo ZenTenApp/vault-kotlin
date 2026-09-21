@@ -27,11 +27,11 @@ private val PillIconSpacing = 12.dp
 /**
  * Full-width rounded action button used by the onboarding screens.
  *
- * Two visual ranks are supported and both take their colors from the app theme:
- * the emphasized rank inverts the palette (light container, dark label) so the
- * single primary action stands out, while the default rank sits on the regular
- * surface color. Buttons keep a fixed minimum height instead of relying on
- * Material's default so every stacked button lines up.
+ * Two visual ranks are supported. The emphasized rank pins the container to the
+ * theme's primary color so the single primary action stands out; the default
+ * rank keeps Material's own `Button` colors untouched so the design system stays
+ * the single source of truth. Buttons keep a fixed minimum height instead of
+ * relying on Material's default so every stacked button lines up.
  *
  * @param emphasized when true, render as the screen's single primary action.
  * @param enabled when false, the button is inert and rendered with Material's
@@ -48,16 +48,15 @@ fun VaultPillButton(
     enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
 ) {
+    // Only the emphasized rank overrides colors; the default rank inherits the
+    // design system's Button palette (including its disabled treatment).
     val colors = if (emphasized) {
         ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         )
     } else {
-        ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        )
+        ButtonDefaults.buttonColors()
     }
 
     Button(
