@@ -36,6 +36,7 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
+import app.zenten.vault.ui.components.VaultPillButtonStyle
 import kotlinx.coroutines.launch
 
 /** Diameter of the circular brand badge and the glyph drawn inside it. */
@@ -68,6 +69,7 @@ fun GetStartedScreen(navController: NavHostController) {
     val googleLabel = stringResource(R.string.get_started_provider_google)
     val appleLabel = stringResource(R.string.get_started_provider_apple)
     val microsoftLabel = stringResource(R.string.get_started_provider_microsoft)
+    val comingSoonLabel = stringResource(R.string.get_started_coming_soon_label)
 
     // Replaces any visible message so rapid taps never queue up snackbars.
     val showComingSoon: (String) -> Unit = { feature ->
@@ -117,11 +119,9 @@ fun GetStartedScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(40.dp))
 
-            // Emphasized rank marks the design's single primary action. The
-            // wizard past the intro screen is not implemented yet.
+            // The wizard past the intro screen is not implemented yet.
             VaultPillButton(
                 label = createLabel,
-                emphasized = true,
                 onClick = { navController.navigate(VaultDestinations.CREATE_MASTER_KEY_INTRO) },
             )
 
@@ -130,6 +130,9 @@ fun GetStartedScreen(navController: NavHostController) {
             // The only implemented path: import an existing master key.
             VaultPillButton(
                 label = loginLabel,
+                // A neutral raised surface distinguishes this alternate path
+                // from the Create MasterKey primary action above it.
+                style = VaultPillButtonStyle.Secondary,
                 onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
             )
 
@@ -141,17 +144,18 @@ fun GetStartedScreen(navController: NavHostController) {
 
             VaultPillButton(
                 label = googleLabel,
+                enabled = false,
                 onClick = { showComingSoon(googleLabel) },
                 icon = { ProviderIcon(R.drawable.ic_brand_google, googleLabel) },
+                trailingLabel = comingSoonLabel,
             )
 
             Spacer(Modifier.height(ButtonSpacing))
 
             VaultPillButton(
                 label = appleLabel,
+                enabled = false,
                 onClick = { showComingSoon(appleLabel) },
-                // The Apple mark is monochrome by design and its guidelines
-                // allow a solid light treatment on dark backgrounds.
                 icon = {
                     ProviderIcon(
                         resId = R.drawable.ic_brand_apple,
@@ -159,14 +163,17 @@ fun GetStartedScreen(navController: NavHostController) {
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 },
+                trailingLabel = comingSoonLabel,
             )
 
             Spacer(Modifier.height(ButtonSpacing))
 
             VaultPillButton(
                 label = microsoftLabel,
+                enabled = false,
                 onClick = { showComingSoon(microsoftLabel) },
                 icon = { ProviderIcon(R.drawable.ic_brand_microsoft, microsoftLabel) },
+                trailingLabel = comingSoonLabel,
             )
 
             Spacer(Modifier.height(24.dp))

@@ -12,6 +12,7 @@
     <string name="get_started_provider_apple">Apple</string>
     <string name="get_started_provider_microsoft">Microsoft</string>
     <string name="get_started_copyright">©Copyright ZenTen 2025-2026</string>
+    <string name="get_started_coming_soon_label">Coming soon</string>
 
     <!--
         Shown when a first-run action exists in the design but has no
