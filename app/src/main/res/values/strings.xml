@@ -35,11 +35,13 @@
 
     <!-- Create MasterKey flow: step 2, choose the MasterKey passphrase -->
     <string name="create_master_key_passphrase_title">MasterKey Passphrase</string>
+    <string name="create_master_key_passphrase_icon_description">Hand holding a key</string>
     <string name="create_master_key_passphrase_label">Passphrase</string>
     <string name="create_master_key_passphrase_confirm">Confirm</string>
 
     <!-- Create MasterKey flow: step 3, re-enter the passphrase -->
     <string name="create_master_key_confirm_passphrase_title">Confirm Passphrase</string>
+    <string name="create_master_key_confirm_passphrase_icon_description">Padlock inside a repeat arrow</string>
     <string name="create_master_key_confirm_passphrase_label">Re-enter Passphrase</string>
     <string name="create_master_key_confirm_passphrase_verify">Verify</string>
 </resources>

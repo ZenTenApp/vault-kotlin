@@ -28,7 +28,7 @@ If remote quorum is unavailable, setup remains incomplete but the validated mast
 ## Current limitations
 
 - The current UI supports clipboard paste only. Manual text entry, file import, and QR intake are not available.
-- In-app master-key generation (**Create MasterKey**) is only implemented through its first three screens (the "Getting Started" consent gate, **MasterKey Passphrase**, and **Confirm Passphrase**). **Verify** on the confirmation step performs no action: passphrase matching, key generation, recovery-material display, and the wizard illustration asset are not implemented yet. The entered passphrase is held only in screen state, is never persisted, and is discarded when the wizard is left. The user must already hold an Ed25519 OpenSSH key to complete setup.
+- In-app master-key generation (**Create MasterKey**) is only implemented through its first three screens (the "Getting Started" consent gate, **MasterKey Passphrase**, and **Confirm Passphrase**). **Verify** on the confirmation step performs no action: passphrase matching, key generation, and recovery-material display are not implemented yet. The entered passphrase is held only in screen state, is never persisted, and is discarded when the wizard is left. The user must already hold an Ed25519 OpenSSH key to complete setup.
 - Federated sign-in (Google, Apple, Microsoft) is not implemented. Its meaning for a key-rooted vault is an open product decision, since the root of trust is a keypair rather than a provider account.
 - Production review is still required for supported key formats, error language, storage, backup destinations, and end-to-end setup recovery.
 
