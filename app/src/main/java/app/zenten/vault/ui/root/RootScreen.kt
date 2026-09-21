@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AppStorageService
+import app.zenten.vault.data.kv.CreateMasterKeyStep
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PlaceholderScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,11 +33,16 @@ fun RootScreen(navController: NavHostController, viewModel: RootViewModel = hilt
 
 @HiltViewModel
 class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewModel() {
-    val destination = combine(appStorage.setupComplete, appStorage.pendingLocalBackupAccountIds) { complete, pending ->
+    val destination = combine(
+        appStorage.setupComplete,
+        appStorage.pendingLocalBackupAccountIds,
+        appStorage.createMasterKeyStep,
+    ) { complete, pending, createStep ->
         when {
-            !complete -> VaultDestinations.GET_STARTED
-            pending.isNotEmpty() -> VaultDestinations.localAccountBackupExport(pending.first().toLong())
-            else -> VaultDestinations.ACCOUNTS
+            complete && pending.isNotEmpty() -> VaultDestinations.localAccountBackupExport(pending.first().toLong())
+            complete -> VaultDestinations.ACCOUNTS
+            createStep == CreateMasterKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO
+            else -> VaultDestinations.GET_STARTED
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }

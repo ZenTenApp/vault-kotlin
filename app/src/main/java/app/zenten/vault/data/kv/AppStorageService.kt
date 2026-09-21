@@ -18,6 +18,11 @@ import kotlinx.serialization.json.Json
 /** Non-secret app state. Sensitive accounts and encrypted remote payloads must never be placed here. */
 class AppStorageService(private val dataStore: DataStore<Preferences>, private val json: Json = Json) {
     val setupComplete: Flow<Boolean> = dataStore.data.map { it[SETUP_COMPLETE] ?: false }
+    val createMasterKeyStep: Flow<CreateMasterKeyStep?> = dataStore.data.map { preferences ->
+        preferences[CREATE_MASTER_KEY_STEP]?.let { stored ->
+            runCatching { CreateMasterKeyStep.valueOf(stored) }.getOrNull()
+        }
+    }
     val customBackupSources: Flow<List<BackupSourceConfig>> = jsonFlow(CUSTOM_BACKUP_SOURCES)
     val pendingSourceWrites: Flow<List<PendingSourceWrite>> = jsonFlow(PENDING_SOURCE_WRITES)
     val accountSourceStatuses: Flow<List<AccountSourceStatus>> = jsonFlow(ACCOUNT_SOURCE_STATUSES)
@@ -33,8 +38,16 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     }
     val cachedAccountProfiles: Flow<List<CachedAccountProfile>> = jsonFlow(CACHED_ACCOUNT_PROFILES)
 
-    suspend fun setSetupComplete() = dataStore.edit { it[SETUP_COMPLETE] = true }
+    suspend fun setSetupComplete() = dataStore.edit {
+        it[SETUP_COMPLETE] = true
+        it.remove(CREATE_MASTER_KEY_STEP)
+    }
     suspend fun clearSetupComplete() = dataStore.edit { it.remove(SETUP_COMPLETE) }
+
+    /** Persists only wizard progress; generated key material remains in encrypted storage. */
+    suspend fun setCreateMasterKeyStep(step: CreateMasterKeyStep) = dataStore.edit {
+        it[CREATE_MASTER_KEY_STEP] = step.name
+    }
 
     suspend fun setCustomBackupSources(sources: List<BackupSourceConfig>) = dataStore.edit {
         it[CUSTOM_BACKUP_SOURCES] = json.encodeToString(sources)
@@ -124,6 +137,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
 
     companion object {
         val SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
+        val CREATE_MASTER_KEY_STEP = stringPreferencesKey("create_master_key_step_v1")
         val CUSTOM_BACKUP_SOURCES = stringPreferencesKey("custom_backup_sources_v2")
         val PENDING_SOURCE_WRITES = stringPreferencesKey("pending_source_writes_v2")
         val ACCOUNT_SOURCE_STATUSES = stringPreferencesKey("account_source_statuses_v2")
@@ -134,6 +148,9 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val CACHED_ACCOUNT_PROFILES = stringPreferencesKey("cached_account_profiles_v1")
     }
 }
+
+/** Durable resumable points after a generated MasterKey has been committed locally. */
+enum class CreateMasterKeyStep { BACKUP_INTRO }
 
 @Serializable
 data class CachedAccountProfile(

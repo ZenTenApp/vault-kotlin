@@ -51,8 +51,8 @@
     <string name="create_master_key_confirm_passphrase_generation_failed">MasterKey creation failed. Please try again.</string>
 
     <!-- Create MasterKey flow: step 4, explain the first Vault Backup -->
-    <string name="create_master_key_backup_intro_title">Creating Backup</string>
+    <string name="create_master_key_backup_intro_title">Create Backup</string>
     <string name="create_master_key_backup_intro_icon_description">Safe with a combination dial</string>
     <string name="create_master_key_backup_intro_body">Your first Vault Backup is a digital backup that will require you to store it safely somewhere on your device. Any of your preferred encrypted notes apps with additional security will suffice for this step.</string>
-    <string name="create_master_key_backup_intro_confirm">Confirm</string>
+    <string name="create_master_key_backup_intro_confirm">Export MasterKey</string>
 </resources>

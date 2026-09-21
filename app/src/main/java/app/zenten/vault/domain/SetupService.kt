@@ -2,6 +2,7 @@ package app.zenten.vault.domain
 
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.ConsolidationTrigger
+import app.zenten.vault.data.kv.CreateMasterKeyStep
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import kotlinx.coroutines.flow.first
@@ -14,9 +15,7 @@ class SetupService(
     private val workScheduler: BackupWorkScheduler? = null,
 ) {
     suspend fun performSetup(master: Account): Result<Unit> = runCatching {
-        // Keep the imported master on quorum failure so users can retry without re-entering it.
-        secureStorage.addMasterAccount(master)
-        appStorage.clearSetupComplete()
+        persistMaster(master)
         val result = consolidationEngine.backupMaster(master)
         check(result.quorumReached) {
             when {
@@ -27,6 +26,18 @@ class SetupService(
         }
         appStorage.setSetupComplete()
         workScheduler?.scheduleConsolidation()
+    }
+
+    /**
+     * Commits a generated key before the wizard advances and attempts every configured source.
+     * Setup intentionally remains incomplete because later wizard steps are still mandatory.
+     */
+    suspend fun persistGeneratedMasterAndBackup(master: Account): Result<Unit> = runCatching {
+        persistMaster(master)
+        appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO)
+        // Source-level state records failures for later retries. A network problem must not
+        // undo the irreversible local commit or send the user back to key generation.
+        runCatching { consolidationEngine.backupMaster(master) }
     }
 
     suspend fun retryMasterBackup(): Result<Unit> = runCatching {
@@ -50,6 +61,12 @@ class SetupService(
 
     suspend fun consolidateNow(): Result<AccountConsolidationEngine.ConsolidationResult?> = runCatching {
         consolidationEngine.consolidate(ConsolidationTrigger.MANUAL, force = true)
+    }
+
+    private suspend fun persistMaster(master: Account) {
+        // Keep the master on backup failure so setup can resume without generating another key.
+        secureStorage.addMasterAccount(master)
+        appStorage.clearSetupComplete()
     }
 }
 

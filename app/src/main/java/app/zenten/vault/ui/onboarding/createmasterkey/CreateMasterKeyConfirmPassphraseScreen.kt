@@ -32,7 +32,8 @@ import app.zenten.vault.ui.components.VaultPillButton
  * - on a mismatch nothing is generated and an inline error is shown, so a typo
  *   can never be baked into the MasterKey;
  * - on a match a fresh Ed25519 OpenSSH key encrypted with that passphrase is
- *   generated and the wizard advances to the backup step.
+ *   generated, saved locally, backed up to every configured source, and the
+ *   wizard advances to the next step.
  *
  * The button is inert while generation runs because bcrypt_pbkdf key derivation
  * takes a noticeable amount of time; the label switches to a progress message

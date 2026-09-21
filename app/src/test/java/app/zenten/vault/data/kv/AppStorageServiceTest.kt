@@ -26,6 +26,8 @@ class AppStorageServiceTest {
                 authentication = SourceAuthentication.NIP42_OPTIONAL,
             )
             assertFalse(service.setupComplete.first())
+            service.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO)
+            assertEquals(CreateMasterKeyStep.BACKUP_INTRO, service.createMasterKeyStep.first())
             service.setSetupComplete()
             service.setCustomBackupSources(listOf(source))
             service.upsertPendingSourceWrite(PendingSourceWrite("10", "custom", PendingWriteReason.DIRECT_BACKUP))
@@ -35,6 +37,7 @@ class AppStorageServiceTest {
             service.upsertCachedAccountProfiles(listOf(CachedAccountProfile(10L, "Profile", 100L)))
 
             assertTrue(service.setupComplete.first())
+            assertEquals(null, service.createMasterKeyStep.first())
             assertEquals(listOf(source), service.customBackupSources.first())
             assertEquals(1, service.pendingSourceWrites.first().size)
             assertEquals(AccountSourceBackupState.BACKUP_FAILED, service.accountSourceStatuses.first().single().state)

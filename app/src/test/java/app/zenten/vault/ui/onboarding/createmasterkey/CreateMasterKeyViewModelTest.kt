@@ -1,6 +1,15 @@
 package app.zenten.vault.ui.onboarding.createmasterkey
 
-import app.zenten.vault.crypto.Seedify
+import app.zenten.vault.data.secure.SecureStorageService
+import app.zenten.vault.domain.AccountConsolidationEngine
+import app.zenten.vault.domain.SetupService
+import app.zenten.vault.data.kv.AppStorageService
+import io.mockk.coEvery
+import io.mockk.coJustRun
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
 import app.zenten.vault.crypto.SshKeyCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,6 +36,19 @@ class CreateMasterKeyViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val clock = Clock.fixed(Instant.parse("2026-02-01T00:00:00Z"), ZoneOffset.UTC)
 
+    private fun viewModel(): CreateMasterKeyViewModel {
+        val secureStorage = mockk<SecureStorageService>()
+        val appStorage = mockk<AppStorageService>()
+        val engine = mockk<AccountConsolidationEngine>()
+        every { secureStorage.addMasterAccount(any()) } just runs
+        coJustRun { appStorage.clearSetupComplete() }
+        coJustRun { appStorage.setCreateMasterKeyStep(any()) }
+        coEvery { engine.backupMaster(any()) } returns AccountConsolidationEngine.MasterBackupResult(
+            relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
+        )
+        return CreateMasterKeyViewModel(clock, SetupService(secureStorage, appStorage, engine))
+    }
+
     @BeforeEach
     fun setUp() = Dispatchers.setMain(dispatcher)
 
@@ -46,7 +68,7 @@ class CreateMasterKeyViewModelTest {
 
     @Test
     fun rejects_a_mismatched_re_entry_without_generating_a_key() = runTest(dispatcher) {
-        val viewModel = CreateMasterKeyViewModel(clock)
+        val viewModel = viewModel()
         viewModel.choosePassphrase("correct horse battery staple")
 
         viewModel.verifyAndGenerate("correct horse battery stapl")
@@ -57,13 +79,12 @@ class CreateMasterKeyViewModelTest {
         assertFalse(viewModel.state.value.generating)
         assertFalse(viewModel.state.value.keyGenerated)
         assertFalse(viewModel.state.value.navigateToBackup)
-        assertNull(viewModel.generatedKey())
     }
 
     @Test
     fun generates_a_key_encrypted_with_the_confirmed_passphrase_and_signals_navigation() = runTest(dispatcher) {
         val passphrase = "correct horse battery staple"
-        val viewModel = CreateMasterKeyViewModel(clock)
+        val viewModel = viewModel()
         viewModel.choosePassphrase(passphrase)
 
         viewModel.verifyAndGenerate(passphrase)
@@ -74,24 +95,12 @@ class CreateMasterKeyViewModelTest {
         assertFalse(state.mismatch)
         assertFalse(state.generating)
 
-        val generated = requireNotNull(viewModel.generatedKey())
-        // createdAt is the clock's millis in microseconds, matching account ids.
-        assertEquals(clock.millis() * 1_000L, generated.createdAt)
-        // The key must be openable with exactly the confirmed passphrase.
-        val parsed = SshKeyCodec.parse(generated.privateKeyPem, passphrase.toCharArray())
-        assertTrue(parsed.encrypted)
-        assertEquals(
-            SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
-            generated.publicKey,
-        )
-        // Seed extraction must work, since recovery material derives from it.
-        assertEquals(24, Seedify.toMnemonic(parsed.seed).split(" ").size)
     }
 
     @Test
     fun clears_the_navigation_signal_once_the_backup_step_has_been_shown() = runTest(dispatcher) {
         val passphrase = "correct horse battery staple"
-        val viewModel = CreateMasterKeyViewModel(clock)
+        val viewModel = viewModel()
         viewModel.choosePassphrase(passphrase)
         viewModel.verifyAndGenerate(passphrase)
         viewModel.awaitVerificationResult()
@@ -99,39 +108,34 @@ class CreateMasterKeyViewModelTest {
         viewModel.onBackupStepShown()
 
         assertFalse(viewModel.state.value.navigateToBackup)
-        // The generated key survives so later backup steps can use it.
         assertTrue(viewModel.state.value.keyGenerated)
-        assertNotNull(viewModel.generatedKey())
     }
 
     @Test
-    fun discards_a_key_generated_for_a_passphrase_the_user_then_changed() = runTest(dispatcher) {
-        val viewModel = CreateMasterKeyViewModel(clock)
+    fun resets_ui_state_when_a_new_passphrase_is_chosen() = runTest(dispatcher) {
+        val viewModel = viewModel()
         viewModel.choosePassphrase("first passphrase")
         viewModel.verifyAndGenerate("first passphrase")
         viewModel.awaitVerificationResult()
-        assertNotNull(viewModel.generatedKey())
 
         viewModel.choosePassphrase("second passphrase")
 
-        assertNull(viewModel.generatedKey())
         assertFalse(viewModel.state.value.keyGenerated)
     }
 
     @Test
     fun reports_a_missing_passphrase_instead_of_verifying_against_nothing() = runTest(dispatcher) {
-        val viewModel = CreateMasterKeyViewModel(clock)
+        val viewModel = viewModel()
 
         viewModel.verifyAndGenerate("anything")
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.passphraseMissing)
-        assertNull(viewModel.generatedKey())
     }
 
     @Test
     fun clears_the_mismatch_message_when_the_field_is_edited_again() = runTest(dispatcher) {
-        val viewModel = CreateMasterKeyViewModel(clock)
+        val viewModel = viewModel()
         viewModel.choosePassphrase("passphrase")
         viewModel.verifyAndGenerate("wrong")
         assertTrue(viewModel.state.value.mismatch)

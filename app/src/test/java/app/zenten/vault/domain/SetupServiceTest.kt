@@ -1,6 +1,7 @@
 package app.zenten.vault.domain
 
 import app.zenten.vault.data.kv.AppStorageService
+import app.zenten.vault.data.kv.CreateMasterKeyStep
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
@@ -36,6 +37,25 @@ class SetupServiceTest {
         verify(exactly = 1) { fixture.secureStorage.addMasterAccount(master) }
         verify(exactly = 0) { fixture.secureStorage.removeMasterAccount() }
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
+        coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
+    }
+
+    @Test
+    fun generated_master_is_persisted_and_all_source_backups_are_attempted_without_completing_setup() = runTest {
+        val fixture = Fixture()
+        coEvery { fixture.engine.backupMaster(master) } returns AccountConsolidationEngine.MasterBackupResult(
+            relayQuorum = false,
+            braveQuorum = false,
+            successfulSourceIds = emptySet(),
+            failedSourceIds = setOf("relay", "brave"),
+        )
+
+        assertTrue(fixture.service.persistGeneratedMasterAndBackup(master).isSuccess)
+
+        verify(exactly = 1) { fixture.secureStorage.addMasterAccount(master) }
+        coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
+        coVerify(exactly = 1) { fixture.appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO) }
+        coVerify(exactly = 1) { fixture.engine.backupMaster(master) }
         coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
     }
 
@@ -100,6 +120,7 @@ class SetupServiceTest {
             every { scheduler.scheduleAccountConsolidation(any()) } just runs
             coJustRun { appStorage.clearSetupComplete() }
             coJustRun { appStorage.setSetupComplete() }
+            coJustRun { appStorage.setCreateMasterKeyStep(any()) }
         }
     }
 
