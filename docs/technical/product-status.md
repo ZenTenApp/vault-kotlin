@@ -6,7 +6,7 @@ This is a repository-oriented status view, not a production-readiness certificat
 | --- | --- | --- | --- |
 | Compose navigation and main screens | Present in code | `ui/`, `VaultNavGraph.kt` | Onboarding, pre-setup source list/add, account list/create/detail, and dedicated Master Account details are implemented. |
 | Master-account key intake | Present in code | `ui/onboarding/`, `domain/SetupService.kt` | Paste-oriented; retains validated master and supports retry when source quorum fails. |
-| In-app MasterKey generation wizard | Partial | `ui/onboarding/createmasterkey/` | Four screens exist: consent gate, passphrase, passphrase verification with generated-key persistence and remote backup attempts, and a **Create Backup** explanation. Recovery-material export and the remaining setup steps are not implemented. |
+| In-app MasterKey generation wizard | Partial | `ui/onboarding/createmasterkey/` | Consent, passphrase creation and verification, generated-key persistence and remote backup attempts, local **Create Backup** export, and pasted-key **Confirm Backup** verification are implemented. The later Secret Combinations step and setup completion are not implemented. |
 | OpenSSH Ed25519 parsing/passphrase validation | Present in code | `crypto/SshKeyCodec.kt`, tests | Requires production crypto/dependency review. |
 | Deterministic recovery identity | Present in code | `crypto/Seedify.kt`, `NostrKeyDerivation.kt` | Golden/parity tests exist. |
 | Secure local storage | Present in code | `data/secure/`, `data/kv/` | Device, migration, and backup-policy review remains required. |

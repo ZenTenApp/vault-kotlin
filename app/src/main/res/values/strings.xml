@@ -50,9 +50,26 @@
     <!-- Deliberately generic: an underlying crypto error must not echo key or passphrase material. -->
     <string name="create_master_key_confirm_passphrase_generation_failed">MasterKey creation failed. Please try again.</string>
 
-    <!-- Create MasterKey flow: step 4, explain the first Vault Backup -->
+    <!-- Create MasterKey flow: step 4, export the first Vault Backup -->
     <string name="create_master_key_backup_intro_title">Create Backup</string>
     <string name="create_master_key_backup_intro_icon_description">Safe with a combination dial</string>
     <string name="create_master_key_backup_intro_body">Your first Vault Backup is a digital backup that will require you to store it safely somewhere on your device. Any of your preferred encrypted notes apps with additional security will suffice for this step.</string>
     <string name="create_master_key_backup_intro_confirm">Export MasterKey</string>
+    <string name="create_master_key_backup_no_targets">No installed app can receive text exports.</string>
+    <string name="create_master_key_backup_target_title">Save encrypted key with</string>
+    <string name="create_master_key_backup_target_cancel">Cancel</string>
+    <string name="create_master_key_backup_target_missing">That app is no longer available. Choose another app.</string>
+    <string name="create_master_key_backup_target_denied">Android did not allow this app to receive the export. Choose another app.</string>
+    <string name="create_master_key_backup_unavailable">The MasterKey is unavailable. Restart Vault and try again.</string>
+
+    <!-- Create MasterKey flow: step 5, verify the exported backup -->
+    <string name="create_master_key_confirm_backup_title">Confirm Backup</string>
+    <string name="create_master_key_confirm_backup_icon_description">Backup confirmation shield</string>
+    <string name="create_master_key_confirm_backup_body">To confirm you have safely exported and stored your Backup, please upload it below by clicking on the button.</string>
+    <string name="create_master_key_confirm_backup_action">Paste MasterKey</string>
+    <string name="create_master_key_confirm_backup_read_error">Vault could not read the clipboard. Copy the MasterKey and try again.</string>
+    <string name="create_master_key_confirm_backup_clear_error">Vault could not clear the clipboard. Clear it manually, then try again.</string>
+    <string name="create_master_key_confirm_backup_empty_error">The clipboard does not contain a private key. Copy the MasterKey and try again.</string>
+    <string name="create_master_key_confirm_backup_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
+    <string name="create_master_key_confirm_backup_mismatch_error">This MasterKey does not match the backup you just exported.</string>
 </resources>
