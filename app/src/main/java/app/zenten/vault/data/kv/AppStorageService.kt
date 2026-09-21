@@ -150,7 +150,10 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
 }
 
 /** Durable resumable points after a generated MasterKey has been committed locally. */
-enum class CreateMasterKeyStep { BACKUP_INTRO }
+enum class CreateMasterKeyStep {
+    BACKUP_INTRO,
+    CONFIRM_BACKUP,
+}
 
 @Serializable
 data class CachedAccountProfile(

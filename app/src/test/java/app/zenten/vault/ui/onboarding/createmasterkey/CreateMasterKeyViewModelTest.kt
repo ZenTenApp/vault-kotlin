@@ -1,5 +1,6 @@
 package app.zenten.vault.ui.onboarding.createmasterkey
 
+import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
@@ -10,6 +11,7 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.slot
 import app.zenten.vault.crypto.SshKeyCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,8 +38,7 @@ class CreateMasterKeyViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val clock = Clock.fixed(Instant.parse("2026-02-01T00:00:00Z"), ZoneOffset.UTC)
 
-    private fun viewModel(): CreateMasterKeyViewModel {
-        val secureStorage = mockk<SecureStorageService>()
+    private fun viewModel(secureStorage: SecureStorageService = mockk()): CreateMasterKeyViewModel {
         val appStorage = mockk<AppStorageService>()
         val engine = mockk<AccountConsolidationEngine>()
         every { secureStorage.addMasterAccount(any()) } just runs
@@ -95,6 +96,26 @@ class CreateMasterKeyViewModelTest {
         assertFalse(state.mismatch)
         assertFalse(state.generating)
 
+    }
+
+    @Test
+    fun stores_the_master_key_in_the_same_single_line_format_used_by_associated_account_exports() = runTest(dispatcher) {
+        val storedMaster = slot<Account>()
+        val secureStorage = mockk<SecureStorageService>()
+        val viewModel = viewModel(secureStorage)
+        val passphrase = "correct horse battery staple"
+
+        viewModel.choosePassphrase(passphrase)
+        viewModel.verifyAndGenerate(passphrase)
+        viewModel.awaitVerificationResult()
+        io.mockk.verify(exactly = 1) { secureStorage.addMasterAccount(capture(storedMaster)) }
+
+        assertFalse(storedMaster.captured.zenTenKey.contains("-----BEGIN OPENSSH PRIVATE KEY-----"))
+        assertFalse(storedMaster.captured.zenTenKey.contains('\n'))
+        assertEquals(
+            storedMaster.captured.zenTenKey,
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedMaster.captured.zenTenKey),
+        )
     }
 
     @Test

@@ -39,8 +39,11 @@ object VaultDestinations {
     /** Third screen: re-enter the chosen passphrase to catch typos. */
     const val CREATE_MASTER_KEY_CONFIRM_PASSPHRASE = "get-started/create-master-key/confirm-passphrase"
 
-    /** Fourth screen: explain what the first Vault Backup is before creating it. */
+    /** Fourth screen: explain and export the first Vault Backup. */
     const val CREATE_MASTER_KEY_BACKUP_INTRO = "get-started/create-master-key/backup-intro"
+
+    /** Fifth screen: paste the exported MasterKey to confirm the backup is usable. */
+    const val CREATE_MASTER_KEY_CONFIRM_BACKUP = "get-started/create-master-key/confirm-backup"
 
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"

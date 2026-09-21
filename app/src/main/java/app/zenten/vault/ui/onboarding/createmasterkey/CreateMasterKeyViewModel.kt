@@ -95,7 +95,9 @@ class CreateMasterKeyViewModel @Inject constructor(
                 val mnemonic = Seedify.toMnemonic(parsed.seed)
                 Account(
                     createdAt = key.createdAt,
-                    zenTenKey = key.privateKeyPem,
+                    // Associated-account exports use canonical base64 without PEM wrappers
+                    // or line breaks; store generated masters in that same format.
+                    zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
                     zenTenPass = passphrase,
                     pubkey = key.publicKey,
                     mnemonic = mnemonic,

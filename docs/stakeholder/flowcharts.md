@@ -13,7 +13,8 @@ flowchart TD
     Root --> Setup{"Master setup complete?"}
     Setup -->|No| GeneratedProgress{"Generated MasterKey already committed?"}
     GeneratedProgress -->|No| Welcome["Get started"]
-    GeneratedProgress -->|Yes| CreateBackupIntro
+    GeneratedProgress -->|Create Backup pending| CreateBackupIntro
+    GeneratedProgress -->|Confirm Backup pending| CreateConfirmBackup
     Welcome -->|"Login with MasterKey"| MasterSetup["Set up master account"]
     Welcome -->|"Create MasterKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
@@ -32,7 +33,14 @@ flowchart TD
     CreateRemote --> CreateProgress["Persist next unfinished wizard step"]
     CreateProgress --> CreateBackupIntro["Create Backup: explain the first Vault Backup"]
     CreateBackupIntro -->|"Back"| CreateBackupIntro
-    CreateBackupIntro -->|"Confirm"| CreateNotImplemented["No action yet: remaining recovery-material steps not implemented"]
+    CreateBackupIntro -->|"Export MasterKey"| CreateExport["Choose an installed text target and export encrypted MasterKey"]
+    CreateExport --> CreateConfirmBackup["Confirm Backup: paste MasterKey"]
+    CreateConfirmBackup -->|"Back"| CreateBackupIntro
+    CreateConfirmBackup -->|"Paste MasterKey"| CreateClipboard{"Clipboard read and cleared; supported key format?"}
+    CreateClipboard -->|No| CreateConfirmBackup
+    CreateClipboard -->|Yes| CreateBackupMatch{"Pasted key matches generated MasterKey?"}
+    CreateBackupMatch -->|No| CreateConfirmBackup
+    CreateBackupMatch -->|Yes| CreateAwaitSecrets["Remain here until Secret Combinations is implemented"]
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
@@ -47,7 +55,7 @@ flowchart TD
     Master --> Accounts
 ```
 
-The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed. Back navigation is blocked from that point because generation is irreversible, even though later setup steps remain incomplete.
+The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, or at **Confirm Backup** after Android accepted the export. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export.
 
 ## Master-account setup
 

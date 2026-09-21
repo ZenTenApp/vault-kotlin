@@ -119,7 +119,7 @@ fun GetStartedScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(40.dp))
 
-            // The wizard past the intro screen is not implemented yet.
+            // Generated-key setup continues through local backup confirmation.
             VaultPillButton(
                 label = createLabel,
                 onClick = { navController.navigate(VaultDestinations.CREATE_MASTER_KEY_INTRO) },
@@ -127,7 +127,7 @@ fun GetStartedScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(ButtonSpacing))
 
-            // The only implemented path: import an existing master key.
+            // Existing-key setup remains available as the alternate path.
             VaultPillButton(
                 label = loginLabel,
                 // A neutral raised surface distinguishes this alternate path

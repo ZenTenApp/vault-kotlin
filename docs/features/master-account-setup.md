@@ -6,7 +6,7 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 
 ## Current behavior
 
-1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Setup MasterKey Account**. **Create MasterKey** opens the first four screens of the in-app generation wizard (an unrecoverable-loss warning and consent gate, a **MasterKey Passphrase** step, a **Confirm Passphrase** re-entry step, and a **Create Backup** explanation step). The federated sign-in actions remain design placeholders that report "coming soon".
+1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Setup MasterKey Account**. **Create MasterKey** opens the implemented generation and backup screens (an unrecoverable-loss warning and consent gate, **MasterKey Passphrase**, **Confirm Passphrase**, **Create Backup**, and **Confirm Backup**). The federated sign-in actions remain design placeholders that report "coming soon".
 2. On **Setup MasterKey Account**, the user copies a passphrase-protected OpenSSH private key and selects **Paste MasterKey**. The app reads the first clipboard item without displaying it, clears the clipboard immediately, and validates that it is a supported encrypted OpenSSH-v1 Ed25519 container before proceeding to the passphrase step. PEM, raw Base64, and the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper are accepted; malformed, unencrypted, non-Ed25519, and unsupported containers are rejected on the paste step.
 3. The app validates the material locally and derives the vault identity.
 4. The app stores the master account securely and attempts all enabled sources sequentially.
@@ -15,7 +15,7 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 
 If remote quorum is unavailable, setup remains incomplete but the validated master stays in secure local storage. The user can retry backup without pasting or deriving the master again.
 
-For an in-app generated MasterKey, successful passphrase verification is the irreversible commit point. Vault derives the account record, writes it to keystore-backed encrypted storage, records the next wizard step, and checks/writes the master on every enabled backup source before showing **Create Backup**. Individual source failures are retained for later repair and do not return the user to key generation. Closing or leaving the app resumes **Create Backup**; back navigation is disabled after commitment so another identity cannot be generated accidentally. Setup is still incomplete because the remaining recovery-material steps have not been implemented.
+For an in-app generated MasterKey, successful passphrase verification is the irreversible commit point. Vault derives the account record, writes it to keystore-backed encrypted storage, records the next wizard step, and checks/writes the master on every enabled backup source before showing **Create Backup**. Individual source failures are retained for later repair and do not return the user to key generation. Closing or leaving the app resumes **Create Backup**, or **Confirm Backup** after Android has accepted the local export. Back navigation is disabled from **Create Backup** toward key generation so another identity cannot be generated accidentally; **Confirm Backup** may return to **Create Backup** to export again. Setup is still incomplete because the later Secret Combinations step has not been implemented.
 
 ## Failure and security expectations
 
@@ -31,7 +31,7 @@ For an in-app generated MasterKey, successful passphrase verification is the irr
 ## Current limitations
 
 - The current UI supports clipboard paste only. Manual text entry, file import, and QR intake are not available.
-- In-app master-key generation (**Create MasterKey**) is implemented through its first four screens. **Verify** matches the passphrases, generates an encrypted Ed25519 OpenSSH MasterKey, stores it locally, and attempts backup on all enabled sources. **Confirm** on **Create Backup** still performs no action because recovery-material display and the remaining setup steps are not implemented; generated-key setup therefore cannot yet reach completion.
+- In-app master-key generation (**Create MasterKey**) is implemented through **Confirm Backup**. **Verify** matches the passphrases, generates an encrypted Ed25519 OpenSSH MasterKey, stores it locally, and attempts backup on all enabled sources. **Export MasterKey** uses the same direct local-backup target picker and canonical key representation as associated-account creation: raw Base64 without OpenSSH PEM wrappers or line breaks. Vault then requires the user to paste the exported key, clears the clipboard, validates its encrypted Ed25519 OpenSSH format, and confirms it exactly matches the stored MasterKey. A successful match intentionally remains on **Confirm Backup** until the later Secret Combinations screen is implemented, so generated-key setup cannot yet reach completion.
 - Federated sign-in (Google, Apple, Microsoft) is not implemented. Its meaning for a key-rooted vault is an open product decision, since the root of trust is a keypair rather than a provider account.
 - Production review is still required for supported key formats, error language, storage, backup destinations, and end-to-end setup recovery.
 

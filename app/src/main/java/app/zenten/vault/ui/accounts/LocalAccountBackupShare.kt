@@ -5,7 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 
-internal object LocalAccountBackupShare {
+object LocalAccountBackupShare {
     private const val MIME_TYPE = "text/plain"
     private val preferredNotePackages = setOf(
         "com.google.android.keep",
@@ -16,7 +16,7 @@ internal object LocalAccountBackupShare {
         "net.cozic.joplin",
     )
 
-    fun sendIntent(key: String): Intent = Intent(Intent.ACTION_SEND)
+    private fun sendIntent(key: String): Intent = Intent(Intent.ACTION_SEND)
         .setType(MIME_TYPE)
         .putExtra(Intent.EXTRA_TEXT, key)
 
@@ -44,7 +44,7 @@ internal object LocalAccountBackupShare {
                     .thenBy(String.CASE_INSENSITIVE_ORDER) { it.label },
             )
 
-    internal interface Target {
+    interface Target {
         val label: String
         val packageName: String
         val activityName: String

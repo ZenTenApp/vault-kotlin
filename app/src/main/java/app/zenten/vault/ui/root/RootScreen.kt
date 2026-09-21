@@ -42,6 +42,7 @@ class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewMod
             complete && pending.isNotEmpty() -> VaultDestinations.localAccountBackupExport(pending.first().toLong())
             complete -> VaultDestinations.ACCOUNTS
             createStep == CreateMasterKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO
+            createStep == CreateMasterKeyStep.CONFIRM_BACKUP -> VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP
             else -> VaultDestinations.GET_STARTED
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
