@@ -95,7 +95,7 @@ class ProfileServiceTest {
         assertEquals("First", profiles[first.createdAt]?.displayName)
         assertEquals("Second", profiles[second.createdAt]?.displayName)
         assertEquals(ProfileService.PROFILE_RELAYS.toSet(), gateway.fetchedRelays.toSet())
-        assertEquals(2, gateway.fetchedRelays.size)
+        assertEquals(ProfileService.PROFILE_RELAYS.size, gateway.fetchedRelays.size)
         assertEquals(setOf(first.nostr.pubkey, second.nostr.pubkey), gateway.requestedAuthors)
     }
 
