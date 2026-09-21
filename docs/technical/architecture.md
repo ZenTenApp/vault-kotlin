@@ -70,7 +70,7 @@ The current app has no custom-source management UI. The repository API is retain
 - Pending-write retry is unique work.
 - Immediate consolidation is unique work after setup.
 - Periodic consolidation runs every hour with a connected-network constraint.
-- Kind `0` publication is unique work per account with a connected-network constraint and exponential backoff. WorkManager input contains only the account ID; the worker reads encrypted account state at execution time and requires acknowledgement from every configured profile relay (`wss://user.kindpag.es`, `wss://purplepag.es`, `wss://directory.yabu.me`, `wss://profiles.nostr1.com`).
+- Kind `0` profile and kind `10050` DM-relay-list publication are one unique account-keyed work item with a connected-network constraint and exponential backoff. WorkManager input contains only the account ID; the worker reads encrypted account state at execution time and requires acknowledgement of both events from every configured profile relay (`wss://user.kindpag.es`, `wss://purplepag.es`, `wss://directory.yabu.me`, `wss://profiles.nostr1.com`, `wss://relay.primal.net`, `wss://relay.snort.social`, `wss://nos.lol`). The kind `10050` event advertises `wss://dm1.zentext.me`, `wss://dm2.nostr.box`, and `wss://dm3.npub.cx` as NIP-17 delivery relays.
 - `VaultApplication` supplies WorkManager's Hilt worker factory through `Configuration.Provider`; the manifest removes the default WorkManager startup initializer to avoid initializing it without that configuration.
 - A persisted checkpoint describes interrupted progress; operations are idempotent by canonical account ID.
 
