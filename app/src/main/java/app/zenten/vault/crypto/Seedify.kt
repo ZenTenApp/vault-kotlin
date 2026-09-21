@@ -30,6 +30,16 @@ object Seedify {
         return "${toMnemonic(braveSeed)} ${braveSync25thWord(now)}"
     }
 
+    /** One-based BIP-39 positions for the 24 recovery words in the Brave Sync code. */
+    fun toBraveSyncWordIndices(seed: ByteArray): List<Int> {
+        val braveSeed = deriveAssociatedAccountSeed(seed, BRAVE_ASSOCIATED_ACCOUNT)
+        return Bip39Mnemonics.toMnemonics(braveSeed).map { word ->
+            Bip39Mnemonics.englishWordlist.indexOf(word).also { index ->
+                check(index >= 0) { "Generated Brave Sync word is absent from the BIP-39 word list" }
+            } + 1
+        }
+    }
+
     fun fromSshKey(privateKeyPem: String, passphrase: CharArray): String =
         toMnemonic(SshKeyCodec.parse(privateKeyPem, passphrase).seed)
 

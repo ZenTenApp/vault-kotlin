@@ -28,6 +28,10 @@ class VaultDestinationsTest {
     fun createMasterKeyBackupSteps_haveStableRoutes() {
         assertEquals("get-started/create-master-key/backup-intro", VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO)
         assertEquals("get-started/create-master-key/confirm-backup", VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP)
+        assertEquals(
+            "get-started/create-master-key/secret-combinations",
+            VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS,
+        )
     }
 
     @Test
@@ -41,6 +45,7 @@ class VaultDestinationsTest {
             VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE,
             VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO,
             VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP,
+            VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS,
         ).forEach { route ->
             assertEquals(true, route.startsWith(VaultDestinations.CREATE_MASTER_KEY_GRAPH + "/"), route)
         }

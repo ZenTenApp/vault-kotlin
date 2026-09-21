@@ -30,6 +30,8 @@ class AppStorageServiceTest {
             assertEquals(CreateMasterKeyStep.BACKUP_INTRO, service.createMasterKeyStep.first())
             service.setCreateMasterKeyStep(CreateMasterKeyStep.CONFIRM_BACKUP)
             assertEquals(CreateMasterKeyStep.CONFIRM_BACKUP, service.createMasterKeyStep.first())
+            service.setCreateMasterKeyStep(CreateMasterKeyStep.SECRET_COMBINATIONS)
+            assertEquals(CreateMasterKeyStep.SECRET_COMBINATIONS, service.createMasterKeyStep.first())
             service.setSetupComplete()
             service.setCustomBackupSources(listOf(source))
             service.upsertPendingSourceWrite(PendingSourceWrite("10", "custom", PendingWriteReason.DIRECT_BACKUP))

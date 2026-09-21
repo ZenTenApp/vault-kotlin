@@ -72,4 +72,13 @@
     <string name="create_master_key_confirm_backup_empty_error">The clipboard does not contain a private key. Copy the MasterKey and try again.</string>
     <string name="create_master_key_confirm_backup_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
     <string name="create_master_key_confirm_backup_mismatch_error">This MasterKey does not match the backup you just exported.</string>
+
+    <!-- Create MasterKey flow: step 6, transcribe Brave recovery word positions -->
+    <string name="create_master_key_secret_combinations_title">Secret Combinations</string>
+    <string name="create_master_key_secret_combinations_body">Secret Combinations will allow you to safely backup your account if you lose access to this device or you install Vault on another device.</string>
+    <string name="create_master_key_secret_combinations_hide">Don’t Show</string>
+    <string name="create_master_key_secret_combinations_show">Show</string>
+    <string name="create_master_key_secret_combinations_consent">I have backed up my Seed Codes and understand if I lose it there is no other way to recover it.</string>
+    <string name="create_master_key_secret_combinations_confirm">Confirm</string>
+    <string name="create_master_key_secret_combinations_unavailable">Secret Combinations are unavailable. Restart Vault and try again.</string>
 </resources>

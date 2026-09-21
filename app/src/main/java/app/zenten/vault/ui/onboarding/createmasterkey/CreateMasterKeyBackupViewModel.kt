@@ -2,6 +2,7 @@ package app.zenten.vault.ui.onboarding.createmasterkey
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateMasterKeyStep
@@ -41,6 +42,22 @@ class CreateMasterKeyBackupViewModel @Inject constructor(
         if (_state.value.navigateToConfirmation) {
             _state.value = _state.value.copy(navigateToConfirmation = false)
         }
+    }
+
+    /** Makes Secret Combinations the durable resume point after key verification succeeds. */
+    fun recordSecretCombinationsShown() {
+        viewModelScope.launch {
+            appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.SECRET_COMBINATIONS)
+        }
+    }
+
+    /** Returns non-secret word-list positions for the Brave recovery mnemonic shown by the UI. */
+    fun secretCombinationIndices(): List<Int>? = secureStorage.getMasterAccount()?.let { master ->
+        runCatching {
+            val passphrase = requireNotNull(master.zenTenPass) { "Master passphrase is unavailable" }
+            val seed = SshKeyCodec.parse(master.zenTenKey, passphrase.toCharArray()).seed
+            Seedify.toBraveSyncWordIndices(seed)
+        }.getOrNull()
     }
 
     /** Validates and compares normalized key material without retaining clipboard text in UI state. */
