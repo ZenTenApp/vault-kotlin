@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import app.zenten.vault.ui.accounts.AccountDetailScreen
 import app.zenten.vault.ui.accounts.AccountsListScreen
@@ -13,6 +14,7 @@ import app.zenten.vault.ui.master.MasterAccountDetailScreen
 import app.zenten.vault.ui.newaccount.NewAccountScreen
 import app.zenten.vault.ui.onboarding.GetStartedScreen
 import app.zenten.vault.ui.onboarding.SshSetupScreen
+import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyBackupIntroScreen
 import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyConfirmPassphraseScreen
 import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyIntroScreen
 import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyPassphraseScreen
@@ -42,16 +44,28 @@ fun VaultNavGraph(
             SshSetupScreen(navController)
         }
 
-        composable(VaultDestinations.CREATE_MASTER_KEY_INTRO) {
-            CreateMasterKeyIntroScreen(navController)
-        }
+        // Nested graph so all wizard steps can share one graph-scoped ViewModel
+        // that carries the chosen passphrase between the steps without ever
+        // placing it in a navigation argument.
+        navigation(
+            route = VaultDestinations.CREATE_MASTER_KEY_GRAPH,
+            startDestination = VaultDestinations.CREATE_MASTER_KEY_INTRO,
+        ) {
+            composable(VaultDestinations.CREATE_MASTER_KEY_INTRO) {
+                CreateMasterKeyIntroScreen(navController)
+            }
 
-        composable(VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE) {
-            CreateMasterKeyPassphraseScreen(navController)
-        }
+            composable(VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE) {
+                CreateMasterKeyPassphraseScreen(navController)
+            }
 
-        composable(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE) {
-            CreateMasterKeyConfirmPassphraseScreen(navController)
+            composable(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE) {
+                CreateMasterKeyConfirmPassphraseScreen(navController)
+            }
+
+            composable(VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO) {
+                CreateMasterKeyBackupIntroScreen(navController)
+            }
         }
 
         composable(VaultDestinations.ACCOUNTS) {

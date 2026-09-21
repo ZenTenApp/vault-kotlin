@@ -19,11 +19,10 @@ import app.zenten.vault.ui.components.VaultPillButton
  * Step 2 of the in-app **Create MasterKey** flow: choose the passphrase that
  * will protect the generated MasterKey.
  *
- * The passphrase is kept only in this composable's state and is deliberately
- * not placed in a navigation argument, because route arguments are retained in
- * the back-stack state (and can be saved/restored by the system). Step 3 asks
- * the user to re-enter it; matching the two entries is wired up separately once
- * key generation exists.
+ * On **Confirm** the passphrase is handed to the wizard's graph-scoped
+ * [CreateMasterKeyViewModel] so step 3 can compare it with the re-entry. It is
+ * deliberately not placed in a navigation argument, because route arguments are
+ * retained in back-stack state and can be saved and restored by the system.
  *
  * **Confirm** stays disabled until something has been typed so the flow cannot
  * advance with an empty passphrase.
@@ -31,6 +30,7 @@ import app.zenten.vault.ui.components.VaultPillButton
 @Composable
 fun CreateMasterKeyPassphraseScreen(navController: NavHostController) {
     var passphrase by remember { mutableStateOf("") }
+    val viewModel = rememberCreateMasterKeyViewModel(navController)
 
     // Passphrase input is on screen here, so block screenshots and recordings.
     ScreenshotProtection()
@@ -53,7 +53,10 @@ fun CreateMasterKeyPassphraseScreen(navController: NavHostController) {
             VaultPillButton(
                 label = stringResource(R.string.create_master_key_passphrase_confirm),
                 enabled = passphrase.isNotEmpty(),
-                onClick = { navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE) },
+                onClick = {
+                    viewModel.choosePassphrase(passphrase)
+                    navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE)
+                },
             )
         },
     )

@@ -2,6 +2,7 @@ package app.zenten.vault.ui.onboarding.createmasterkey
 
 import android.app.Activity
 import android.view.WindowManager
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -156,6 +158,37 @@ internal fun CreateMasterKeyDescription(text: String, modifier: Modifier = Modif
         textAlign = TextAlign.Center,
         modifier = modifier.fillMaxWidth(),
     )
+}
+
+/**
+ * Red warning row stating that backup material cannot be recovered if lost.
+ *
+ * Shared by every wizard step that is about to create or display recovery
+ * material, so the wording and treatment of that warning stay identical.
+ *
+ * @param centered when true the icon and text are centered as a pair, matching
+ *   the backup steps; the intro step keeps them left-aligned with its body copy.
+ */
+@Composable
+internal fun CreateMasterKeyWarningRow(centered: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (centered) Arrangement.Center else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.WarningAmber,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.create_master_key_intro_warning),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
 }
 
 /** Top-left "< Back" navigation link, styled after the approved design's link color. */

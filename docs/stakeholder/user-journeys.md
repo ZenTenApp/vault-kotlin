@@ -17,7 +17,7 @@ flowchart LR
 
 **Starting point:** The app is new.
 
-1. The user selects **Login with MasterKey** on **Get started**, copies the Ed25519 OpenSSH private key, selects **Paste MasterKey**, and then enters its passphrase in step two. The key is not displayed, and the app clears the current clipboard entry before advancing. **Create MasterKey** opens a wizard that so far only collects consent and a passphrase and cannot yet produce a key, and the federated options (Google, Apple, Microsoft) are not implemented and report "coming soon".
+1. The user selects **Login with MasterKey** on **Get started**, copies the Ed25519 OpenSSH private key, selects **Paste MasterKey**, and then enters its passphrase in step two. The key is not displayed, and the app clears the current clipboard entry before advancing. **Create MasterKey** opens a wizard that collects consent and a passphrase, verifies the re-entered passphrase, generates an encrypted MasterKey in memory, and then explains the first Vault Backup; it cannot yet produce or store that backup, so it does not complete setup. The federated options (Google, Apple, Microsoft) are not implemented and report "coming soon".
 2. The app validates the material locally and prepares the vault identity.
 3. The app creates the required initial protected backup and reports progress.
 4. When setup succeeds, the user reaches **Accounts**.
