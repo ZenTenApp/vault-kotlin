@@ -38,9 +38,9 @@ import app.zenten.vault.ui.components.VaultPillButton
  * until the consent checkbox is checked, matching the approved design, and
  * then advances to the passphrase step.
  *
- * The page frame (back link, illustration placeholder, title, description,
- * footer) comes from [CreateMasterKeyScaffold] so every wizard step stays
- * visually identical.
+ * The page frame (back link, hero illustration, title, description, footer)
+ * comes from [CreateMasterKeyScaffold] so every wizard step stays visually
+ * identical.
  */
 @Composable
 fun CreateMasterKeyIntroScreen(navController: NavHostController) {
@@ -48,6 +48,8 @@ fun CreateMasterKeyIntroScreen(navController: NavHostController) {
 
     CreateMasterKeyScaffold(
         title = stringResource(R.string.create_master_key_intro_title),
+        heroIcon = R.drawable.hero_icon_getting_started,
+        heroIconDescription = stringResource(R.string.create_master_key_intro_icon_description),
         onBack = navController::popBackStack,
         content = {
             Spacer(Modifier.height(12.dp))

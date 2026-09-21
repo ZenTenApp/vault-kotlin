@@ -13,38 +13,46 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.zenten.vault.R
 import app.zenten.vault.ui.theme.LocalExtendedColors
 
-/** Diameter of the circular illustration placeholder above the title. */
-internal val IllustrationBadgeSize = 132.dp
+/**
+ * Footprint of the hero illustration above the title.
+ *
+ * Square on purpose even though the three assets have slightly different
+ * aspect ratios: each one is scaled to fit inside this box, so every step
+ * reserves exactly the same vertical space and the title never shifts between
+ * steps.
+ */
+internal val HeroIconSize = 132.dp
 
 /**
  * Shared page frame for every **Create MasterKey** wizard screen.
  *
- * All wizard steps use the same skeleton: a top-left "< Back" link, a circular
- * illustration placeholder, a centered title, then step-specific content, and
- * finally a bottom-anchored action area above the copyright footer.
- * Centralizing it here keeps the steps visually identical and means only one
- * place changes when the artwork asset lands.
+ * All wizard steps use the same skeleton: a top-left "< Back" link, a hero
+ * illustration, a centered title, then step-specific content, and finally a
+ * bottom-anchored action area above the copyright footer. Centralizing it here
+ * keeps the steps visually identical; only the artwork and copy differ.
  *
  * Supporting copy is intentionally not part of this frame: each step owns its
  * own description (or omits it) inside [content], because the steps differ in
@@ -56,6 +64,10 @@ internal val IllustrationBadgeSize = 132.dp
  * area up above the keyboard and leaves the rest of the page scrollable.
  *
  * @param title large headline under the illustration.
+ * @param heroIcon drawable shown above the title for this step.
+ * @param heroIconDescription accessibility label for [heroIcon]; the artwork
+ *   carries meaning (what the step is about), so it is not treated as purely
+ *   decorative.
  * @param onBack invoked by the "< Back" link.
  * @param content step body placed between the title and the actions.
  * @param actions bottom-anchored buttons and any copy that must sit with them.
@@ -63,6 +75,8 @@ internal val IllustrationBadgeSize = 132.dp
 @Composable
 internal fun CreateMasterKeyScaffold(
     title: String,
+    @DrawableRes heroIcon: Int,
+    heroIconDescription: String,
     onBack: () -> Unit,
     content: @Composable () -> Unit = {},
     actions: @Composable () -> Unit,
@@ -90,7 +104,7 @@ internal fun CreateMasterKeyScaffold(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                IllustrationPlaceholder()
+                HeroIcon(resId = heroIcon, contentDescription = heroIconDescription)
 
                 Spacer(Modifier.height(16.dp))
 
@@ -166,19 +180,22 @@ private fun BackLink(onClick: () -> Unit) {
 }
 
 /**
- * Circular placeholder standing in for the wizard illustration.
+ * Hero illustration for a wizard step.
  *
- * The design calls for artwork here; until that asset is ready this renders as
- * an empty tinted circle matching its footprint so layout does not shift when
- * it lands.
+ * Drawn with [Image] rather than `Icon` and without a tint: these assets are
+ * multi-tone line art (light outlines over darker fills) and tinting would
+ * flatten them into a single-color silhouette. Their colors therefore live in
+ * the vector assets, which is safe because the app always renders its dark
+ * scheme (see `ZenTenVaultTheme`).
  */
 @Composable
-private fun IllustrationPlaceholder() {
-    Surface(
-        modifier = Modifier.size(IllustrationBadgeSize),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        content = {},
+private fun HeroIcon(@DrawableRes resId: Int, contentDescription: String) {
+    Image(
+        painter = painterResource(resId),
+        contentDescription = contentDescription,
+        // Fit keeps each asset's aspect ratio inside the shared square box.
+        contentScale = ContentScale.Fit,
+        modifier = Modifier.size(HeroIconSize),
     )
 }
 

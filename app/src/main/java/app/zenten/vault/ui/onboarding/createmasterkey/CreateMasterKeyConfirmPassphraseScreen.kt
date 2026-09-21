@@ -34,6 +34,8 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
 
     CreateMasterKeyScaffold(
         title = stringResource(R.string.create_master_key_confirm_passphrase_title),
+        heroIcon = R.drawable.hero_icon_confirm_passphrase,
+        heroIconDescription = stringResource(R.string.create_master_key_confirm_passphrase_icon_description),
         onBack = navController::popBackStack,
         content = {
             Spacer(Modifier.height(28.dp))
