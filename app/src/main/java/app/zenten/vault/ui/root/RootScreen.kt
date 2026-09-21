@@ -43,6 +43,7 @@ class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewMod
             complete -> VaultDestinations.ACCOUNTS
             createStep == CreateMasterKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO
             createStep == CreateMasterKeyStep.CONFIRM_BACKUP -> VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP
+            createStep == CreateMasterKeyStep.SECRET_COMBINATIONS -> VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS
             else -> VaultDestinations.GET_STARTED
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

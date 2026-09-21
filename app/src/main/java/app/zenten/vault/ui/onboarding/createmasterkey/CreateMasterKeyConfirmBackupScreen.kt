@@ -98,7 +98,13 @@ fun CreateMasterKeyConfirmBackupScreen(
                         return@VaultPillButton
                     }
                     error = when (viewModel.confirmPastedMasterKey(pastedKey)) {
-                        BackupConfirmationResult.MATCHED -> null // Secret Combinations follows in a later change.
+                        BackupConfirmationResult.MATCHED -> {
+                            viewModel.recordSecretCombinationsShown()
+                            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS) {
+                                launchSingleTop = true
+                            }
+                            null
+                        }
                         BackupConfirmationResult.INVALID -> R.string.create_master_key_confirm_backup_invalid_error
                         BackupConfirmationResult.MISMATCHED -> R.string.create_master_key_confirm_backup_mismatch_error
                         BackupConfirmationResult.UNAVAILABLE -> R.string.create_master_key_backup_unavailable

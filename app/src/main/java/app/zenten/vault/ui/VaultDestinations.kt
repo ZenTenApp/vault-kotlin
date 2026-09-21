@@ -45,6 +45,9 @@ object VaultDestinations {
     /** Fifth screen: paste the exported MasterKey to confirm the backup is usable. */
     const val CREATE_MASTER_KEY_CONFIRM_BACKUP = "get-started/create-master-key/confirm-backup"
 
+    /** Sixth screen: back up the Brave mnemonic as grouped BIP-39 word positions. */
+    const val CREATE_MASTER_KEY_SECRET_COMBINATIONS = "get-started/create-master-key/secret-combinations"
+
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
 

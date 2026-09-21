@@ -1,5 +1,6 @@
 package app.zenten.vault.crypto
 
+import com.vitorpamplona.quartz.nip06KeyDerivation.Bip39Mnemonics
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -38,6 +39,10 @@ class SshKeyCodecTest {
         ).seed
 
         val code = Seedify.toBraveSyncCode(seed, Instant.parse("2026-01-01T00:00:00Z"))
+        assertEquals(
+            code.split(" ").take(24),
+            Seedify.toBraveSyncWordIndices(seed).map { Bip39Mnemonics.englishWordlist[it - 1] },
+        )
 
         assertEquals(
             "jacket mutual dry guard cat ribbon wasp police plug absurd add police face rack alcohol palm absorb long pumpkin dizzy odor job crush dial pledge",

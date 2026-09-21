@@ -19,6 +19,7 @@ import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyConfirmBack
 import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyConfirmPassphraseScreen
 import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyIntroScreen
 import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyPassphraseScreen
+import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeySecretCombinationsScreen
 import app.zenten.vault.ui.root.RootScreen
 import app.zenten.vault.ui.settings.SettingsScreen
 import androidx.compose.runtime.Composable
@@ -70,6 +71,10 @@ fun VaultNavGraph(
 
             composable(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP) {
                 CreateMasterKeyConfirmBackupScreen(navController)
+            }
+
+            composable(VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS) {
+                CreateMasterKeySecretCombinationsScreen()
             }
         }
 

@@ -153,6 +153,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
 enum class CreateMasterKeyStep {
     BACKUP_INTRO,
     CONFIRM_BACKUP,
+    SECRET_COMBINATIONS,
 }
 
 @Serializable
