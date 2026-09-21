@@ -15,7 +15,6 @@ fun VaultCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         content = content,
     )
 }

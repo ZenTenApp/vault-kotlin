@@ -3,6 +3,8 @@
     <style name="Theme.ZenTenVault" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:windowBackground">#121212</item>
+        <!-- Matches backgroundDark in ui/theme/Color.kt so the launch window does
+             not flash a different shade before Compose draws. -->
+        <item name="android:windowBackground">#131313</item>
     </style>
 </resources>
