@@ -6,7 +6,7 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 
 ## Current behavior
 
-1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Setup MasterKey Account**. Importing an existing key is the only entry path with a completed setup transaction. **Create MasterKey** now opens the first four screens of the in-app generation wizard (an unrecoverable-loss warning and consent gate, a **MasterKey Passphrase** step, a **Confirm Passphrase** re-entry step that verifies the two entries and generates the MasterKey, and a **Creating Backup** explanation step); the wizard does not persist anything yet, and the federated sign-in actions on the Get started screen remain design placeholders that report "coming soon".
+1. The user opens **Get started** and selects **Login with MasterKey**, which proceeds to **Setup MasterKey Account**. **Create MasterKey** opens the first four screens of the in-app generation wizard (an unrecoverable-loss warning and consent gate, a **MasterKey Passphrase** step, a **Confirm Passphrase** re-entry step, and a **Create Backup** explanation step). The federated sign-in actions remain design placeholders that report "coming soon".
 2. On **Setup MasterKey Account**, the user copies a passphrase-protected OpenSSH private key and selects **Paste MasterKey**. The app reads the first clipboard item without displaying it, clears the clipboard immediately, and validates that it is a supported encrypted OpenSSH-v1 Ed25519 container before proceeding to the passphrase step. PEM, raw Base64, and the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper are accepted; malformed, unencrypted, non-Ed25519, and unsupported containers are rejected on the paste step.
 3. The app validates the material locally and derives the vault identity.
 4. The app stores the master account securely and attempts all enabled sources sequentially.
@@ -15,10 +15,12 @@ A new user sets up ZenTen Vault with the private key and passphrase for an exist
 
 If remote quorum is unavailable, setup remains incomplete but the validated master stays in secure local storage. The user can retry backup without pasting or deriving the master again.
 
+For an in-app generated MasterKey, successful passphrase verification is the irreversible commit point. Vault derives the account record, writes it to keystore-backed encrypted storage, records the next wizard step, and checks/writes the master on every enabled backup source before showing **Create Backup**. Individual source failures are retained for later repair and do not return the user to key generation. Closing or leaving the app resumes **Create Backup**; back navigation is disabled after commitment so another identity cannot be generated accidentally. Setup is still incomplete because the remaining recovery-material steps have not been implemented.
+
 ## Failure and security expectations
 
 - Invalid input and wrong-passphrase errors must not echo private-key or passphrase content. The Create MasterKey wizard reports a passphrase mismatch and a key-generation failure with fixed messages that contain no key or passphrase material.
-- In the Create MasterKey wizard, the chosen passphrase and the generated MasterKey are held only in the memory of a ViewModel scoped to the wizard's navigation graph. They are never placed in a navigation argument (which the system may save and restore) and never written to storage, and they are released when the wizard leaves the back stack. Returning to the passphrase step and choosing a different passphrase discards any key generated for the previous one, so a key encrypted with an abandoned passphrase cannot survive.
+- In the Create MasterKey wizard, the chosen passphrase remains only in the graph-scoped ViewModel until verification. The generated account (including the encrypted SSH key and passphrase needed by current backup adapters) is then written to keystore-backed encrypted storage before remote backup starts. Only a non-secret wizard-step marker is stored in DataStore. Neither secret is placed in navigation arguments.
 - The private key is never rendered during import. It remains in memory only while the passphrase step is active and is discarded if the user returns to the paste step.
 - Clipboard clearing is best-effort: Vault clears Android's current clipboard entry before proceeding, but the operating system, a keyboard, or another clipboard-history provider may retain an earlier copy outside Vault's control. If Vault cannot read or clear the clipboard, it does not proceed.
 - The setup screen is protected from screenshots on supported Android devices.
@@ -29,7 +31,7 @@ If remote quorum is unavailable, setup remains incomplete but the validated mast
 ## Current limitations
 
 - The current UI supports clipboard paste only. Manual text entry, file import, and QR intake are not available.
-- In-app master-key generation (**Create MasterKey**) is only implemented through its first four screens (the "Getting Started" consent gate, **MasterKey Passphrase**, **Confirm Passphrase**, and the **Creating Backup** explanation). **Verify** matches the two passphrase entries and generates an encrypted Ed25519 OpenSSH MasterKey in memory, but **Confirm** on the **Creating Backup** step performs no action: backup creation, recovery-material display, secure storage of the generated MasterKey, and the remote setup transaction are not implemented for this path yet. The user must therefore still already hold an Ed25519 OpenSSH key to complete setup.
+- In-app master-key generation (**Create MasterKey**) is implemented through its first four screens. **Verify** matches the passphrases, generates an encrypted Ed25519 OpenSSH MasterKey, stores it locally, and attempts backup on all enabled sources. **Confirm** on **Create Backup** still performs no action because recovery-material display and the remaining setup steps are not implemented; generated-key setup therefore cannot yet reach completion.
 - Federated sign-in (Google, Apple, Microsoft) is not implemented. Its meaning for a key-rooted vault is an open product decision, since the root of trust is a keypair rather than a provider account.
 - Production review is still required for supported key formats, error language, storage, backup destinations, and end-to-end setup recovery.
 

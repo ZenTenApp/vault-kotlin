@@ -70,7 +70,7 @@ internal val HeroIconSize = 132.dp
  * @param heroIconDescription accessibility label for [heroIcon]; the artwork
  *   carries meaning (what the step is about), so it is not treated as purely
  *   decorative.
- * @param onBack invoked by the "< Back" link.
+ * @param onBack invoked by the "< Back" link, or `null` when the committed flow cannot go back.
  * @param content step body placed between the title and the actions.
  * @param actions bottom-anchored buttons and any copy that must sit with them.
  */
@@ -79,7 +79,7 @@ internal fun CreateMasterKeyScaffold(
     title: String,
     @DrawableRes heroIcon: Int,
     heroIconDescription: String,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     content: @Composable () -> Unit = {},
     actions: @Composable () -> Unit,
 ) {
@@ -97,7 +97,13 @@ internal fun CreateMasterKeyScaffold(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            BackLink(onClick = onBack)
+            if (onBack != null) {
+                BackLink(onClick = onBack)
+            } else {
+                // Preserve the normal top-row footprint after the irreversible commit so
+                // the hero and title do not jump upward when the Back action disappears.
+                Spacer(Modifier.height(BackLinkRowHeight))
+            }
 
             // fillMaxWidth is required for the centering to take effect: without
             // it this Column wraps to its widest child and the parent Column
@@ -191,10 +197,17 @@ internal fun CreateMasterKeyWarningRow(centered: Boolean = false) {
     }
 }
 
+/** Height reserved by the usual Back-link row, including its top margin. */
+private val BackLinkRowHeight = 56.dp
+
 /** Top-left "< Back" navigation link, styled after the approved design's link color. */
 @Composable
 private fun BackLink(onClick: () -> Unit) {
-    Row(modifier = Modifier.padding(top = 8.dp)) {
+    Row(
+        modifier = Modifier
+            .height(BackLinkRowHeight)
+            .padding(top = 8.dp),
+    ) {
         TextButton(onClick = onClick) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,

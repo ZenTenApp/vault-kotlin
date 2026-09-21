@@ -1,5 +1,6 @@
 package app.zenten.vault.ui.onboarding.createmasterkey
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -14,22 +15,26 @@ import app.zenten.vault.ui.components.VaultPillButton
  * Step 4 of the in-app **Create MasterKey** flow: explain the first Vault
  * Backup before it is produced.
  *
- * At this point the MasterKey has been generated in memory (the passphrase
- * entries matched on step 3). This screen only sets expectations — the user has
+ * At this point the MasterKey has been saved in encrypted local storage and a
+ * backup has been attempted on every enabled source. This screen sets expectations — the user has
  * to store the backup themselves, somewhere they control — and repeats the
  * unrecoverable-loss warning shared with the wizard's intro step.
  *
- * **Confirm** is intentionally inert for now: producing, displaying, and
- * persisting the backup is specified as a follow-up step, so nothing
- * half-created can be written yet.
+ * **Confirm** is intentionally inert for now because the next user-facing
+ * recovery-material step has not been implemented. The durable progress marker
+ * returns the user here after app or process restart.
  */
 @Composable
 fun CreateMasterKeyBackupIntroScreen(navController: NavHostController) {
+    // Generation is irreversible; both system and toolbar back navigation are disabled.
+    BackHandler(enabled = true) {}
+
     CreateMasterKeyScaffold(
         title = stringResource(R.string.create_master_key_backup_intro_title),
         heroIcon = R.drawable.hero_icon_create_backup,
         heroIconDescription = stringResource(R.string.create_master_key_backup_intro_icon_description),
-        onBack = navController::popBackStack,
+        // The key is already committed; returning to generation could create a second identity.
+        onBack = null,
         content = {
             Spacer(Modifier.height(12.dp))
 
@@ -45,8 +50,7 @@ fun CreateMasterKeyBackupIntroScreen(navController: NavHostController) {
             VaultPillButton(
                 label = stringResource(R.string.create_master_key_backup_intro_confirm),
                 onClick = {
-                    // Intentionally does nothing yet: backup generation and
-                    // storage are defined in a follow-up step.
+                    // Intentionally does nothing until the next setup step is implemented.
                 },
             )
         },
