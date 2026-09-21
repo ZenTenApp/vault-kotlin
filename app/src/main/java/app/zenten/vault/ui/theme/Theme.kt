@@ -15,34 +15,35 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 /*
- * ZenTen Vault — Material 3 color theme.
+ * ZenTen Vault — Material 3 color theme
  *
- * The color values in `Color.kt` are a generated Material Theme Builder export
- * (material-color-utilities, seed #D9D9D9 Monochrome, error palette #F36262,
- * success #62F3B6 as an extended color). Keep `Color.kt` untouched so design can
- * regenerate it; app-specific decisions live in this file instead.
+ * Generated with material-color-utilities (same engine as Material Theme Builder).
+ * Seed #D9D9D9, Monochrome variant. Error palette from #F36262.
+ * Success #62F3B6 exposed as an extended color (Material has no success role).
  *
- * App-specific decisions applied here:
- *  - The app is fixed to its dark scheme and never follows the system night-mode
- *    setting, so there is no light flash at launch and no runtime theme switch.
- *  - Android 12+ dynamic (wallpaper) color is not wired up at all, because vault
- *    branding must stay stable across devices.
- *  - `primary` and `error` use the exact approved brand values in dark mode
- *    instead of Material's tone-mapped values (see BRAND OVERRIDES below).
- *  - Colors Material has no role for (success, link, emphasis text) are provided
- *    through `LocalExtendedColors`.
+ * BRAND OVERRIDES (applied): the standard dark scheme uses ZenTen brand values
+ * for background, surfaces, text, primary, error and success. Those overrides
+ * live in `Color.kt` and are marked "ZenTen brand" there, so this file only maps
+ * palette values onto roles. Medium/high contrast schemes keep Material's values
+ * for accessibility.
+ *
+ * Note: Compose `Card` defaults to surfaceContainerHighest, which is #232323 —
+ * the approved card surface — so `ui/components/VaultCard.kt` needs no override.
+ * `surface` equals `background` (#121212) in this palette, so anything that must
+ * read as a raised plate (for example the brand badge) uses a surfaceContainer
+ * role rather than `surface`.
+ *
+ * App-specific deviations from a stock Theme Builder export:
+ *  - Fixed dark theme: `darkTheme` defaults to `true` instead of
+ *    `isSystemInDarkTheme()`, so there is no light flash at launch and no
+ *    runtime theme change when the device setting changes.
+ *  - No dynamic color: Android 12+ wallpaper colors are not wired up at all, so
+ *    vault branding stays identical on every device.
+ *  - `contrast` selects the medium/high contrast schemes, which the stock export
+ *    defines but leaves unused.
+ *  - System bar icon appearance is kept in sync with the active scheme.
+ *  - `link` is exposed alongside `success` as an extended color.
  */
-
-// -----------------------------------------------------------------------------
-// BRAND OVERRIDES
-//
-// Material assigns colors by lightness ("tone"), which in dark mode lifts the
-// brand primary #D9D9D9 to #FFFFFF and the brand error #F36262 to #FFB3B0. The
-// approved palette (docs/stakeholder/screens-and-states.md) specifies the exact
-// brand values, so the dark scheme below pins them back.
-// -----------------------------------------------------------------------------
-private val brandPrimary = Color(0xFFD9D9D9)
-private val brandError = Color(0xFFF36262)
 
 /** One Material-style color role group: base color, its content color, and its container pair. */
 @Immutable
@@ -56,21 +57,18 @@ data class ColorFamily(
 /**
  * Colors that Material 3 has no built-in role for.
  *
- * - [success]: positive/verified state (for example a confirmed backup).
+ * - [success]: positive/verified state, for example a confirmed backup.
  * - [link]: iOS-style system blue used only for the in-content "Back" navigation
- *   link in the master-key flow; intentionally not `colorScheme.primary`, which
- *   is reserved for primary actions.
- * - [textStrong]: highest-emphasis text (screen titles, account IDs) that must
- *   read brighter than `onSurface`.
+ *   link in the master-key flow. Intentionally not `colorScheme.primary`, which
+ *   is reserved for primary actions, and not part of the generated palette.
  */
 @Immutable
 data class ExtendedColorScheme(
     val success: ColorFamily,
     val link: Color,
-    val textStrong: Color,
 )
 
-/** Contrast levels exported by Material Theme Builder, selectable for future accessibility settings. */
+/** Contrast levels exported by Material Theme Builder, selectable for a future accessibility setting. */
 enum class VaultContrast {
     Standard,
     Medium,
@@ -192,9 +190,7 @@ private val lightSchemeHighContrast = lightColorScheme(
 )
 
 private val darkScheme = darkColorScheme(
-    // Brand override: the generated `primaryDark` is #FFFFFF; the approved brand
-    // primary is #D9D9D9.
-    primary = brandPrimary,
+    primary = primaryDark,
     onPrimary = onPrimaryDark,
     primaryContainer = primaryContainerDark,
     onPrimaryContainer = onPrimaryContainerDark,
@@ -206,9 +202,7 @@ private val darkScheme = darkColorScheme(
     onTertiary = onTertiaryDark,
     tertiaryContainer = tertiaryContainerDark,
     onTertiaryContainer = onTertiaryContainerDark,
-    // Brand override: the generated `errorDark` is #FFB3B0; the approved brand
-    // error is #F36262.
-    error = brandError,
+    error = errorDark,
     onError = onErrorDark,
     errorContainer = errorContainerDark,
     onErrorContainer = onErrorContainerDark,
@@ -309,15 +303,15 @@ private val darkSchemeHighContrast = darkColorScheme(
     surfaceContainerHighest = surfaceContainerHighestDarkHighContrast,
 )
 
-// App-specific colors that are not part of the generated tonal palettes.
+/**
+ * iOS-style system blue for the master-key flow's "Back" link. Not part of the
+ * generated palette, and identical across every scheme and contrast level.
+ */
 private val vaultLink = Color(0xFF007AFF)
-private val vaultTextStrong = Color(0xFFFFFFFF)
 
 val extendedLight = ExtendedColorScheme(
     success = ColorFamily(successLight, onSuccessLight, successContainerLight, onSuccessContainerLight),
     link = vaultLink,
-    // On light surfaces the highest-emphasis text must be dark, not white.
-    textStrong = onSurfaceLight,
 )
 
 val extendedLightMediumContrast = ExtendedColorScheme(
@@ -328,7 +322,6 @@ val extendedLightMediumContrast = ExtendedColorScheme(
         onSuccessContainerLightMediumContrast,
     ),
     link = vaultLink,
-    textStrong = onSurfaceLightMediumContrast,
 )
 
 val extendedLightHighContrast = ExtendedColorScheme(
@@ -339,13 +332,11 @@ val extendedLightHighContrast = ExtendedColorScheme(
         onSuccessContainerLightHighContrast,
     ),
     link = vaultLink,
-    textStrong = onSurfaceLightHighContrast,
 )
 
 val extendedDark = ExtendedColorScheme(
     success = ColorFamily(successDark, onSuccessDark, successContainerDark, onSuccessContainerDark),
     link = vaultLink,
-    textStrong = vaultTextStrong,
 )
 
 val extendedDarkMediumContrast = ExtendedColorScheme(
@@ -356,7 +347,6 @@ val extendedDarkMediumContrast = ExtendedColorScheme(
         onSuccessContainerDarkMediumContrast,
     ),
     link = vaultLink,
-    textStrong = vaultTextStrong,
 )
 
 val extendedDarkHighContrast = ExtendedColorScheme(
@@ -367,21 +357,22 @@ val extendedDarkHighContrast = ExtendedColorScheme(
         onSuccessContainerDarkHighContrast,
     ),
     link = vaultLink,
-    textStrong = vaultTextStrong,
 )
 
 /**
  * Extended colors for the surrounding theme. Defaults to the dark set because the
  * app never renders its light scheme today.
  *
- * Usage: `LocalExtendedColors.current.success.color`
+ * Usage: `LocalExtendedColors.current.success.color`, `LocalExtendedColors.current.link`
  */
 val LocalExtendedColors = staticCompositionLocalOf { extendedDark }
 
 /**
  * App theme. Dark and standard contrast by default; the parameters exist so a
- * future accessibility setting can select a contrast level without touching
- * call sites, and so previews can render the light schemes.
+ * future accessibility setting can select a contrast level without touching call
+ * sites, and so previews can render the other schemes.
+ *
+ * Usage: `ZenTenVaultTheme { ... }`
  */
 @Composable
 fun ZenTenVaultTheme(

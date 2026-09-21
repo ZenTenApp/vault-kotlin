@@ -2,6 +2,9 @@ package app.zenten.vault.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// Values marked "ZenTen brand" are manual overrides of Material's generated
+// values in the standard dark scheme. All other values are Material-generated.
+
 val primaryLight = Color(0xFF000000)
 val onPrimaryLight = Color(0xFFE2E2E2)
 val primaryContainerLight = Color(0xFF3B3B3B)
@@ -122,8 +125,8 @@ val onSuccessLightHighContrast = Color(0xFFFFFFFF)
 val successContainerLightHighContrast = Color(0xFF005439)
 val onSuccessContainerLightHighContrast = Color(0xFFFFFFFF)
 
-val primaryDark = Color(0xFFFFFFFF)
-val onPrimaryDark = Color(0xFF1B1B1B)
+val primaryDark = Color(0xFFD9D9D9) // ZenTen brand
+val onPrimaryDark = Color(0xFF121212) // ZenTen brand
 val primaryContainerDark = Color(0xFFD4D4D4)
 val onPrimaryContainerDark = Color(0xFF000000)
 val secondaryDark = Color(0xFFC6C6C6)
@@ -134,30 +137,30 @@ val tertiaryDark = Color(0xFFE2E2E2)
 val onTertiaryDark = Color(0xFF1B1B1B)
 val tertiaryContainerDark = Color(0xFF919191)
 val onTertiaryContainerDark = Color(0xFF000000)
-val errorDark = Color(0xFFFFB3B0)
+val errorDark = Color(0xFFF36262) // ZenTen brand
 val onErrorDark = Color(0xFF68000F)
 val errorContainerDark = Color(0xFF8C151F)
 val onErrorContainerDark = Color(0xFFFFDAD8)
-val backgroundDark = Color(0xFF131313)
-val onBackgroundDark = Color(0xFFE2E2E2)
-val surfaceDark = Color(0xFF131313)
-val onSurfaceDark = Color(0xFFE2E2E2)
-val surfaceVariantDark = Color(0xFF474747)
-val onSurfaceVariantDark = Color(0xFFC6C6C6)
+val backgroundDark = Color(0xFF121212) // ZenTen brand
+val onBackgroundDark = Color(0xFFE5E5E5) // ZenTen brand
+val surfaceDark = Color(0xFF121212) // ZenTen brand
+val onSurfaceDark = Color(0xFFFFFFFF) // ZenTen brand
+val surfaceVariantDark = Color(0xFF3A3A3A) // ZenTen brand
+val onSurfaceVariantDark = Color(0xFFB6B6B6) // ZenTen brand
 val outlineDark = Color(0xFF919191)
-val outlineVariantDark = Color(0xFF474747)
+val outlineVariantDark = Color(0xFF3A3A3A) // ZenTen brand
 val scrimDark = Color(0xFF000000)
 val inverseSurfaceDark = Color(0xFFE2E2E2)
 val inverseOnSurfaceDark = Color(0xFF303030)
 val inversePrimaryDark = Color(0xFF5E5E5E)
 val surfaceDimDark = Color(0xFF131313)
-val surfaceBrightDark = Color(0xFF393939)
-val surfaceContainerLowestDark = Color(0xFF0E0E0E)
-val surfaceContainerLowDark = Color(0xFF1B1B1B)
-val surfaceContainerDark = Color(0xFF1F1F1F)
-val surfaceContainerHighDark = Color(0xFF2A2A2A)
-val surfaceContainerHighestDark = Color(0xFF353535)
-val successDark = Color(0xFF4ADFA3)
+val surfaceBrightDark = Color(0xFF3A3A3A) // ZenTen brand
+val surfaceContainerLowestDark = Color(0xFF121212) // ZenTen brand
+val surfaceContainerLowDark = Color(0xFF232323) // ZenTen brand
+val surfaceContainerDark = Color(0xFF232323) // ZenTen brand
+val surfaceContainerHighDark = Color(0xFF232323) // ZenTen brand
+val surfaceContainerHighestDark = Color(0xFF232323) // ZenTen brand
+val successDark = Color(0xFF62F3B6) // ZenTen brand
 val onSuccessDark = Color(0xFF003825)
 val successContainerDark = Color(0xFF005237)
 val onSuccessContainerDark = Color(0xFF6CFCBE)

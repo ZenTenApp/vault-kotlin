@@ -189,7 +189,9 @@ private fun BrandBadge() {
     Surface(
         modifier = Modifier.size(BrandBadgeSize),
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
+        // surfaceContainer, not surface: in this palette surface equals background,
+        // so the plate would be invisible against the screen behind it.
+        color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
