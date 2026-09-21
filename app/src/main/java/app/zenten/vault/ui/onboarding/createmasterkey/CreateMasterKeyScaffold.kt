@@ -32,7 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.zenten.vault.R
-import app.zenten.vault.ui.theme.VaultColors
+import app.zenten.vault.ui.theme.LocalExtendedColors
 
 /** Diameter of the circular illustration placeholder above the title. */
 internal val IllustrationBadgeSize = 132.dp
@@ -152,13 +152,13 @@ private fun BackLink(onClick: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = null,
-                tint = VaultColors.Link,
+                tint = LocalExtendedColors.current.link,
                 modifier = Modifier.size(20.dp),
             )
             Spacer(Modifier.width(4.dp))
             Text(
                 text = stringResource(R.string.create_master_key_back),
-                color = VaultColors.Link,
+                color = LocalExtendedColors.current.link,
                 style = MaterialTheme.typography.titleMedium,
             )
         }

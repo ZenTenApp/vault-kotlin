@@ -41,7 +41,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.ui.components.VaultCard
-import app.zenten.vault.ui.theme.VaultColors
+import app.zenten.vault.ui.theme.LocalExtendedColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -174,7 +174,7 @@ fun SourceStatusRow(source: BackupSourceRow) {
 private fun backupStatusStyle(state: AccountSourceBackupState): Pair<ImageVector, Color> = when (state) {
     AccountSourceBackupState.PRESENT,
     AccountSourceBackupState.WRITE_CONFIRMED,
-    -> Icons.Outlined.CheckCircle to VaultColors.Success
+    -> Icons.Outlined.CheckCircle to LocalExtendedColors.current.success.color
     AccountSourceBackupState.BACKUP_FAILED -> Icons.Outlined.ErrorOutline to MaterialTheme.colorScheme.error
     AccountSourceBackupState.MISSING -> Icons.Outlined.CloudOff to MaterialTheme.colorScheme.onSurfaceVariant
     AccountSourceBackupState.CHECKING,

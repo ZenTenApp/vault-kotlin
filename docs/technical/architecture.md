@@ -4,7 +4,9 @@
 
 The Compose theme and the Android launch-window theme are fixed to the app's dark palette. They deliberately do not read the system night-mode preference, preventing a light launch flash or a runtime theme change when the device setting changes.
 
-`ui/theme/Theme.kt` exposes the approved base palette through `VaultColors`; the Material color scheme maps those values to component roles. Standard content cards use `ui/components/VaultCard.kt`, which applies the approved surface color consistently while callers provide their layout, padding, and interaction behavior.
+`ui/theme/Color.kt` is the design team's Material Theme Builder export (generated with `material-color-utilities` from seed `#D9D9D9` Monochrome, error palette `#F36262`, success `#62F3B6`). It holds every color value for the six generated schemes: light and dark, each in standard, medium, and high contrast. It is kept as a drop-in generated file so design can regenerate it without merge work.
+
+`ui/theme/Theme.kt` owns all app-specific theme decisions: it assembles the generated values into Material color schemes, pins the brand `primary` (`#D9D9D9`) and `error` (`#F36262`) in the dark scheme instead of Material's tone-mapped `#FFFFFF` and `#FFB3B0`, and exposes roles Material has none for through `LocalExtendedColors` (`success`, the master-key flow's iOS-style `link` blue, and `textStrong` for highest-emphasis text). `ZenTenVaultTheme` takes `darkTheme` and `contrast` parameters that default to dark and standard contrast; the light and non-standard-contrast schemes are wired but unused, ready for a future accessibility setting. Android 12+ dynamic (wallpaper) color is deliberately not wired up, so vault branding stays identical on every device. Standard content cards use `ui/components/VaultCard.kt`, which applies the approved surface color consistently while callers provide their layout, padding, and interaction behavior.
 
 ```text
 app.zenten.vault

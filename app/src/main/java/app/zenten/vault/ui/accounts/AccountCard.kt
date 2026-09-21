@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.domain.hexToBytes
 import app.zenten.vault.ui.components.VaultCard
-import app.zenten.vault.ui.theme.VaultColors
+import app.zenten.vault.ui.theme.LocalExtendedColors
 import com.vitorpamplona.quartz.nip19Bech32.toNpub
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -66,7 +66,7 @@ fun AccountCard(
                 accountIdChunks(account.createdAt).forEach { chunk ->
                     Text(
                         text = chunk,
-                        color = VaultColors.TextStrong,
+                        color = LocalExtendedColors.current.textStrong,
                         fontSize = 32.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,

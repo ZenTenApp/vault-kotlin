@@ -50,7 +50,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.ui.VaultDestinations
-import app.zenten.vault.ui.theme.VaultColors
+import app.zenten.vault.ui.theme.LocalExtendedColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -75,7 +75,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
                 title = {
                     Text(
                         text = "Accounts",
-                        color = VaultColors.TextStrong,
+                        color = LocalExtendedColors.current.textStrong,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         fontSize = 30.sp,
