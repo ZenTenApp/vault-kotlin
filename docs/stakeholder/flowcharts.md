@@ -19,7 +19,15 @@ flowchart TD
     CreatePassphrase -->|"Back"| CreateIntro
     CreatePassphrase -->|"Confirm (passphrase entered)"| CreateConfirm["Confirm Passphrase: re-enter passphrase"]
     CreateConfirm -->|"Back"| CreatePassphrase
-    CreateConfirm -->|"Verify"| CreateNotImplemented["No action yet: matching and key generation not implemented"]
+    CreateConfirm -->|"Verify"| CreateMatch{"Re-entry matches the chosen passphrase?"}
+    CreateMatch -->|No| CreateMismatch["Inline error; nothing created"]
+    CreateMismatch --> CreateConfirm
+    CreateMatch -->|Yes| CreateGenerate["Generate Ed25519 MasterKey encrypted with the passphrase"]
+    CreateGenerate -->|Failure| CreateGenerateFailed["Generic retry message; nothing created"]
+    CreateGenerateFailed --> CreateConfirm
+    CreateGenerate -->|Success| CreateBackupIntro["Creating Backup: explain the first Vault Backup"]
+    CreateBackupIntro -->|"Back"| CreateConfirm
+    CreateBackupIntro -->|"Confirm"| CreateNotImplemented["No action yet: backup creation and storage not implemented"]
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}

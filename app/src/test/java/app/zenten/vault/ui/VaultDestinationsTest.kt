@@ -25,6 +25,26 @@ class VaultDestinationsTest {
     }
 
     @Test
+    fun createMasterKeyBackupIntro_hasStableRoute() {
+        assertEquals("get-started/create-master-key/backup-intro", VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO)
+    }
+
+    @Test
+    fun createMasterKeyGraph_isThePrefixOfItsSteps() {
+        // The nested graph route must stay a prefix of every step route so the
+        // wizard's shared, graph-scoped ViewModel resolves for all of them.
+        assertEquals("get-started/create-master-key", VaultDestinations.CREATE_MASTER_KEY_GRAPH)
+        listOf(
+            VaultDestinations.CREATE_MASTER_KEY_INTRO,
+            VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE,
+            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE,
+            VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO,
+        ).forEach { route ->
+            assertEquals(true, route.startsWith(VaultDestinations.CREATE_MASTER_KEY_GRAPH + "/"), route)
+        }
+    }
+
+    @Test
     fun accountDetail_buildsRouteFromId() {
         assertEquals("accounts/1234567890", VaultDestinations.accountDetail(1234567890L))
     }

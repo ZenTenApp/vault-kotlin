@@ -16,6 +16,15 @@ object VaultDestinations {
     const val GET_STARTED_SSH = "get-started/ssh"
 
     /**
+     * Nested navigation graph that holds every MasterKey generation screen.
+     *
+     * Exists so the wizard's screens can share one ViewModel scoped to the
+     * graph: the chosen passphrase must survive navigation between steps, but
+     * must be discarded as soon as the whole wizard leaves the back stack.
+     */
+    const val CREATE_MASTER_KEY_GRAPH = "get-started/create-master-key"
+
+    /**
      * First screen of the in-app MasterKey generation flow.
      *
      * This is a multi-screen wizard; more routes will be added under the
@@ -29,6 +38,9 @@ object VaultDestinations {
 
     /** Third screen: re-enter the chosen passphrase to catch typos. */
     const val CREATE_MASTER_KEY_CONFIRM_PASSPHRASE = "get-started/create-master-key/confirm-passphrase"
+
+    /** Fourth screen: explain what the first Vault Backup is before creating it. */
+    const val CREATE_MASTER_KEY_BACKUP_INTRO = "get-started/create-master-key/backup-intro"
 
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
