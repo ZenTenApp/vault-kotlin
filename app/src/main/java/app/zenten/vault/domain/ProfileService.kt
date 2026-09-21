@@ -47,21 +47,36 @@ class ProfileService(
         }
     }
 
+    /** Publishes the account's public profile and its NIP-17 DM delivery relay list. */
     suspend fun publishAssociatedAccountProfile(account: Account) {
         val privateKey = account.nostr.privateKey()
         val publicKey = account.nostr.publicKey()
-        val event = NostrEventCodec.sign(
-            privateKey = privateKey,
-            publicKey = publicKey,
-            kind = PROFILE_KIND,
-            tags = profileTags(account),
-            content = profileContent(account),
-            createdAtSeconds = clock.instant().epochSecond,
+        val createdAtSeconds = clock.instant().epochSecond
+        val events = listOf(
+            NostrEventCodec.sign(
+                privateKey = privateKey,
+                publicKey = publicKey,
+                kind = PROFILE_KIND,
+                tags = profileTags(account),
+                content = profileContent(account),
+                createdAtSeconds = createdAtSeconds,
+            ),
+            // Kind 10050 advertises where other NIP-17 clients should deliver this account's DMs.
+            NostrEventCodec.sign(
+                privateKey = privateKey,
+                publicKey = publicKey,
+                kind = DM_RELAY_LIST_KIND,
+                tags = DM_RELAYS.map { relayUrl -> listOf("relay", relayUrl) },
+                content = "",
+                createdAtSeconds = createdAtSeconds,
+            ),
         )
-        val failures = PROFILE_RELAYS.map { relayUrl ->
-            relayUrl to relayGateway.publishAuthenticatedToRelay(relayUrl, event, privateKey)
+        val failures = events.flatMap { event ->
+            PROFILE_RELAYS.map { relayUrl ->
+                relayUrl to relayGateway.publishAuthenticatedToRelay(relayUrl, event, privateKey)
+            }
         }.filter { (_, result) -> result.isFailure }
-        check(failures.isEmpty()) { "Profile publication failed for ${failures.joinToString { it.first }}" }
+        check(failures.isEmpty()) { "Account metadata publication failed for ${failures.joinToString { it.first }}" }
     }
 
     internal fun profileContent(account: Account): String = buildJsonObject {
@@ -102,6 +117,7 @@ class ProfileService(
 
     companion object {
         const val PROFILE_KIND = 0
+        const val DM_RELAY_LIST_KIND = 10050
         // Kind 0 profile relays used for both publication and lookup. Publication requires an
         // acknowledgement from every relay in this list; fetching queries each relay independently.
         val PROFILE_RELAYS = listOf(
@@ -109,6 +125,16 @@ class ProfileService(
             "wss://purplepag.es",
             "wss://directory.yabu.me",
             "wss://profiles.nostr1.com",
+            "wss://relay.primal.net",
+            "wss://relay.snort.social",
+            "wss://nos.lol",
+        )
+
+        /** NIP-17 delivery endpoints advertised in each kind 10050 event. */
+        val DM_RELAYS = listOf(
+            "wss://dm1.zentext.me",
+            "wss://dm2.nostr.box",
+            "wss://dm3.npub.cx",
         )
     }
 }

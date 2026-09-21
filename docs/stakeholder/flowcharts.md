@@ -79,9 +79,9 @@ flowchart TD
     Choose --> Confirm{"User confirms the encrypted key was saved?"}
     Confirm -->|No| Export
     Confirm -->|Yes| Clear["Clear pending export"]
-    Clear --> QueueProfile["Queue durable kind 0 profile with account name as display_name"]
+    Clear --> QueueProfile["Queue durable kind 0 profile and kind 10050 DM relay list"]
     QueueProfile --> Accounts["Open Accounts without waiting"]
-    QueueProfile --> ProfileWorker["Background publish to all profile relays with retry"]
+    QueueProfile --> ProfileWorker["Background publish both events to all profile relays with retry"]
 ```
 
 Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. Back navigation is blocked on the export screen until the user confirms the export. Confirmation removes the completed export screen from navigation history, so Back from **My Accounts** cannot reopen it. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **My Accounts**.
