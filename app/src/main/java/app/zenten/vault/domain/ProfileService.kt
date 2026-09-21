@@ -102,7 +102,14 @@ class ProfileService(
 
     companion object {
         const val PROFILE_KIND = 0
-        val PROFILE_RELAYS = listOf("wss://user.kindpag.es", "wss://purplepag.es")
+        // Kind 0 profile relays used for both publication and lookup. Publication requires an
+        // acknowledgement from every relay in this list; fetching queries each relay independently.
+        val PROFILE_RELAYS = listOf(
+            "wss://user.kindpag.es",
+            "wss://purplepag.es",
+            "wss://directory.yabu.me",
+            "wss://profiles.nostr1.com",
+        )
     }
 }
 
