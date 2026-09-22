@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -21,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -72,20 +74,23 @@ fun CreateMasterKeySecretCombinationsScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(44.dp))
+            Spacer(Modifier.height(32.dp))
             Text(
                 text = stringResource(R.string.create_master_key_secret_combinations_title),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.height(28.dp))
-            CreateMasterKeyDescription(
-                text = stringResource(R.string.create_master_key_secret_combinations_body),
-            )
             Spacer(Modifier.height(20.dp))
-            CreateMasterKeyWarningRow(centered = true)
-            Spacer(Modifier.height(12.dp))
+            SecretCombinationsWarning()
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.create_master_key_secret_combinations_instruction),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
 
             // This is the only flexible region: it places the compact picker near the
             // visual center while keeping acknowledgement and actions at the bottom.
@@ -149,6 +154,41 @@ fun CreateMasterKeySecretCombinationsScreen(
                 modifier = Modifier.padding(horizontal = 36.dp),
             )
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+/** Keeps the required action and the consequence together without repeating either below. */
+@Composable
+private fun SecretCombinationsWarning() {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer, shape)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.WarningAmber,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.create_master_key_secret_combinations_warning_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.create_master_key_secret_combinations_warning_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
         }
     }
 }
