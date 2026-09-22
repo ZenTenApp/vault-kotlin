@@ -90,7 +90,7 @@ fun GetStartedScreen(navController: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                // Scrolls on short screens so the footer never clips the buttons.
+                // Scrolls on short screens so the action buttons remain reachable.
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -174,15 +174,6 @@ fun GetStartedScreen(navController: NavHostController) {
                 onClick = { showComingSoon(microsoftLabel) },
                 icon = { ProviderIcon(R.drawable.ic_brand_microsoft, microsoftLabel) },
                 trailingLabel = comingSoonLabel,
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Text(
-                text = stringResource(R.string.get_started_copyright),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
             )
 
             Spacer(Modifier.height(16.dp))

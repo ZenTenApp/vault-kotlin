@@ -53,17 +53,17 @@ internal val HeroIconSize = 132.dp
  *
  * All wizard steps use the same skeleton: a top-left "< Back" link, a hero
  * illustration, a centered title, then step-specific content, and finally a
- * bottom-anchored action area above the copyright footer. Centralizing it here
- * keeps the steps visually identical; only the artwork and copy differ.
+ * bottom-anchored action area. Centralizing it here keeps the steps visually
+ * identical; only the artwork and copy differ.
  *
  * Supporting copy is intentionally not part of this frame: each step owns its
  * own description (or omits it) inside [content], because the steps differ in
  * how many paragraphs they need and how much space sits before their fields.
  *
- * The whole page scrolls so short screens can never clip the action button or
- * the footer. When the soft keyboard opens, the frame shrinks by the keyboard
- * height instead of sliding under it, which pulls the bottom-anchored action
- * area up above the keyboard and leaves the rest of the page scrollable.
+ * The whole page scrolls so short screens can never clip the action button.
+ * When the soft keyboard opens, the frame shrinks by the keyboard height
+ * instead of sliding under it, which pulls the bottom-anchored action area up
+ * above the keyboard and leaves the rest of the page scrollable.
  *
  * @param title large headline under the illustration.
  * @param heroIcon drawable shown above the title for this step.
@@ -131,16 +131,6 @@ internal fun CreateMasterKeyScaffold(
             Spacer(Modifier.weight(1f))
 
             actions()
-
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.get_started_copyright),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
 
             Spacer(Modifier.height(16.dp))
         }
