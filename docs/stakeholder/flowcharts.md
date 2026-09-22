@@ -21,7 +21,7 @@ flowchart TD
     CreateIntro -->|"Back"| Welcome
     CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["MasterKey Passphrase: choose passphrase"]
     CreatePassphrase -->|"Back"| CreateIntro
-    CreatePassphrase -->|"Confirm (passphrase entered)"| CreateConfirm["Confirm Passphrase: re-enter passphrase"]
+    CreatePassphrase -->|"Confirm (8+ chars; upper, lower, number, special)"| CreateConfirm["Confirm Passphrase: re-enter passphrase"]
     CreateConfirm -->|"Back"| CreatePassphrase
     CreateConfirm -->|"Verify"| CreateMatch{"Re-entry matches the chosen passphrase?"}
     CreateMatch -->|No| CreateMismatch["Inline error; nothing created"]

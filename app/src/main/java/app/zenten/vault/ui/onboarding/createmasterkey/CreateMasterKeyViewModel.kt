@@ -53,9 +53,16 @@ class CreateMasterKeyViewModel @Inject constructor(
      * Any previously generated key is discarded: if the user walked back and
      * changed the passphrase, a key encrypted with the old one must not survive.
      */
-    fun choosePassphrase(passphrase: String) {
+    fun choosePassphrase(passphrase: String): Boolean {
+        if (!MasterKeyPassphrasePolicy.isValid(passphrase)) {
+            // Do not leave an earlier valid secret available if a later choice is rejected.
+            chosenPassphrase = null
+            _state.value = CreateMasterKeyState()
+            return false
+        }
         chosenPassphrase = passphrase
         _state.value = CreateMasterKeyState()
+        return true
     }
 
     /**
