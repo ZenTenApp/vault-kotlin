@@ -149,13 +149,6 @@ fun CreateMasterKeySecretCombinationsScreen(
                 modifier = Modifier.padding(horizontal = 36.dp),
             )
             Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.get_started_copyright),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(16.dp))
         }
     }
 }
