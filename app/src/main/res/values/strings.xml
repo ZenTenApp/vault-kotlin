@@ -38,6 +38,7 @@
     <string name="create_master_key_passphrase_title">MasterKey Passphrase</string>
     <string name="create_master_key_passphrase_icon_description">Hand holding a key</string>
     <string name="create_master_key_passphrase_label">Passphrase</string>
+    <string name="create_master_key_passphrase_requirements">Use at least 8 characters, including an uppercase letter, a lowercase letter, a number, and a special character.</string>
     <string name="create_master_key_passphrase_confirm">Confirm</string>
 
     <!-- Create MasterKey flow: step 3, re-enter the passphrase -->

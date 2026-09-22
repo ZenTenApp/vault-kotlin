@@ -68,11 +68,47 @@ class CreateMasterKeyViewModelTest {
         state.first { !it.generating }
 
     @Test
+    fun rejects_passphrases_that_do_not_satisfy_every_creation_rule() {
+        val viewModel = viewModel()
+        val invalidPassphrases = listOf(
+            "Short1!",         // fewer than eight characters
+            "lowercase1!",     // no uppercase letter
+            "UPPERCASE1!",     // no lowercase letter
+            "NoNumber!",       // no numeric character
+            "NoSpecial1",       // no special character
+            "Whitespace1 ",     // whitespace is not a special character
+        )
+
+        invalidPassphrases.forEach { passphrase ->
+            assertFalse(viewModel.choosePassphrase(passphrase), passphrase)
+        }
+
+        viewModel.verifyAndGenerate("Whitespace1 ")
+        assertTrue(viewModel.state.value.passphraseMissing)
+    }
+
+    @Test
+    fun accepts_a_passphrase_that_satisfies_every_creation_rule() {
+        assertTrue(viewModel().choosePassphrase("Valid123!"))
+    }
+
+    @Test
+    fun invalid_choice_discards_a_previously_accepted_passphrase() {
+        val viewModel = viewModel()
+        assertTrue(viewModel.choosePassphrase("Valid123!"))
+
+        assertFalse(viewModel.choosePassphrase("invalid"))
+        viewModel.verifyAndGenerate("Valid123!")
+
+        assertTrue(viewModel.state.value.passphraseMissing)
+    }
+
+    @Test
     fun rejects_a_mismatched_re_entry_without_generating_a_key() = runTest(dispatcher) {
         val viewModel = viewModel()
-        viewModel.choosePassphrase("correct horse battery staple")
+        viewModel.choosePassphrase("Correct1 horse!")
 
-        viewModel.verifyAndGenerate("correct horse battery stapl")
+        viewModel.verifyAndGenerate("Correct1 horse")
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.mismatch)
@@ -84,7 +120,7 @@ class CreateMasterKeyViewModelTest {
 
     @Test
     fun generates_a_key_encrypted_with_the_confirmed_passphrase_and_signals_navigation() = runTest(dispatcher) {
-        val passphrase = "correct horse battery staple"
+        val passphrase = "Correct1 horse!"
         val viewModel = viewModel()
         viewModel.choosePassphrase(passphrase)
 
@@ -103,7 +139,7 @@ class CreateMasterKeyViewModelTest {
         val storedMaster = slot<Account>()
         val secureStorage = mockk<SecureStorageService>()
         val viewModel = viewModel(secureStorage)
-        val passphrase = "correct horse battery staple"
+        val passphrase = "Correct1 horse!"
 
         viewModel.choosePassphrase(passphrase)
         viewModel.verifyAndGenerate(passphrase)
@@ -120,7 +156,7 @@ class CreateMasterKeyViewModelTest {
 
     @Test
     fun clears_the_navigation_signal_once_the_backup_step_has_been_shown() = runTest(dispatcher) {
-        val passphrase = "correct horse battery staple"
+        val passphrase = "Correct1 horse!"
         val viewModel = viewModel()
         viewModel.choosePassphrase(passphrase)
         viewModel.verifyAndGenerate(passphrase)
@@ -135,11 +171,11 @@ class CreateMasterKeyViewModelTest {
     @Test
     fun resets_ui_state_when_a_new_passphrase_is_chosen() = runTest(dispatcher) {
         val viewModel = viewModel()
-        viewModel.choosePassphrase("first passphrase")
-        viewModel.verifyAndGenerate("first passphrase")
+        viewModel.choosePassphrase("First1 passphrase!")
+        viewModel.verifyAndGenerate("First1 passphrase!")
         viewModel.awaitVerificationResult()
 
-        viewModel.choosePassphrase("second passphrase")
+        viewModel.choosePassphrase("Second2 passphrase!")
 
         assertFalse(viewModel.state.value.keyGenerated)
     }
@@ -157,7 +193,7 @@ class CreateMasterKeyViewModelTest {
     @Test
     fun clears_the_mismatch_message_when_the_field_is_edited_again() = runTest(dispatcher) {
         val viewModel = viewModel()
-        viewModel.choosePassphrase("passphrase")
+        viewModel.choosePassphrase("Passphrase1!")
         viewModel.verifyAndGenerate("wrong")
         assertTrue(viewModel.state.value.mismatch)
 
