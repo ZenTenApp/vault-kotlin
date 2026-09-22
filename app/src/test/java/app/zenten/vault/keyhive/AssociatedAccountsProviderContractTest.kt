@@ -25,7 +25,6 @@ class AssociatedAccountsProviderContractTest {
             createdAt = 1720000000000123,
             zenTenKey = "passphrase-protected-openssh-key",
             zenTenPass = "must-not-be-shared",
-            mnemonic = "must-not-be-shared",
             nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )
 

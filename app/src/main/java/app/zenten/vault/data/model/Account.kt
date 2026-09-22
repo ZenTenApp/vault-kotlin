@@ -9,7 +9,6 @@ data class Account(
     val zenTenKey: String,
     val zenTenPass: String? = null,
     val pubkey: String? = null,
-    val mnemonic: String? = null,
     val nostr: NostrKeyPair,
     val accountName: String? = null,
 )
