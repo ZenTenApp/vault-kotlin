@@ -44,7 +44,6 @@ class SecureStorageServiceInstrumentedTest {
         zenTenKey = "private-key-$id",
         zenTenPass = passphrase,
         pubkey = "ssh-public-$id",
-        mnemonic = passphrase?.let { "mnemonic" },
         nostr = nostr,
     )
 }

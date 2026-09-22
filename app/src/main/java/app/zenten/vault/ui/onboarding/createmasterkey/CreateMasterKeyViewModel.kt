@@ -100,7 +100,6 @@ class CreateMasterKeyViewModel @Inject constructor(
                     zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
                     zenTenPass = passphrase,
                     pubkey = key.publicKey,
-                    mnemonic = mnemonic,
                     nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
                 )
             }.mapCatching { master ->

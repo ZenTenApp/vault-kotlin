@@ -41,7 +41,6 @@ class OnboardingViewModel @Inject constructor(
                     zenTenKey = key,
                     zenTenPass = passphrase,
                     pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
-                    mnemonic = mnemonic,
                     nostr = nostr.toPersistedKeyPair(),
                 )
                 _state.value = _state.value.copy(stage = "Backing up master account…")

@@ -5,7 +5,7 @@ This document describes the current implementation for two distinct flows:
 1. importing a **master** OpenSSH Ed25519 private key and deriving its 24-word recovery mnemonic; and
 2. generating a fresh OpenSSH Ed25519 key for an **associated account**.
 
-They both use Ed25519 key material, but only the master-account onboarding flow currently derives and stores a mnemonic.
+Both flows temporarily derive a mnemonic from the SSH seed to create the account's Nostr identity. The mnemonic is not persisted.
 
 ## Master account: OpenSSH key to 24-word mnemonic
 
@@ -28,7 +28,7 @@ val mnemonic = Seedify.toMnemonic(parsed.seed)
 val nostr = NostrKeyDerivation.derive(mnemonic)
 ```
 
-The resulting master account retains the normalized private key, passphrase, SSH public-key line, mnemonic, and derived Nostr keys before `SetupService` persists it and makes the required master backup.
+The mnemonic exists only as a temporary onboarding value used for Nostr derivation. The resulting master account retains the normalized private key, passphrase, SSH public-key line, and derived Nostr keys before `SetupService` persists it and makes the required master backup.
 
 ### Accepted input and OpenSSH-v1 parsing
 
@@ -102,17 +102,17 @@ It serializes the generated material into an OpenSSH-v1 container encrypted with
 
 ### Important distinction
 
-A generated associated key has the same Ed25519 `seed || public` representation, so it *could* be parsed and passed through `Seedify.toMnemonic` later. However, the current associated-account creation path does not derive or persist a mnemonic or Nostr identity for it.
+A generated associated key has the same Ed25519 `seed || public` representation, so it *could* be parsed and passed through `Seedify.toMnemonic` later. The current associated-account creation path temporarily derives a mnemonic to create its Nostr identity but does not persist the mnemonic.
 
 ```text
 Imported master key:
-  parse key -> extract seed -> derive/store mnemonic -> derive Nostr identity
+  parse key -> extract seed -> temporarily derive mnemonic -> derive/store Nostr identity
 
 Generated associated key:
-  generate seed/key pair -> serialize/store OpenSSH key -> back up key
+  generate seed/key pair -> serialize/store OpenSSH key -> temporarily derive mnemonic -> derive/store Nostr identity -> back up key
 ```
 
-The mnemonic is thus the master account's recovery identity, not a standard field of each associated account.
+A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The master flow may present separately derived Brave recovery word positions to the user, but those displayed values are also not persisted.
 
 ## Verification
 
