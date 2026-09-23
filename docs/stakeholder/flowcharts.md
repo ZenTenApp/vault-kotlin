@@ -43,7 +43,12 @@ flowchart TD
     CreateBackupMatch -->|No| CreateConfirmBackup
     CreateBackupMatch -->|Yes| CreateSecrets["Secret Combinations: 24 BIP-39 indices in eight groups of three"]
     CreateSecrets -->|"Hide / show"| CreateSecrets
-    CreateSecrets -->|"Acknowledge backup"| CreateSecretsReady["Enable Confirm; later step not implemented"]
+    CreateSecrets -->|"Acknowledge backup + Continue"| VerifySecrets["Verify Secret Combinations: sequential segment entry"]
+    VerifySecrets -->|"Wrong segment"| VerifyError["Red border; remain on current segment"]
+    VerifyError --> VerifySecrets
+    VerifySecrets -->|"Correct segment"| VerifySecrets
+    VerifySecrets -->|"Back"| CreateSecrets
+    VerifySecrets -->|"All 24 correct"| VerifyReady["Await next screen; not yet defined"]
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
@@ -58,7 +63,7 @@ flowchart TD
     Master --> Accounts
 ```
 
-The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, or at **Secret Combinations** after the pasted key matched. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export.
+The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, or at **Save your Secret Combinations** after the pasted key matched. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen and clears every verification input.
 
 ## Master-account setup
 
