@@ -48,6 +48,10 @@ object VaultDestinations {
     /** Sixth screen: back up the Brave mnemonic as grouped BIP-39 word positions. */
     const val CREATE_MASTER_KEY_SECRET_COMBINATIONS = "get-started/create-master-key/secret-combinations"
 
+    /** Seventh screen: sequentially re-enter every grouped word position. */
+    const val CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS =
+        "get-started/create-master-key/confirm-secret-combinations"
+
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
 

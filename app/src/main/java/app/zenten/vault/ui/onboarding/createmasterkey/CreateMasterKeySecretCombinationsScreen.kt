@@ -46,12 +46,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import app.zenten.vault.R
+import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
 
 /** Step 6: let the user transcribe the Brave recovery words as BIP-39 positions. */
 @Composable
 fun CreateMasterKeySecretCombinationsScreen(
+    navController: NavHostController,
     viewModel: CreateMasterKeyBackupViewModel = hiltViewModel(),
 ) {
     val indices = remember { viewModel.secretCombinationIndices() }
@@ -149,7 +152,9 @@ fun CreateMasterKeySecretCombinationsScreen(
             Spacer(Modifier.height(12.dp))
             VaultPillButton(
                 label = stringResource(R.string.create_master_key_secret_combinations_confirm),
-                onClick = { /* The following onboarding step is not part of this screen. */ },
+                onClick = {
+                    navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS)
+                },
                 enabled = backedUp && indices != null,
                 modifier = Modifier.padding(horizontal = 36.dp),
             )

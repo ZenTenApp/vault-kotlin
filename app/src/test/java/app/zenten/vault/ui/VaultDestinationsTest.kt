@@ -32,6 +32,10 @@ class VaultDestinationsTest {
             "get-started/create-master-key/secret-combinations",
             VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS,
         )
+        assertEquals(
+            "get-started/create-master-key/confirm-secret-combinations",
+            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS,
+        )
     }
 
     @Test
@@ -46,6 +50,7 @@ class VaultDestinationsTest {
             VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO,
             VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP,
             VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS,
+            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS,
         ).forEach { route ->
             assertEquals(true, route.startsWith(VaultDestinations.CREATE_MASTER_KEY_GRAPH + "/"), route)
         }
