@@ -23,10 +23,10 @@
     <string name="create_master_key_back">Back</string>
     <string name="create_master_key_intro_icon_description">Pen and paper reminder</string>
     <string name="create_master_key_intro_title">Getting Started</string>
-    <string name="create_master_key_intro_body1">Grab a pen and paper so you can manually write your secret codes, without any person or cameras around you.</string>
-    <string name="create_master_key_intro_body2">Losing these secret codes will result in the complete loss of your accounts and funds. No one can help you recover them.</string>
+    <string name="create_master_key_intro_body1">Grab a pen and paper to prepare for the backup process.</string>
+    <string name="create_master_key_intro_body2">Before manually writing down your secret combinations make sure you are somewhere safe with no people or cameras nearby. </string>
     <string name="create_master_key_intro_warning">Warning: Backup is unrecoverable if lost.</string>
-    <string name="create_master_key_intro_consent">I understand that if I don\u2019t properly write down and store this information offline somewhere safe I could lose full access to my credentials.</string>
+    <string name="create_master_key_intro_consent">I understand that if I lose this information no one can help me recover it.</string>
     <string name="create_master_key_intro_confirm">Confirm</string>
 
     <!-- Create MasterKey flow: shared passphrase-field accessibility labels -->
