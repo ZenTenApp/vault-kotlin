@@ -56,8 +56,6 @@ fun CreateMasterKeyIntroScreen(navController: NavHostController) {
             CreateMasterKeyDescription(stringResource(R.string.create_master_key_intro_body2))
         },
         actions = {
-            CreateMasterKeyWarningRow()
-
             Spacer(Modifier.height(16.dp))
 
             ConsentRow(
@@ -65,7 +63,7 @@ fun CreateMasterKeyIntroScreen(navController: NavHostController) {
                 onCheckedChange = { consentChecked = it },
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
             // Gated on consent: the user must acknowledge unrecoverable loss
             // before the wizard collects a passphrase and generates a key.

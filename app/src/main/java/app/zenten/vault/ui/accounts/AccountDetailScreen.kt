@@ -96,7 +96,7 @@ private fun NostrIdentityCard(npub: String) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Nostr identity",
+                    text = "ID on NOSTR protocol",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                 )
