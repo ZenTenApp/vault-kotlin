@@ -59,10 +59,11 @@
     <!-- Create MasterKey flow: step 4, export the first Vault Backup -->
     <string name="create_master_key_backup_intro_title">Create Backup</string>
     <string name="create_master_key_backup_intro_icon_description">Safe with a combination dial</string>
-    <string name="create_master_key_backup_intro_body">Your first Vault Backup is a digital backup that will require you to store it safely somewhere on your device. Any of your preferred encrypted notes apps with additional security will suffice for this step.</string>
+    <string name="create_master_key_backup_intro_body1">Your first MasterKey Backup is a digital backup that requires you to store it safely somewhere on your device. </string>
+    <string name="create_master_key_backup_intro_body2">Any of your preferred encrypted note apps with additional security will suffice for this step. </string>
     <string name="create_master_key_backup_intro_confirm">Export MasterKey</string>
     <string name="create_master_key_backup_no_targets">No installed app can receive text exports.</string>
-    <string name="create_master_key_backup_target_title">Save encrypted key with</string>
+    <string name="create_master_key_backup_target_title">Save MasterKey with</string>
     <string name="create_master_key_backup_target_cancel">Cancel</string>
     <string name="create_master_key_backup_target_missing">That app is no longer available. Choose another app.</string>
     <string name="create_master_key_backup_target_denied">Android did not allow this app to receive the export. Choose another app.</string>
@@ -80,13 +81,11 @@
     <string name="create_master_key_confirm_backup_mismatch_error">This MasterKey does not match the backup you just exported.</string>
 
     <!-- Create MasterKey flow: step 6, transcribe Brave recovery word positions -->
-    <string name="create_master_key_secret_combinations_title">Save your Secret Combinations</string>
+    <string name="create_master_key_secret_combinations_title">Secret Combinations</string>
     <string name="create_master_key_secret_combinations_warning_title">Keep these combinations safe</string>
     <string name="create_master_key_secret_combinations_warning_body">Write down all 8 combinations and store them offline. Vault cannot restore them if they are lost.</string>
-    <string name="create_master_key_secret_combinations_instruction">Scroll to view all 8</string>
-    <string name="create_master_key_secret_combinations_hide">Hide</string>
-    <string name="create_master_key_secret_combinations_show">Show</string>
-    <string name="create_master_key_secret_combinations_consent">I’ve saved all 8 combinations</string>
+    <string name="create_master_key_secret_combinations_instruction">Scroll to view all 8 combinations</string>
+    <string name="create_master_key_secret_combinations_consent">I have saved all 8 secret combinations</string>
     <string name="create_master_key_secret_combinations_confirm">Continue</string>
     <string name="create_master_key_secret_combinations_unavailable">Secret Combinations are unavailable. Restart Vault and try again.</string>
 
