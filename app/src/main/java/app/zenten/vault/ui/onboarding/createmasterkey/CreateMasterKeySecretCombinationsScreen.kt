@@ -86,14 +86,6 @@ fun CreateMasterKeySecretCombinationsScreen(
             )
             Spacer(Modifier.height(20.dp))
             SecretCombinationsWarning()
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.create_master_key_secret_combinations_instruction),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(8.dp))
 
             // This is the only flexible region: it places the compact picker near the
             // visual center while keeping acknowledgement and actions at the bottom.
@@ -115,27 +107,22 @@ fun CreateMasterKeySecretCombinationsScreen(
                             groups = indices.chunked(3),
                             visible = codesVisible,
                         )
-                        TextButton(onClick = { codesVisible = !codesVisible }) {
-                            Icon(
-                                imageVector = if (codesVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                contentDescription = null,
-                                modifier = Modifier.size(22.dp),
-                            )
-                            Text(
-                                text = stringResource(
-                                    if (codesVisible) R.string.create_master_key_secret_combinations_hide
-                                    else R.string.create_master_key_secret_combinations_show,
-                                ),
-                                modifier = Modifier.padding(start = 8.dp),
-                            )
-                        }
+
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = stringResource(R.string.create_master_key_secret_combinations_instruction),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Checkbox(
                     checked = backedUp,
@@ -146,7 +133,7 @@ fun CreateMasterKeySecretCombinationsScreen(
                     text = stringResource(R.string.create_master_key_secret_combinations_consent),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 8.dp, top = 10.dp),
+                    modifier = Modifier.padding(start = 8.dp),
                 )
             }
             Spacer(Modifier.height(12.dp))

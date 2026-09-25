@@ -54,7 +54,9 @@ fun CreateMasterKeyBackupIntroScreen(
         onBack = null,
         content = {
             Spacer(Modifier.height(12.dp))
-            CreateMasterKeyDescription(stringResource(R.string.create_master_key_backup_intro_body))
+            CreateMasterKeyDescription(stringResource(R.string.create_master_key_backup_intro_body1))
+            Spacer(Modifier.height(12.dp))
+            CreateMasterKeyDescription(stringResource(R.string.create_master_key_backup_intro_body2))
             exportError?.let {
                 Spacer(Modifier.height(12.dp))
                 Text(
