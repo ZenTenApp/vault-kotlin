@@ -36,8 +36,14 @@
     <!-- Create MasterKey flow: step 2, choose the MasterKey passphrase -->
     <string name="create_master_key_passphrase_title">MasterKey Passphrase</string>
     <string name="create_master_key_passphrase_icon_description">Hand holding a key</string>
-    <string name="create_master_key_passphrase_label">Passphrase</string>
-    <string name="create_master_key_passphrase_requirements">Use at least 8 characters, including an uppercase letter, a lowercase letter, a number, and a special character.</string>
+    <string name="create_master_key_passphrase_label">Create Passphrase</string>
+    <string name="create_master_key_passphrase_rule_length">8+ characters</string>
+    <string name="create_master_key_passphrase_rule_uppercase">Uppercase letter</string>
+    <string name="create_master_key_passphrase_rule_lowercase">Lowercase letter</string>
+    <string name="create_master_key_passphrase_rule_number">Number</string>
+    <string name="create_master_key_passphrase_rule_special">Special character</string>
+    <string name="create_master_key_passphrase_rule_satisfied">%1$s, satisfied</string>
+    <string name="create_master_key_passphrase_rule_pending">%1$s, still required</string>
     <string name="create_master_key_passphrase_confirm">Confirm</string>
 
     <!-- Create MasterKey flow: step 3, re-enter the passphrase -->
