@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,7 @@ private fun ConsentRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
             checked = checked,
@@ -100,6 +102,7 @@ private fun ConsentRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             modifier = Modifier
                 .weight(1f)
                 .padding(top = 12.dp),
+
         )
     }
 }
