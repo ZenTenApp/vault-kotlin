@@ -44,7 +44,7 @@ class CreateMasterKeyViewModelTest {
         every { secureStorage.addMasterAccount(any()) } just runs
         coJustRun { appStorage.clearSetupComplete() }
         coJustRun { appStorage.setCreateMasterKeyStep(any()) }
-        coEvery { engine.backupMaster(any()) } returns AccountConsolidationEngine.MasterBackupResult(
+        coEvery { engine.backupMaster(any(), any()) } returns AccountConsolidationEngine.MasterBackupResult(
             relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
         )
         return CreateMasterKeyViewModel(clock, SetupService(secureStorage, appStorage, engine))

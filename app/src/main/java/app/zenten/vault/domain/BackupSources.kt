@@ -55,7 +55,7 @@ object DefaultBackupSources {
         ),
         BackupSourceConfig(
             id = "default-brave-zenten",
-            label = "zenten sync",
+            label = "litesync1",
             type = BackupSourceType.BRAVE_SYNC,
             endpoint = "https://litesync1.zentext.me/litesync",
             order = 3,
@@ -67,7 +67,7 @@ object DefaultBackupSources {
         ),
         BackupSourceConfig(
             id = "default-brave-nostr-box",
-            label = "nostr.box sync",
+            label = "litesync2",
             type = BackupSourceType.BRAVE_SYNC,
             endpoint = "https://litesync2.nostr.box/litesync",
             order = 4,

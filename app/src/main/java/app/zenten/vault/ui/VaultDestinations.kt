@@ -39,6 +39,9 @@ object VaultDestinations {
     /** Third screen: re-enter the chosen passphrase to catch typos. */
     const val CREATE_MASTER_KEY_CONFIRM_PASSPHRASE = "get-started/create-master-key/confirm-passphrase"
 
+    /** Irreversible creation and per-source synchronization progress. */
+    const val CREATE_MASTER_KEY_CREATING = "get-started/create-master-key/creating"
+
     /** Fourth screen: explain and export the first Vault Backup. */
     const val CREATE_MASTER_KEY_BACKUP_INTRO = "get-started/create-master-key/backup-intro"
 

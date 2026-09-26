@@ -22,6 +22,7 @@ class VaultDestinationsTest {
             "get-started/create-master-key/confirm-passphrase",
             VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE,
         )
+        assertEquals("get-started/create-master-key/creating", VaultDestinations.CREATE_MASTER_KEY_CREATING)
     }
 
     @Test
@@ -47,6 +48,7 @@ class VaultDestinationsTest {
             VaultDestinations.CREATE_MASTER_KEY_INTRO,
             VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE,
             VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE,
+            VaultDestinations.CREATE_MASTER_KEY_CREATING,
             VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO,
             VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP,
             VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS,

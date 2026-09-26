@@ -48,12 +48,12 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
     // Passphrase input is on screen here, so block screenshots and recordings.
     ScreenshotProtection()
 
-    // One-shot: advance only when the ViewModel reports a freshly generated key,
-    // then immediately clear the signal so returning here does not re-navigate.
-    LaunchedEffect(state.navigateToBackup) {
-        if (state.navigateToBackup) {
-            viewModel.onBackupStepShown()
-            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO)
+    // Passphrase verification is synchronous. Once it succeeds, leave secret input
+    // behind immediately and let the dedicated screen display creation and sync progress.
+    LaunchedEffect(state.generating) {
+        if (state.generating) {
+            reEnteredPassphrase = ""
+            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CREATING)
         }
     }
 
@@ -103,11 +103,7 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
         actions = {
             VaultPillButton(
                 label = stringResource(
-                    if (state.generating) {
-                        R.string.create_master_key_confirm_passphrase_generating
-                    } else {
-                        R.string.create_master_key_confirm_passphrase_verify
-                    },
+                    R.string.create_master_key_confirm_passphrase_verify,
                 ),
                 // Blocked while generating so a second tap cannot start a second key.
                 enabled = reEnteredPassphrase.isNotEmpty() && !state.generating,
