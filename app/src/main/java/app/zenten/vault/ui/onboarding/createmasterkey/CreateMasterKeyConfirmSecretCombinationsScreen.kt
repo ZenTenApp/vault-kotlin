@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
+import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.theme.LocalExtendedColors
 
 /** Step 7: sequentially verify every recovery-code segment before setup can continue. */
@@ -123,7 +124,14 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
                         if (value == expected[index].toString()) {
                             if (index == expected.lastIndex) {
                                 completed = true
-                                onCompleted()
+                                viewModel.recordSecretCombinationsVerified {
+                                    onCompleted()
+                                    navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONGRATULATIONS) {
+                                        popUpTo(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS) {
+                                            inclusive = true
+                                        }
+                                    }
+                                }
                             } else {
                                 activeSegment = index + 1
                             }

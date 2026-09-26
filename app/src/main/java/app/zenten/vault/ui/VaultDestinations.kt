@@ -52,6 +52,10 @@ object VaultDestinations {
     const val CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS =
         "get-started/create-master-key/confirm-secret-combinations"
 
+    /** Final screen: celebrate successful MasterKey creation and backup verification. */
+    const val CREATE_MASTER_KEY_CONGRATULATIONS =
+        "get-started/create-master-key/congratulations"
+
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
 

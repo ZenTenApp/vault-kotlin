@@ -92,4 +92,11 @@
     <!-- Create MasterKey flow: step 7, verify every secret combination -->
     <string name="create_master_key_confirm_secret_combinations_title">Secret Combinations</string>
     <string name="create_master_key_confirm_secret_combinations_body">Enter your Secret Combinations that you just wrote down accurately or you will not be permitted to continue. Every input has to be correct.</string>
+
+    <!-- Create MasterKey flow: final success screen -->
+    <string name="create_master_key_congratulations_title">Congratulations</string>
+    <string name="create_master_key_congratulations_icon_description">Hands celebrating successful MasterKey setup</string>
+    <string name="create_master_key_congratulations_success">You have setup your MasterKey!</string>
+    <string name="create_master_key_congratulations_body">If you ever need to login to a different device, you can always revert to the backups you safely stored today to always have access.</string>
+    <string name="create_master_key_congratulations_complete">Complete</string>
 </resources>

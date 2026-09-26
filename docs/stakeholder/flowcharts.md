@@ -16,6 +16,7 @@ flowchart TD
     GeneratedProgress -->|Create Backup pending| CreateBackupIntro
     GeneratedProgress -->|Confirm Backup pending| CreateConfirmBackup
     GeneratedProgress -->|Secret Combinations pending| CreateSecrets
+    GeneratedProgress -->|Congratulations pending| Congratulations
     Welcome -->|"Login with MasterKey"| MasterSetup["Set up master account"]
     Welcome -->|"Create MasterKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
@@ -48,7 +49,9 @@ flowchart TD
     VerifyError --> VerifySecrets
     VerifySecrets -->|"Correct segment"| VerifySecrets
     VerifySecrets -->|"Back"| CreateSecrets
-    VerifySecrets -->|"All 24 correct"| VerifyReady["Await next screen; not yet defined"]
+    VerifySecrets -->|"All 24 correct"| Congratulations["Congratulations: success summary + animated confetti"]
+    Congratulations -->|"Complete"| MarkComplete["Mark generated MasterKey setup complete"]
+    MarkComplete --> Accounts
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
@@ -63,7 +66,7 @@ flowchart TD
     Master --> Accounts
 ```
 
-The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, or at **Save your Secret Combinations** after the pasted key matched. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen and clears every verification input.
+The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, at **Save your Secret Combinations** after the pasted key matched, or at **Congratulations** after every combination was verified. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen and clears every verification input. The congratulations screen blocks Back; **Complete** marks setup complete and replaces the wizard with the account list.
 
 ## Master-account setup
 
