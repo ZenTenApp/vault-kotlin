@@ -154,6 +154,7 @@ enum class CreateMasterKeyStep {
     BACKUP_INTRO,
     CONFIRM_BACKUP,
     SECRET_COMBINATIONS,
+    CONGRATULATIONS,
 }
 
 @Serializable

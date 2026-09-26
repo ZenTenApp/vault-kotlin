@@ -51,6 +51,25 @@ class CreateMasterKeyBackupViewModel @Inject constructor(
         }
     }
 
+    /** Makes the celebration screen resumable before leaving recovery-code verification. */
+    fun recordSecretCombinationsVerified(onRecorded: () -> Unit) {
+        viewModelScope.launch {
+            appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.CONGRATULATIONS)
+            onRecorded()
+        }
+    }
+
+    /** Finishes onboarding before opening Accounts so app restart follows the same destination. */
+    fun completeGeneratedMasterKeySetup(onCompleted: () -> Unit) {
+        if (_state.value.advancing) return
+        _state.value = _state.value.copy(advancing = true)
+        viewModelScope.launch {
+            appStorage.setSetupComplete()
+            _state.value = _state.value.copy(advancing = false)
+            onCompleted()
+        }
+    }
+
     /** Returns non-secret word-list positions for the Brave recovery mnemonic shown by the UI. */
     fun secretCombinationIndices(): List<Int>? = secureStorage.getMasterAccount()?.let { master ->
         runCatching {
