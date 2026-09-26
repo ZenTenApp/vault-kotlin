@@ -35,6 +35,7 @@ class AccountConsolidationEngineTest {
             val result = engine.backupMaster(master)
 
             assertTrue(result.quorumReached)
+            assertEquals(1, factory.runContextCreations)
             assertEquals(DefaultBackupSources.all.flatMap { listOf("index:${it.id}:1", "write:${it.id}:masterkey") }, factory.calls)
         }
     }
@@ -184,7 +185,13 @@ class AccountConsolidationEngineTest {
     private class FakeFactory : BackupSourceFactory {
         val calls = mutableListOf<String>()
         val sources = DefaultBackupSources.all.associate { it.id to FakeSource(it, calls) }
-        override fun create(config: BackupSourceConfig): AccountBackupSource = sources.getValue(config.id)
+        var runContextCreations = 0
+
+        override fun createRunContext(master: Account): BackupSourceRunContext =
+            object : BackupSourceRunContext {}.also { runContextCreations++ }
+
+        override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): AccountBackupSource =
+            sources.getValue(config.id)
     }
 
     private class FakeSource(

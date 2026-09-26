@@ -10,6 +10,7 @@ import app.zenten.vault.bravesync.transport.BraveSyncTransport
 /** App-facing, password-only Brave Sync API. Instances retain keys only in memory. */
 class BravePasswordService(
     private val transport: BraveSyncTransport = BraveSyncTransport(),
+    private val cacheSession: Boolean = false,
 ) {
 
     data class Note(val value: String, val hidden: Boolean = false)
@@ -23,13 +24,16 @@ class BravePasswordService(
     }
 
     fun create(syncCode: String, url: String, username: String, password: String, note: String? = null): Password = withSession(syncCode) { session ->
-        val entity = PasswordEntityCodec.create(PasswordEntityCodec.NewPassword(url, username, password, note?.let(PasswordEntityCodec::PasswordNote)), session.keys)
-        commit(session, entity)
+        commitNewPassword(session, url, username, password, note)
         // The server provides the authoritative entity ID/version; refetch avoids relying on
         // commit-response details that vary across Sync server versions.
         list(syncCode).passwords.firstOrNull { it.url == realm(url) && it.username == username }
             ?: throw IllegalStateException("Brave Sync accepted the password commit but did not return the new entry")
     }
+
+    /** Commits a record when a source index already proved it absent, avoiding another full list. */
+    fun createKnownMissing(syncCode: String, url: String, username: String, password: String, note: String? = null) =
+        withSession(syncCode) { session -> commitNewPassword(session, url, username, password, note) }
 
     fun update(syncCode: String, existing: Password, password: String, note: String? = null): Password = withSession(syncCode) { session ->
         val entity = PasswordEntityCodec.update(existing.toInternal(), password, note?.let(PasswordEntityCodec::PasswordNote), session.keys)
@@ -44,9 +48,17 @@ class BravePasswordService(
 
     private data class Session(val clientId: String, val token: String, val keys: NigoriCrypto.Keys)
 
+    private var cachedSession: Session? = null
+
     private fun <T> withSession(syncCode: String, block: (Session) -> T): T {
-        val keyPair = BraveSyncAuth.deriveKeyPair(BraveSyncAuth.mnemonicEntropy(syncCode))
-        val session = Session(BraveSyncAuth.clientId(keyPair.publicKey), BraveSyncAuth.generateAuthToken(keyPair, System.currentTimeMillis()), resolveKeys(syncCode, keyPair))
+        val session = cachedSession ?: run {
+            val keyPair = BraveSyncAuth.deriveKeyPair(BraveSyncAuth.mnemonicEntropy(syncCode))
+            Session(
+                BraveSyncAuth.clientId(keyPair.publicKey),
+                BraveSyncAuth.generateAuthToken(keyPair, System.currentTimeMillis()),
+                resolveKeys(syncCode, keyPair),
+            ).also { if (cacheSession) cachedSession = it }
+        }
         return block(session)
     }
 
@@ -59,6 +71,20 @@ class BravePasswordService(
         val keys = NigoriCrypto.derivePbkdf2Keys(syncCode)
         commit(Session(clientId, token, keys), NigoriInitializer.entity(syncCode))
         return keys
+    }
+
+    private fun commitNewPassword(
+        session: Session,
+        url: String,
+        username: String,
+        password: String,
+        note: String?,
+    ) {
+        val entity = PasswordEntityCodec.create(
+            PasswordEntityCodec.NewPassword(url, username, password, note?.let(PasswordEntityCodec::PasswordNote)),
+            session.keys,
+        )
+        commit(session, entity)
     }
 
     private fun request(session: Session, payload: ByteArray): SyncMessages.Response {

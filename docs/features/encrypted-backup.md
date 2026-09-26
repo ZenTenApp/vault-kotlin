@@ -56,7 +56,7 @@ NIP-42 auth events use the device wall clock and relays may reject events outsid
 
 ## Brave Sync format
 
-The sync code is derived from the parsed master seed by `Seedify.toBraveSyncCode`. Each independently configured server receives its own transport and operation.
+The sync code is derived from the parsed master seed by `Seedify.toBraveSyncCode`. Consolidation derives it once per in-memory run, fixing the date-derived word for that run, and reuses it across Brave endpoints without persisting or logging it. Each independently configured server still receives its own transport, cached in-memory session, Nigori settings, and operation. Because the engine writes only after a successful source index proves a record absent, that write reuses the indexed result instead of listing records again; the later consolidation read-back remains the authoritative verification.
 
 | Backup | URL | Username | Password |
 | --- | --- | --- | --- |
