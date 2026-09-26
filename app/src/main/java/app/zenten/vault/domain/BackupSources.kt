@@ -127,8 +127,12 @@ interface AccountBackupSource {
     suspend fun write(master: Account, accountId: BackupAccountId, account: Account): Result<Unit>
 }
 
+interface BackupSourceRunContext
+
 interface BackupSourceFactory {
-    fun create(config: BackupSourceConfig): AccountBackupSource
+    /** Derives run-scoped credentials once; implementations must not persist this context. */
+    fun createRunContext(master: Account): BackupSourceRunContext? = null
+    fun create(config: BackupSourceConfig, context: BackupSourceRunContext? = null): AccountBackupSource
 }
 
 fun normalizeSourceEndpoint(type: BackupSourceType, raw: String): String {

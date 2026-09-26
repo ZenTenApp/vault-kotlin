@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
  */
 class BraveSyncBackupService(
     private val passwordService: BravePasswordService = BravePasswordService(),
+    private val runSyncCode: String? = null,
 ) {
     suspend fun backupMaster(master: Account): Result<Unit> = backup(master, MASTER_ACCOUNT_ID)
 
@@ -86,19 +87,28 @@ class BraveSyncBackupService(
                 val url = accountUrl(accountId)
                 val passphrase = requireNotNull(account.zenTenPass) { "Account passphrase is unavailable" }
                 val key = canonicalKey(account.zenTenKey, passphrase.toCharArray())
-                // Retrying a previous successful write must not create a duplicate client tag.
-                val existing = passwordService.list(syncCode).passwords.firstOrNull {
-                    it.url == url && it.username == accountId
-                }
-                if (existing == null) passwordService.create(syncCode, url, accountId, key)
-                else require(existing.password == key && existing.notes.isEmpty()) {
-                    "Brave Sync already contains a different Vault backup for $accountId"
+                if (runSyncCode != null) {
+                    // The engine invokes write only after this source's index proved the ID
+                    // absent, so another list/refetch would duplicate network work.
+                    passwordService.createKnownMissing(syncCode, url, accountId, key)
+                } else {
+                    // Standalone callers do not provide an index, so retain the idempotency check.
+                    val existing = passwordService.list(syncCode).passwords.firstOrNull {
+                        it.url == url && it.username == accountId
+                    }
+                    if (existing == null) passwordService.create(syncCode, url, accountId, key)
+                    else require(existing.password == key && existing.notes.isEmpty()) {
+                        "Brave Sync already contains a different Vault backup for $accountId"
+                    }
                 }
                 Unit
             }
         }
 
     private fun syncCode(master: Account): String {
+        // Consolidation supplies a run-scoped code so all endpoints reuse one SSH
+        // decryption and one date-derived 25th word. Standalone callers still derive it.
+        runSyncCode?.let { return it }
         val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
         val seed = SshKeyCodec.parse(master.zenTenKey, passphrase.toCharArray()).seed
         return Seedify.toBraveSyncCode(seed)

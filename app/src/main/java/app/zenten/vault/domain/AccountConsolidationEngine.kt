@@ -36,11 +36,12 @@ class AccountConsolidationEngine(
         val successes = mutableSetOf<String>()
         val failures = mutableSetOf<String>()
         val sources = enabledSources()
+        val runContext = sourceFactory.createRunContext(master)
         sources.forEachIndexed { index, config ->
             // Report both edges of each source operation so the UI can show the active
             // destination as well as progress that advances after it finishes.
             onProgress(MasterBackupProgress(config.label, index, sources.size))
-            val source = sourceFactory.create(config)
+            val source = sourceFactory.create(config, runContext)
             setStatus(BackupAccountId.Master, config, AccountSourceBackupState.CHECKING)
             source.index(master).fold(
                 onSuccess = { index ->
@@ -98,10 +99,11 @@ class AccountConsolidationEngine(
         val started = clock.millis()
         var writes = 0
         var failures = 0
+        val runContext = sourceFactory.createRunContext(master)
 
         enabledSources().forEach { config ->
             checkpoint(cycleId, trigger, ConsolidationPhase.RESTORE, config.id, id.value, started)
-            val source = sourceFactory.create(config)
+            val source = sourceFactory.create(config, runContext)
             setStatus(id, config, AccountSourceBackupState.CHECKING)
             source.index(master).fold(
                 onSuccess = { initial ->
@@ -169,6 +171,8 @@ class AccountConsolidationEngine(
         val cycleId = UUID.randomUUID().toString()
         val started = clock.millis()
         val sources = enabledSources()
+        val runContext = sourceFactory.createRunContext(master)
+        val sourceInstances = sources.associate { it.id to sourceFactory.create(it, runContext) }
         val indexes = linkedMapOf<String, SourceIndex>()
         val indexFailures = linkedMapOf<String, Throwable>()
         var restored = 0
@@ -178,7 +182,7 @@ class AccountConsolidationEngine(
         // Phase 1: fully inspect and restore from each trusted source before any repair begins.
         sources.forEach { config ->
             checkpoint(cycleId, trigger, ConsolidationPhase.RESTORE, config.id, null, started)
-            val source = sourceFactory.create(config)
+            val source = sourceInstances.getValue(config.id)
             localInventory(master).keys.forEach { setStatus(it, config, AccountSourceBackupState.CHECKING) }
             source.index(master).fold(
                 onSuccess = { index ->
@@ -222,7 +226,9 @@ class AccountConsolidationEngine(
         // Phase 2: use retained phase-1 indexes, then verify each destination once after writes.
         sources.forEach { config ->
             val initial = indexes[config.id] ?: return@forEach
-            val source = sourceFactory.create(config)
+            // Reuse the same source instance so source-specific sessions/caches can span
+            // index and repair phases without ever crossing endpoint boundaries.
+            val source = sourceInstances.getValue(config.id)
             val known = initial.ids.toMutableSet()
             val acknowledgedWrites = mutableSetOf<BackupAccountId>()
             val failedWrites = mutableSetOf<BackupAccountId>()

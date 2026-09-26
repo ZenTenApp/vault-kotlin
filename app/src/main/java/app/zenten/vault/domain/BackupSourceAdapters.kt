@@ -17,16 +17,29 @@ class DefaultBackupSourceFactory(
     private val relayGateway: NostrRelayGateway,
     private val backupService: BackupService,
 ) : BackupSourceFactory {
-    override fun create(config: BackupSourceConfig): AccountBackupSource = when (config.type) {
+    override fun createRunContext(master: Account): BackupSourceRunContext {
+        val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
+        val seed = SshKeyCodec.parse(master.zenTenKey, passphrase.toCharArray()).seed
+        // Fix the date-derived word for the whole run and avoid repeating expensive SSH
+        // decryption for every Brave endpoint. This context is memory-only.
+        return BraveBackupRunContext(Seedify.toBraveSyncCode(seed))
+    }
+
+    override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): AccountBackupSource = when (config.type) {
         BackupSourceType.NOSTR_RELAY -> NostrBackupSource(config, relayGateway, backupService)
         BackupSourceType.BRAVE_SYNC -> {
             val passwordService = BravePasswordService(
                 BraveSyncTransport(serverUrl = config.endpoint, serviceKey = BraveSyncConfig.SERVICE_KEY),
+                cacheSession = true,
             )
-            BraveBackupSource(config, BraveSyncBackupService(passwordService))
+            val syncCode = (context as? BraveBackupRunContext)?.syncCode
+            BraveBackupSource(config, BraveSyncBackupService(passwordService, syncCode))
         }
     }
 }
+
+/** Secret, memory-only credentials shared across Brave endpoints for one engine operation. */
+private data class BraveBackupRunContext(val syncCode: String) : BackupSourceRunContext
 
 data class NostrCandidate(
     override val id: BackupAccountId,
