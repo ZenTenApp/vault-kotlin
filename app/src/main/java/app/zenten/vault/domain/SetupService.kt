@@ -32,12 +32,15 @@ class SetupService(
      * Commits a generated key before the wizard advances and attempts every configured source.
      * Setup intentionally remains incomplete because later wizard steps are still mandatory.
      */
-    suspend fun persistGeneratedMasterAndBackup(master: Account): Result<Unit> = runCatching {
+    suspend fun persistGeneratedMasterAndBackup(
+        master: Account,
+        onProgress: suspend (AccountConsolidationEngine.MasterBackupProgress) -> Unit = {},
+    ): Result<Unit> = runCatching {
         persistMaster(master)
         appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO)
         // Source-level state records failures for later retries. A network problem must not
         // undo the irreversible local commit or send the user back to key generation.
-        runCatching { consolidationEngine.backupMaster(master) }
+        runCatching { consolidationEngine.backupMaster(master, onProgress) }
     }
 
     suspend fun retryMasterBackup(): Result<Unit> = runCatching {

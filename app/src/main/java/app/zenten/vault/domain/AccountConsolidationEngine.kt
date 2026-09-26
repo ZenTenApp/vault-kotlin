@@ -29,10 +29,17 @@ class AccountConsolidationEngine(
 ) {
     private val operationMutex = Mutex()
 
-    suspend fun backupMaster(master: Account): MasterBackupResult = operationMutex.withLock {
+    suspend fun backupMaster(
+        master: Account,
+        onProgress: suspend (MasterBackupProgress) -> Unit = {},
+    ): MasterBackupResult = operationMutex.withLock {
         val successes = mutableSetOf<String>()
         val failures = mutableSetOf<String>()
-        enabledSources().forEach { config ->
+        val sources = enabledSources()
+        sources.forEachIndexed { index, config ->
+            // Report both edges of each source operation so the UI can show the active
+            // destination as well as progress that advances after it finishes.
+            onProgress(MasterBackupProgress(config.label, index, sources.size))
             val source = sourceFactory.create(config)
             setStatus(BackupAccountId.Master, config, AccountSourceBackupState.CHECKING)
             source.index(master).fold(
@@ -68,12 +75,19 @@ class AccountConsolidationEngine(
                     )
                 },
             )
+            onProgress(MasterBackupProgress(config.label, index + 1, sources.size))
         }
-        val configs = enabledSources().associateBy { it.id }
+        val configs = sources.associateBy { it.id }
         val relayQuorum = successes.any { configs[it]?.type == BackupSourceType.NOSTR_RELAY && configs[it]?.countsTowardQuorum == true }
         val braveQuorum = successes.any { configs[it]?.type == BackupSourceType.BRAVE_SYNC && configs[it]?.countsTowardQuorum == true }
         MasterBackupResult(relayQuorum, braveQuorum, successes, failures)
     }
+
+    data class MasterBackupProgress(
+        val sourceLabel: String,
+        val completedSources: Int,
+        val totalSources: Int,
+    )
 
     /** Reconciles one associated account without restoring, writing, or changing statuses for other accounts. */
     suspend fun consolidateAccount(accountId: Long, trigger: ConsolidationTrigger = ConsolidationTrigger.MANUAL): ConsolidationResult = operationMutex.withLock {

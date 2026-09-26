@@ -24,7 +24,7 @@ class SetupServiceTest {
     @Test
     fun quorum_failure_retains_master_and_leaves_setup_incomplete() = runTest {
         val fixture = Fixture()
-        coEvery { fixture.engine.backupMaster(master) } returns AccountConsolidationEngine.MasterBackupResult(
+        coEvery { fixture.engine.backupMaster(master, any()) } returns AccountConsolidationEngine.MasterBackupResult(
             relayQuorum = true,
             braveQuorum = false,
             successfulSourceIds = setOf("relay"),
@@ -43,7 +43,7 @@ class SetupServiceTest {
     @Test
     fun generated_master_is_persisted_and_all_source_backups_are_attempted_without_completing_setup() = runTest {
         val fixture = Fixture()
-        coEvery { fixture.engine.backupMaster(master) } returns AccountConsolidationEngine.MasterBackupResult(
+        coEvery { fixture.engine.backupMaster(master, any()) } returns AccountConsolidationEngine.MasterBackupResult(
             relayQuorum = false,
             braveQuorum = false,
             successfulSourceIds = emptySet(),
@@ -55,7 +55,7 @@ class SetupServiceTest {
         verify(exactly = 1) { fixture.secureStorage.addMasterAccount(master) }
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
         coVerify(exactly = 1) { fixture.appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO) }
-        coVerify(exactly = 1) { fixture.engine.backupMaster(master) }
+        coVerify(exactly = 1) { fixture.engine.backupMaster(master, any()) }
         coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
     }
 
@@ -63,7 +63,7 @@ class SetupServiceTest {
     fun retry_uses_retained_master_and_completes_after_both_quorums() = runTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getMasterAccount() } returns master
-        coEvery { fixture.engine.backupMaster(master) } returns AccountConsolidationEngine.MasterBackupResult(
+        coEvery { fixture.engine.backupMaster(master, any()) } returns AccountConsolidationEngine.MasterBackupResult(
             relayQuorum = true,
             braveQuorum = true,
             successfulSourceIds = setOf("relay", "brave"),

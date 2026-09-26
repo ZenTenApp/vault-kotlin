@@ -7,6 +7,7 @@ import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -87,7 +88,10 @@ class CreateMasterKeyViewModel @Inject constructor(
             _state.value = CreateMasterKeyState(mismatch = true)
             return
         }
-        _state.value = CreateMasterKeyState(generating = true)
+        _state.value = CreateMasterKeyState(
+            generating = true,
+            progressStage = MasterKeyCreationStage.CREATING_KEY,
+        )
         viewModelScope.launch {
             runCatching {
                 val key = withContext(Dispatchers.Default) {
@@ -110,9 +114,15 @@ class CreateMasterKeyViewModel @Inject constructor(
                     nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
                 )
             }.mapCatching { master ->
+                _state.value = _state.value.copy(progressStage = MasterKeyCreationStage.SAVING_KEY)
                 // Local commit happens before any network call. The setup service records
                 // BACKUP_INTRO even if one or more configured sources are unavailable.
-                setupService.persistGeneratedMasterAndBackup(master).getOrThrow()
+                setupService.persistGeneratedMasterAndBackup(master) { progress ->
+                    _state.value = _state.value.copy(
+                        progressStage = MasterKeyCreationStage.SYNCING_BACKUPS,
+                        backupProgress = progress,
+                    )
+                }.getOrThrow()
             }.onSuccess {
                 chosenPassphrase = null
                 _state.value = CreateMasterKeyState(keyGenerated = true, navigateToBackup = true)
@@ -153,6 +163,10 @@ class CreateMasterKeyViewModel @Inject constructor(
 data class CreateMasterKeyState(
     /** True while the MasterKey is being generated; the action stays inert. */
     val generating: Boolean = false,
+    /** Current non-secret operation shown on the dedicated creation screen. */
+    val progressStage: MasterKeyCreationStage? = null,
+    /** Source-level progress while the generated account is synchronized. */
+    val backupProgress: AccountConsolidationEngine.MasterBackupProgress? = null,
     /** True when the two passphrase entries differed. */
     val mismatch: Boolean = false,
     /** True when key generation failed and the user can retry. */
@@ -164,3 +178,9 @@ data class CreateMasterKeyState(
     /** One-shot signal to advance to the backup step; cleared by [CreateMasterKeyViewModel.onBackupStepShown]. */
     val navigateToBackup: Boolean = false,
 )
+
+enum class MasterKeyCreationStage {
+    CREATING_KEY,
+    SAVING_KEY,
+    SYNCING_BACKUPS,
+}
