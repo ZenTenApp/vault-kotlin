@@ -23,7 +23,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -33,21 +35,22 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.theme.LocalExtendedColors
+import kotlinx.coroutines.delay
 
 /**
  * Step 2 of the in-app **Create MasterKey** flow: choose the passphrase that
  * will protect the generated MasterKey.
  *
- * The requirements are shown as a live checklist in place of the action. Once
- * every rule is met, the checklist leaves and **Confirm** appears. The ViewModel
- * checks the policy again before retaining the secret.
+ * Requirements are shown below the unlabelled input. A completed rule shows
+ * success feedback for two seconds before leaving the grid, keeping attention
+ * on the remaining requirements. The ViewModel checks the policy again before
+ * retaining the secret.
  */
 @Composable
 fun CreateMasterKeyPassphraseScreen(navController: NavHostController) {
@@ -67,21 +70,15 @@ fun CreateMasterKeyPassphraseScreen(navController: NavHostController) {
             Spacer(Modifier.height(28.dp))
 
             PassphraseField(
-                label = stringResource(R.string.create_master_key_passphrase_label),
+                label = null,
                 value = passphrase,
                 onValueChange = { passphrase = it },
             )
 
-            AnimatedVisibility(
-                visible = !requirements.allSatisfied,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                PassphraseRequirementsGrid(
-                    requirements = requirements,
-                    modifier = Modifier.padding(18.dp),
-                )
-            }
+            PassphraseRequirementsGrid(
+                requirements = requirements,
+                modifier = Modifier.padding(18.dp),
+            )
         },
         actions = {
             AnimatedVisibility(
@@ -116,9 +113,23 @@ private fun PassphraseRequirementsGrid(
         stringResource(R.string.create_master_key_passphrase_rule_number) to requirements.hasNumber,
         stringResource(R.string.create_master_key_passphrase_rule_special) to requirements.hasSpecialCharacter,
     )
+    val ruleVisibility = remember { mutableStateMapOf<Int, Boolean>() }
+
+    rules.forEachIndexed { index, (_, satisfied) ->
+        LaunchedEffect(index, satisfied) {
+            if (satisfied) {
+                // Keep success feedback visible long enough to be perceived before removal.
+                delay(RULE_SUCCESS_DISPLAY_MILLIS)
+                ruleVisibility[index] = false
+            } else {
+                ruleVisibility[index] = true
+            }
+        }
+    }
+    val visibleRules = rules.filterIndexed { index, _ -> ruleVisibility[index] != false }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        rules.chunked(2).forEachIndexed { rowIndex, rowRules ->
+        visibleRules.chunked(2).forEachIndexed { rowIndex, rowRules ->
             if (rowIndex > 0) Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -137,6 +148,8 @@ private fun PassphraseRequirementsGrid(
         }
     }
 }
+
+private const val RULE_SUCCESS_DISPLAY_MILLIS = 2_000L
 
 @Composable
 private fun PassphraseRule(label: String, satisfied: Boolean, modifier: Modifier = Modifier) {
@@ -182,7 +195,6 @@ private fun PassphraseRule(label: String, satisfied: Boolean, modifier: Modifier
             text = label,
             style = MaterialTheme.typography.bodySmall,
             color = if (satisfied) success.color else MaterialTheme.colorScheme.onSurfaceVariant,
-            textDecoration = if (satisfied) TextDecoration.LineThrough else TextDecoration.None,
             modifier = Modifier.alpha(if (satisfied) 0.78f else 1f),
         )
     }

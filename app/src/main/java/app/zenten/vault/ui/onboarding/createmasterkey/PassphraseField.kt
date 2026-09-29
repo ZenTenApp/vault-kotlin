@@ -37,9 +37,9 @@ private val PassphraseFieldCornerRadius = 12.dp
 private val PassphraseFieldHeight = 72.dp
 
 /**
- * Labeled, obscured passphrase input used by the **Create MasterKey** wizard.
+ * Obscured passphrase input used by the **Create MasterKey** wizard.
  *
- * Renders the design's caption above a rounded outlined field with a trailing
+ * Optionally renders a caption above a rounded outlined field with a trailing
  * eye toggle. Visibility state is owned here and defaults to hidden, so the
  * passphrase is masked whenever the screen is first shown or recomposed from
  * scratch; callers only deal with the text value.
@@ -47,14 +47,14 @@ private val PassphraseFieldHeight = 72.dp
  * Autocorrect and suggestions are disabled through the password keyboard type
  * so the platform keyboard does not learn or predict secret material.
  *
- * @param label caption shown above the field (e.g. "Passphrase").
+ * @param label optional caption shown above the field.
  * @param value current passphrase text.
  * @param onValueChange invoked with the updated text on every edit.
  * @param imeAction keyboard action key; the final wizard step uses "Done".
  */
 @Composable
 internal fun PassphraseField(
-    label: String,
+    label: String?,
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -63,13 +63,15 @@ internal fun PassphraseField(
     var visible by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        if (label != null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
+        }
 
         OutlinedTextField(
             value = value,

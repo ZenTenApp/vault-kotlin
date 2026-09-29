@@ -60,7 +60,7 @@ fun CreateMasterKeyCreatingScreen(navController: NavHostController) {
 
     CreateMasterKeyScaffold(
         title = stringResource(R.string.create_master_key_creating_title),
-        heroIcon = R.drawable.hero_icon_passphrase,
+        heroIcon = R.drawable.hero_icon_create_masterkey,
         heroIconDescription = stringResource(R.string.create_master_key_passphrase_icon_description),
         onBack = null,
         content = {

@@ -17,6 +17,21 @@ import app.zenten.vault.ui.VaultDestinations
  */
 @Composable
 internal fun rememberCreateMasterKeyViewModel(navController: NavHostController): CreateMasterKeyViewModel {
+    return rememberCreateMasterKeyGraphViewModel(navController)
+}
+
+/** Keeps backup verification state alive while the user moves between wizard screens. */
+@Composable
+internal fun rememberCreateMasterKeyBackupViewModel(
+    navController: NavHostController,
+): CreateMasterKeyBackupViewModel {
+    return rememberCreateMasterKeyGraphViewModel(navController)
+}
+
+@Composable
+private inline fun <reified VM : androidx.lifecycle.ViewModel> rememberCreateMasterKeyGraphViewModel(
+    navController: NavHostController,
+): VM {
     // getBackStackEntry walks the current back stack, so it must be re-resolved
     // whenever the controller changes; remember keeps it stable across
     // recompositions of a single screen.

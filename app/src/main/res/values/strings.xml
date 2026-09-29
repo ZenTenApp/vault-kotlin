@@ -34,8 +34,8 @@
     <string name="create_master_key_passphrase_hide">Hide passphrase</string>
 
     <!-- Create MasterKey flow: step 2, choose the MasterKey passphrase -->
-    <string name="create_master_key_passphrase_title">MasterKey Passphrase</string>
-    <string name="create_master_key_passphrase_icon_description">Hand holding a key</string>
+    <string name="create_master_key_passphrase_title">Create Passphrase</string>
+    <string name="create_master_key_passphrase_icon_description">Padlock</string>
     <string name="create_master_key_passphrase_label">Create Passphrase</string>
     <string name="create_master_key_passphrase_rule_length">8+ characters</string>
     <string name="create_master_key_passphrase_rule_uppercase">Uppercase letter</string>
@@ -47,9 +47,8 @@
     <string name="create_master_key_passphrase_confirm">Confirm</string>
 
     <!-- Create MasterKey flow: step 3, re-enter the passphrase -->
-    <string name="create_master_key_confirm_passphrase_title">Confirm Passphrase</string>
+    <string name="create_master_key_confirm_passphrase_title">Re-enter Passphrase</string>
     <string name="create_master_key_confirm_passphrase_icon_description">Padlock inside a repeat arrow</string>
-    <string name="create_master_key_confirm_passphrase_label">Re-enter Passphrase</string>
     <string name="create_master_key_confirm_passphrase_verify">Verify</string>
     <string name="create_master_key_confirm_passphrase_generating">Creating MasterKey…</string>
     <string name="create_master_key_confirm_passphrase_mismatch">The passphrases do not match. Re-enter the passphrase you chose.</string>
@@ -102,9 +101,5 @@
     <string name="create_master_key_confirm_secret_combinations_body">Enter your Secret Combinations that you just wrote down accurately or you will not be permitted to continue. Every input has to be correct.</string>
 
     <!-- Create MasterKey flow: final success screen -->
-    <string name="create_master_key_congratulations_title">Congratulations</string>
-    <string name="create_master_key_congratulations_icon_description">Hands celebrating successful MasterKey setup</string>
-    <string name="create_master_key_congratulations_success">You have setup your MasterKey!</string>
-    <string name="create_master_key_congratulations_body">If you ever need to login to a different device, you can always revert to the backups you safely stored today to always have access.</string>
-    <string name="create_master_key_congratulations_complete">Complete</string>
+    <string name="create_master_key_congratulations_icon_description">MasterKey setup complete</string>
 </resources>
