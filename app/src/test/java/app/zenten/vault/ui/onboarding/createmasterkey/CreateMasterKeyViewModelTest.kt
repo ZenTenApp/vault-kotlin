@@ -52,7 +52,12 @@ class CreateMasterKeyViewModelTest {
         coEvery { engine.backupMaster(any(), any()) } returns AccountConsolidationEngine.MasterBackupResult(
             relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
         )
-        return CreateMasterKeyViewModel(clock, SetupService(secureStorage, appStorage, engine))
+        return CreateMasterKeyViewModel(
+            clock,
+            SetupService(secureStorage, appStorage, engine),
+            secureStorage,
+            appStorage,
+        )
     }
 
     @BeforeEach
@@ -137,6 +142,23 @@ class CreateMasterKeyViewModelTest {
         assertFalse(state.mismatch)
         assertFalse(state.generating)
 
+    }
+
+    @Test
+    fun reuses_secret_combination_indices_derived_during_key_generation() = runTest(dispatcher) {
+        val storedMaster = slot<Account>()
+        val secureStorage = mockk<SecureStorageService>()
+        val viewModel = viewModel(secureStorage)
+        val passphrase = "Correct1 horse!"
+
+        viewModel.choosePassphrase(passphrase)
+        viewModel.verifyAndGenerate(passphrase)
+        viewModel.awaitVerificationResult()
+        io.mockk.verify { secureStorage.addMasterAccount(capture(storedMaster)) }
+
+        val seed = SshKeyCodec.parse(storedMaster.captured.zenTenKey, passphrase.toCharArray()).seed
+        assertEquals(Seedify.toBraveSyncWordIndices(seed), viewModel.state.value.secretCombinationIndices)
+        assertFalse(viewModel.state.value.secretCombinationsLoading)
     }
 
     @Test

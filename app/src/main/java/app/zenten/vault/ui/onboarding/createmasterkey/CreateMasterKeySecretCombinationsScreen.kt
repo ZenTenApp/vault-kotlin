@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,7 +47,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
@@ -55,16 +56,22 @@ import app.zenten.vault.ui.components.VaultPillButton
 @Composable
 fun CreateMasterKeySecretCombinationsScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyBackupViewModel = hiltViewModel(),
+    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
 ) {
-    val indices = remember { viewModel.secretCombinationIndices() }
+    val state by viewModel.state.collectAsState()
+    val indices = state.secretCombinationIndices
     var codesVisible by remember { mutableStateOf(true) }
     var backedUp by remember { mutableStateOf(false) }
 
     ScreenshotProtection()
-    // Reassert the durable point from the destination itself so an immediate process stop
-    // cannot send a verified user back to the clipboard screen.
-    LaunchedEffect(Unit) { viewModel.recordSecretCombinationsShown() }
+    // Start the expensive derivation only when these values are needed. The graph-scoped
+    // ViewModel keeps the result available when the verification screen opens.
+    LaunchedEffect(Unit) {
+        viewModel.loadSecretCombinationIndices()
+        // Reassert the durable point from the destination itself so an immediate process stop
+        // cannot send a verified user back to the clipboard screen.
+        viewModel.recordSecretCombinationsShown()
+    }
     // The generated identity is already committed, and returning would expose a verified
     // clipboard step again. The durable progress marker reopens this screen after restart.
     BackHandler(enabled = true) {}
@@ -95,7 +102,9 @@ fun CreateMasterKeySecretCombinationsScreen(
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                if (indices == null || indices.size != 24) {
+                if (state.secretCombinationsLoading) {
+                    CircularProgressIndicator()
+                } else if (indices == null || indices.size != 24) {
                     Text(
                         text = stringResource(R.string.create_master_key_secret_combinations_unavailable),
                         color = MaterialTheme.colorScheme.error,
@@ -127,7 +136,7 @@ fun CreateMasterKeySecretCombinationsScreen(
                 Checkbox(
                     checked = backedUp,
                     onCheckedChange = { backedUp = it },
-                    enabled = indices != null,
+                    enabled = !state.secretCombinationsLoading && indices?.size == 24,
                 )
                 Text(
                     text = stringResource(R.string.create_master_key_secret_combinations_consent),
@@ -142,7 +151,7 @@ fun CreateMasterKeySecretCombinationsScreen(
                 onClick = {
                     navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS)
                 },
-                enabled = backedUp && indices != null,
+                enabled = backedUp && !state.secretCombinationsLoading && indices?.size == 24,
                 modifier = Modifier.padding(horizontal = 36.dp),
             )
             Spacer(Modifier.height(16.dp))

@@ -20,14 +20,6 @@ internal fun rememberCreateMasterKeyViewModel(navController: NavHostController):
     return rememberCreateMasterKeyGraphViewModel(navController)
 }
 
-/** Keeps backup verification state alive while the user moves between wizard screens. */
-@Composable
-internal fun rememberCreateMasterKeyBackupViewModel(
-    navController: NavHostController,
-): CreateMasterKeyBackupViewModel {
-    return rememberCreateMasterKeyGraphViewModel(navController)
-}
-
 @Composable
 private inline fun <reified VM : androidx.lifecycle.ViewModel> rememberCreateMasterKeyGraphViewModel(
     navController: NavHostController,

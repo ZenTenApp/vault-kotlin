@@ -1,12 +1,19 @@
 package app.zenten.vault.ui.onboarding.createmasterkey
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.crypto.toPersistedKeyPair
+import app.zenten.vault.data.kv.AppStorageService
+import app.zenten.vault.data.kv.CreateMasterKeyStep
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,12 +45,22 @@ import javax.inject.Inject
 class CreateMasterKeyViewModel @Inject constructor(
     private val clock: Clock,
     private val setupService: SetupService,
+    private val secureStorage: SecureStorageService,
+    private val appStorage: AppStorageService,
 ) : ViewModel() {
     /**
      * Passphrase chosen on step 2. Kept out of [state] so it can never be read
      * back by a composable or leak into a UI snapshot/log of the state object.
      */
     private var chosenPassphrase: String? = null
+
+    private var secretCombinationsLoadStarted = false
+
+    /** Verification input survives Back navigation while this wizard graph remains active. */
+    val secretCombinationEntries = mutableStateListOf(*Array(24) { "" })
+
+    var activeSecretCombinationSegment by mutableIntStateOf(0)
+        private set
 
     private val _state = MutableStateFlow(CreateMasterKeyState())
     val state: StateFlow<CreateMasterKeyState> = _state.asStateFlow()
@@ -94,32 +111,32 @@ class CreateMasterKeyViewModel @Inject constructor(
         )
         viewModelScope.launch {
             runCatching {
-                val key = withContext(Dispatchers.Default) {
-                    SshKeyCodec.generateEncrypted(
+                withContext(Dispatchers.Default) {
+                    val key = SshKeyCodec.generateEncrypted(
                         // Microsecond-resolution id, matching the convention used
                         // for every other account created by the app.
                         createdAt = clock.millis() * 1_000L,
                         passphrase = passphrase.toCharArray(),
                     )
+                    // Parsing is another bcrypt operation, so it must remain on the worker
+                    // dispatcher along with every identity derived from the decrypted seed.
+                    val parsed = SshKeyCodec.parse(key.privateKeyPem, passphrase.toCharArray())
+                    val mnemonic = Seedify.toMnemonic(parsed.seed)
+                    val master = Account(
+                        createdAt = key.createdAt,
+                        // Associated-account exports use canonical base64 without PEM wrappers
+                        // or line breaks; store generated masters in that same format.
+                        zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
+                        zenTenPass = passphrase,
+                        pubkey = key.publicKey,
+                        nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
+                    )
+                    val createFlowRelayIdentity = NostrKeyDerivation.derive(
+                        Seedify.toBraveAccountMnemonic(parsed.seed),
+                    ).toPersistedKeyPair()
+                    Triple(master, createFlowRelayIdentity, Seedify.toBraveSyncWordIndices(parsed.seed))
                 }
-                val parsed = SshKeyCodec.parse(key.privateKeyPem, passphrase.toCharArray())
-                val mnemonic = Seedify.toMnemonic(parsed.seed)
-                val master = Account(
-                    createdAt = key.createdAt,
-                    // Associated-account exports use canonical base64 without PEM wrappers
-                    // or line breaks; store generated masters in that same format.
-                    zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
-                    zenTenPass = passphrase,
-                    pubkey = key.publicKey,
-                    nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
-                )
-                // Reuse the seed already extracted during generation rather than decrypting
-                // the intentionally expensive OpenSSH container a second time.
-                val createFlowRelayIdentity = NostrKeyDerivation.derive(
-                    Seedify.toBraveAccountMnemonic(parsed.seed),
-                ).toPersistedKeyPair()
-                master to createFlowRelayIdentity
-            }.mapCatching { (master, createFlowRelayIdentity) ->
+            }.mapCatching { (master, createFlowRelayIdentity, secretCombinationIndices) ->
                 _state.value = _state.value.copy(progressStage = MasterKeyCreationStage.SAVING_KEY)
                 // Local commit happens before any network call. The setup service records
                 // BACKUP_INTRO even if one or more configured sources are unavailable.
@@ -129,9 +146,16 @@ class CreateMasterKeyViewModel @Inject constructor(
                         backupProgress = progress,
                     )
                 }.getOrThrow()
-            }.onSuccess {
+                secretCombinationIndices
+            }.onSuccess { secretCombinationIndices ->
                 chosenPassphrase = null
-                _state.value = CreateMasterKeyState(keyGenerated = true, navigateToBackup = true)
+                secretCombinationsLoadStarted = true
+                _state.value = CreateMasterKeyState(
+                    keyGenerated = true,
+                    navigateToBackup = true,
+                    secretCombinationIndices = secretCombinationIndices,
+                    secretCombinationsLoading = false,
+                )
             }.onFailure {
                 // The message is intentionally dropped: it could echo key or
                 // passphrase material into the UI.
@@ -156,6 +180,103 @@ class CreateMasterKeyViewModel @Inject constructor(
     fun clearVerificationMessage() {
         if (!_state.value.mismatch && !_state.value.generationFailed) return
         _state.value = _state.value.copy(mismatch = false, generationFailed = false)
+    }
+
+    fun updateSecretCombinationEntry(index: Int, value: String) {
+        secretCombinationEntries[index] = value
+    }
+
+    fun advanceSecretCombinationEntry() {
+        if (activeSecretCombinationSegment < secretCombinationEntries.lastIndex) {
+            activeSecretCombinationSegment++
+        }
+    }
+
+    /** Matches associated-account local backup: raw single-line base64, never PEM text. */
+    fun masterKeyForExport(): String? = secureStorage.getMasterAccount()?.zenTenKey?.let { stored ->
+        runCatching { SshKeyCodec.normalizeToSingleLineBase64(stored) }.getOrNull()
+    }
+
+    /** Marks confirmation as resumable only after Android accepted the targeted export intent. */
+    fun recordExportStarted() {
+        if (_state.value.advancing) return
+        _state.value = _state.value.copy(advancing = true)
+        viewModelScope.launch {
+            appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.CONFIRM_BACKUP)
+            _state.value = _state.value.copy(advancing = false, navigateToConfirmation = true)
+        }
+    }
+
+    fun onConfirmationShown() {
+        if (_state.value.navigateToConfirmation) {
+            _state.value = _state.value.copy(navigateToConfirmation = false)
+        }
+    }
+
+    /** Makes Secret Combinations the durable resume point after key verification succeeds. */
+    fun recordSecretCombinationsShown() {
+        viewModelScope.launch {
+            appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.SECRET_COMBINATIONS)
+        }
+    }
+
+    /** Makes the celebration screen resumable before leaving recovery-code verification. */
+    fun recordSecretCombinationsVerified(onRecorded: () -> Unit) {
+        viewModelScope.launch {
+            appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.CONGRATULATIONS)
+            onRecorded()
+        }
+    }
+
+    /** Finishes onboarding before opening Accounts so app restart follows the same destination. */
+    fun completeGeneratedMasterKeySetup(onCompleted: () -> Unit) {
+        if (_state.value.advancing) return
+        _state.value = _state.value.copy(advancing = true)
+        viewModelScope.launch {
+            appStorage.setSetupComplete()
+            secretCombinationEntries.fill("")
+            _state.value = _state.value.copy(
+                advancing = false,
+                secretCombinationIndices = null,
+            )
+            onCompleted()
+        }
+    }
+
+    /**
+     * The normal create flow already populated the indices while its seed was in memory.
+     * Only a restored process reaches the stored-key decryption fallback below.
+     */
+    fun loadSecretCombinationIndices() {
+        if (secretCombinationsLoadStarted) return
+        secretCombinationsLoadStarted = true
+        _state.value = _state.value.copy(secretCombinationsLoading = true)
+        viewModelScope.launch {
+            val indices = withContext(Dispatchers.Default) {
+                secureStorage.getMasterAccount()?.let { master ->
+                    runCatching {
+                        val passphrase = requireNotNull(master.zenTenPass) { "Master passphrase is unavailable" }
+                        val seed = SshKeyCodec.parse(master.zenTenKey, passphrase.toCharArray()).seed
+                        Seedify.toBraveSyncWordIndices(seed)
+                    }.getOrNull()
+                }
+            }
+            _state.value = _state.value.copy(
+                secretCombinationIndices = indices,
+                secretCombinationsLoading = false,
+            )
+        }
+    }
+
+    /** Validates and compares normalized key material without retaining clipboard text in UI state. */
+    fun confirmPastedMasterKey(pastedKey: String): BackupConfirmationResult {
+        val normalized = runCatching {
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pastedKey)
+        }.getOrElse { return BackupConfirmationResult.INVALID }
+        val stored = secureStorage.getMasterAccount()?.zenTenKey
+            ?.let { runCatching { SshKeyCodec.normalizeToSingleLineBase64(it) }.getOrNull() }
+            ?: return BackupConfirmationResult.UNAVAILABLE
+        return if (normalized == stored) BackupConfirmationResult.MATCHED else BackupConfirmationResult.MISMATCHED
     }
 
 }
@@ -183,10 +304,22 @@ data class CreateMasterKeyState(
     val keyGenerated: Boolean = false,
     /** One-shot signal to advance to the backup step; cleared by [CreateMasterKeyViewModel.onBackupStepShown]. */
     val navigateToBackup: Boolean = false,
+    val advancing: Boolean = false,
+    val navigateToConfirmation: Boolean = false,
+    /** Cached only in memory; null after loading means derivation failed. */
+    val secretCombinationIndices: List<Int>? = null,
+    val secretCombinationsLoading: Boolean = true,
 )
 
 enum class MasterKeyCreationStage {
     CREATING_KEY,
     SAVING_KEY,
     SYNCING_BACKUPS,
+}
+
+enum class BackupConfirmationResult {
+    MATCHED,
+    INVALID,
+    MISMATCHED,
+    UNAVAILABLE,
 }
