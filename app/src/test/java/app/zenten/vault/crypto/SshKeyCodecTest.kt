@@ -40,6 +40,10 @@ class SshKeyCodecTest {
 
         val code = Seedify.toBraveSyncCode(seed, Instant.parse("2026-01-01T00:00:00Z"))
         assertEquals(
+            code.split(" ").take(24).joinToString(" "),
+            Seedify.toBraveAccountMnemonic(seed),
+        )
+        assertEquals(
             code.split(" ").take(24),
             Seedify.toBraveSyncWordIndices(seed).map { Bip39Mnemonics.englishWordlist[it - 1] },
         )

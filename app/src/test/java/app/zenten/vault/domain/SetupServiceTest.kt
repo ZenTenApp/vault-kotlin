@@ -50,12 +50,14 @@ class SetupServiceTest {
             failedSourceIds = setOf("relay", "brave"),
         )
 
-        assertTrue(fixture.service.persistGeneratedMasterAndBackup(master).isSuccess)
+        assertTrue(fixture.service.persistGeneratedMasterAndBackup(master, createFlowRelayIdentity).isSuccess)
 
         verify(exactly = 1) { fixture.secureStorage.addMasterAccount(master) }
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
         coVerify(exactly = 1) { fixture.appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO) }
-        coVerify(exactly = 1) { fixture.engine.backupMaster(master, any()) }
+        coVerify(exactly = 1) {
+            fixture.engine.backupMaster(master.copy(nostr = createFlowRelayIdentity), any())
+        }
         coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
     }
 
@@ -125,6 +127,7 @@ class SetupServiceTest {
     }
 
     companion object {
+        val createFlowRelayIdentity = NostrKeyPair("02".repeat(32), "03".repeat(32))
         val master = Account(
             createdAt = 1,
             zenTenKey = "master",

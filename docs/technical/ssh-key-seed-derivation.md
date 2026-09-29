@@ -112,7 +112,7 @@ Generated associated key:
   generate seed/key pair -> serialize/store OpenSSH key -> temporarily derive mnemonic -> derive/store Nostr identity -> back up key
 ```
 
-A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The master flow may present separately derived Brave recovery word positions to the user, but those displayed values are also not persisted.
+A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The generated-master flow also derives Seedify's deterministic `brave` sub-account seed as `SHA-256(SHA-256(UTF-8("brave")) || originalMasterSeed)` and encodes it as a 24-word BIP-39 mnemonic. Those 24 words serve two purposes during initial creation: Brave Sync appends its daily 25th word, while NIP-06 derives the Nostr identity used to back up the original MasterKey on relays. The app presents the 24 words as recovery indices but does not persist the mnemonic or indices separately. The stored master retains the Nostr identity derived directly from the original seed for all later general backup and consolidation operations.
 
 ## Verification
 

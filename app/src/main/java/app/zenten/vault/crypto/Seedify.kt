@@ -25,15 +25,16 @@ object Seedify {
      * derivation. [now] is injectable so callers and tests can reproduce a code
      * for a particular Brave Sync day.
      */
-    fun toBraveSyncCode(seed: ByteArray, now: Instant = Instant.now()): String {
-        val braveSeed = deriveAssociatedAccountSeed(seed, BRAVE_ASSOCIATED_ACCOUNT)
-        return "${toMnemonic(braveSeed)} ${braveSync25thWord(now)}"
-    }
+    fun toBraveSyncCode(seed: ByteArray, now: Instant = Instant.now()): String =
+        "${toBraveAccountMnemonic(seed)} ${braveSync25thWord(now)}"
+
+    /** The 24-word mnemonic of Seedify's deterministic `brave` associated account. */
+    fun toBraveAccountMnemonic(seed: ByteArray): String =
+        toMnemonic(deriveAssociatedAccountSeed(seed, BRAVE_ASSOCIATED_ACCOUNT))
 
     /** One-based BIP-39 positions for the 24 recovery words in the Brave Sync code. */
     fun toBraveSyncWordIndices(seed: ByteArray): List<Int> {
-        val braveSeed = deriveAssociatedAccountSeed(seed, BRAVE_ASSOCIATED_ACCOUNT)
-        return Bip39Mnemonics.toMnemonics(braveSeed).map { word ->
+        return toBraveAccountMnemonic(seed).split(" ").map { word ->
             Bip39Mnemonics.englishWordlist.indexOf(word).also { index ->
                 check(index >= 0) { "Generated Brave Sync word is absent from the BIP-39 word list" }
             } + 1

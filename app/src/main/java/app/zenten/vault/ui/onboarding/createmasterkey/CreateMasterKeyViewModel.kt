@@ -104,7 +104,7 @@ class CreateMasterKeyViewModel @Inject constructor(
                 }
                 val parsed = SshKeyCodec.parse(key.privateKeyPem, passphrase.toCharArray())
                 val mnemonic = Seedify.toMnemonic(parsed.seed)
-                Account(
+                val master = Account(
                     createdAt = key.createdAt,
                     // Associated-account exports use canonical base64 without PEM wrappers
                     // or line breaks; store generated masters in that same format.
@@ -113,11 +113,17 @@ class CreateMasterKeyViewModel @Inject constructor(
                     pubkey = key.publicKey,
                     nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
                 )
-            }.mapCatching { master ->
+                // Reuse the seed already extracted during generation rather than decrypting
+                // the intentionally expensive OpenSSH container a second time.
+                val createFlowRelayIdentity = NostrKeyDerivation.derive(
+                    Seedify.toBraveAccountMnemonic(parsed.seed),
+                ).toPersistedKeyPair()
+                master to createFlowRelayIdentity
+            }.mapCatching { (master, createFlowRelayIdentity) ->
                 _state.value = _state.value.copy(progressStage = MasterKeyCreationStage.SAVING_KEY)
                 // Local commit happens before any network call. The setup service records
                 // BACKUP_INTRO even if one or more configured sources are unavailable.
-                setupService.persistGeneratedMasterAndBackup(master) { progress ->
+                setupService.persistGeneratedMasterAndBackup(master, createFlowRelayIdentity) { progress ->
                     _state.value = _state.value.copy(
                         progressStage = MasterKeyCreationStage.SYNCING_BACKUPS,
                         backupProgress = progress,
