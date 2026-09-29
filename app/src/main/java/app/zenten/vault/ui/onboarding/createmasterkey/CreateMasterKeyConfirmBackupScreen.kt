@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
@@ -28,7 +27,7 @@ import app.zenten.vault.ui.components.VaultPillButton
 @Composable
 fun CreateMasterKeyConfirmBackupScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyBackupViewModel = hiltViewModel(),
+    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
 ) {
     val context = LocalContext.current
     val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
@@ -99,6 +98,9 @@ fun CreateMasterKeyConfirmBackupScreen(
                     }
                     error = when (viewModel.confirmPastedMasterKey(pastedKey)) {
                         BackupConfirmationResult.MATCHED -> {
+                            // Usually already available from generation; after process restoration
+                            // this starts the one-time background KDF fallback.
+                            viewModel.loadSecretCombinationIndices()
                             viewModel.recordSecretCombinationsShown()
                             navController.navigate(VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS) {
                                 launchSingleTop = true

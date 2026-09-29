@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,15 +62,17 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
 @Composable
 fun CreateMasterKeyConfirmSecretCombinationsScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyBackupViewModel = rememberCreateMasterKeyBackupViewModel(navController),
+    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
     onCompleted: () -> Unit = {},
 ) {
-    val expected = remember { viewModel.secretCombinationIndices() }
+    val state by viewModel.state.collectAsState()
+    val expected = state.secretCombinationIndices
     val entries = viewModel.secretCombinationEntries
     val activeSegment = viewModel.activeSecretCombinationSegment
     var completed by remember { mutableStateOf(false) }
 
     ScreenshotProtection()
+    LaunchedEffect(Unit) { viewModel.loadSecretCombinationIndices() }
     BackHandler { navController.popBackStack() }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
@@ -98,7 +102,9 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
             )
             Spacer(Modifier.height(32.dp))
 
-            if (expected == null || expected.size != 24) {
+            if (state.secretCombinationsLoading) {
+                CircularProgressIndicator()
+            } else if (expected == null || expected.size != 24) {
                 Text(
                     text = stringResource(R.string.create_master_key_secret_combinations_unavailable),
                     color = MaterialTheme.colorScheme.error,
