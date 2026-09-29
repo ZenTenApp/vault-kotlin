@@ -4,6 +4,7 @@ import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.data.kv.CreateMasterKeyStep
 import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import kotlinx.coroutines.flow.first
 
@@ -34,13 +35,17 @@ class SetupService(
      */
     suspend fun persistGeneratedMasterAndBackup(
         master: Account,
+        createFlowRelayIdentity: NostrKeyPair,
         onProgress: suspend (AccountConsolidationEngine.MasterBackupProgress) -> Unit = {},
     ): Result<Unit> = runCatching {
         persistMaster(master)
         appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO)
+        // Only the create-flow relay operation uses the recoverable Brave sub-account
+        // identity. The stored master keeps its normal identity for later consolidation.
+        val createFlowMaster = master.copy(nostr = createFlowRelayIdentity)
         // Source-level state records failures for later retries. A network problem must not
         // undo the irreversible local commit or send the user back to key generation.
-        runCatching { consolidationEngine.backupMaster(master, onProgress) }
+        runCatching { consolidationEngine.backupMaster(createFlowMaster, onProgress) }
     }
 
     suspend fun retryMasterBackup(): Result<Unit> = runCatching {

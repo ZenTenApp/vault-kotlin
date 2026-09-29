@@ -37,14 +37,14 @@ Presence is determined by identifier only. Consolidation does not decrypt an alr
 | Master | `37801` | `masterkey` | normalized master OpenSSH private key |
 | Associated | `37802` | decimal `createdAt` | normalized encrypted OpenSSH private key |
 
-The event author/signature identity is derived from the master account. The plaintext is a canonical single-line Base64 OpenSSH private-key value. `BackupService` NIP-44 self-encrypts it, then `NostrEventCodec` signs the event.
+Normally, the event author/signature identity is derived from the original master seed. The initial remote backup performed specifically by the **Create MasterKey** wizard is the exception: it derives a NIP-06 identity from the 24-word mnemonic of Seedify's deterministic `brave` associated account and uses that identity for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication. The backed-up plaintext is still the original MasterKey's canonical single-line Base64 OpenSSH private key. Imported-master setup, later retries, associated-account backup, and consolidation continue to use the stored original-seed master Nostr identity; later consolidation may consequently add a duplicate relay master backup under that identity.
 
 ### NIP-42 lifecycle
 
 `NostrRelayService` creates an authenticated one-shot Quartz connection for source reads and writes:
 
 1. Install `RelayAuthenticator` before connecting.
-2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the master-derived Nostr key.
+2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that operation (the Brave sub-account identity only during initial in-app creation; otherwise the stored master identity).
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
 4. Pin the challenged relay in Quartz's connection pool for the full operation timeout while waiting for a definitive AUTH acknowledgement. `fetchAll` removes its subscription after `CLOSED`, so an authenticated read maintains a temporary keep-alive subscription until the handshake and retry finish. If the initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
 5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.

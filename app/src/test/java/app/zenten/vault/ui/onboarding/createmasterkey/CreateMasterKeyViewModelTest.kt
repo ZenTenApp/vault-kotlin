@@ -7,11 +7,14 @@ import app.zenten.vault.domain.SetupService
 import app.zenten.vault.data.kv.AppStorageService
 import io.mockk.coEvery
 import io.mockk.coJustRun
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
+import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,9 +41,11 @@ class CreateMasterKeyViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val clock = Clock.fixed(Instant.parse("2026-02-01T00:00:00Z"), ZoneOffset.UTC)
 
-    private fun viewModel(secureStorage: SecureStorageService = mockk()): CreateMasterKeyViewModel {
+    private fun viewModel(
+        secureStorage: SecureStorageService = mockk(),
+        engine: AccountConsolidationEngine = mockk(),
+    ): CreateMasterKeyViewModel {
         val appStorage = mockk<AppStorageService>()
-        val engine = mockk<AccountConsolidationEngine>()
         every { secureStorage.addMasterAccount(any()) } just runs
         coJustRun { appStorage.clearSetupComplete() }
         coJustRun { appStorage.setCreateMasterKeyStep(any()) }
@@ -152,6 +157,32 @@ class CreateMasterKeyViewModelTest {
             storedMaster.captured.zenTenKey,
             SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedMaster.captured.zenTenKey),
         )
+    }
+
+    @Test
+    fun initial_relay_backup_uses_the_brave_sub_account_nostr_identity() = runTest(dispatcher) {
+        val storedMaster = slot<Account>()
+        val backedUpMaster = slot<Account>()
+        val secureStorage = mockk<SecureStorageService>()
+        val engine = mockk<AccountConsolidationEngine>()
+        val viewModel = viewModel(secureStorage, engine)
+        val passphrase = "Correct1 horse!"
+        coEvery { engine.backupMaster(capture(backedUpMaster), any()) } returns
+            AccountConsolidationEngine.MasterBackupResult(true, true, emptySet(), emptySet())
+
+        viewModel.choosePassphrase(passphrase)
+        viewModel.verifyAndGenerate(passphrase)
+        viewModel.awaitVerificationResult()
+        io.mockk.verify { secureStorage.addMasterAccount(capture(storedMaster)) }
+
+        val seed = SshKeyCodec.parse(storedMaster.captured.zenTenKey, passphrase.toCharArray()).seed
+        val expected = NostrKeyDerivation.derive(Seedify.toBraveAccountMnemonic(seed))
+        assertEquals(expected.publicKey.joinToString("") { "%02x".format(it) }, backedUpMaster.captured.nostr.pubkey)
+        assertEquals(expected.privateKey.joinToString("") { "%02x".format(it) }, backedUpMaster.captured.nostr.privkey)
+        val expectedStored = NostrKeyDerivation.derive(Seedify.toMnemonic(seed))
+        assertEquals(expectedStored.publicKey.joinToString("") { "%02x".format(it) }, storedMaster.captured.nostr.pubkey)
+        assertTrue(storedMaster.captured.nostr != backedUpMaster.captured.nostr)
+        coVerify(exactly = 1) { engine.backupMaster(any(), any()) }
     }
 
     @Test

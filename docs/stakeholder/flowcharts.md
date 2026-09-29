@@ -32,7 +32,8 @@ flowchart TD
     CreateGenerate -->|Failure| CreateGenerateFailed["Return to confirmation with generic retry message; nothing created"]
     CreateGenerateFailed --> CreateConfirm
     CreateGenerate -->|Success| CreateStore["Show secure-save stage; store generated master locally"]
-    CreateStore --> CreateRemote["Show active source + completed/total count; check and back up every enabled source"]
+    CreateStore --> CreateIdentity["Derive Nostr identity from the 24-word Brave sub-account mnemonic"]
+    CreateIdentity --> CreateRemote["Use that identity for initial relay backup; use 24 words + daily 25th word for Brave Sync"]
     CreateRemote --> CreateProgress["Persist next unfinished wizard step"]
     CreateProgress --> CreateBackupIntro["Create Backup: explain the first Vault Backup"]
     CreateBackupIntro -->|"Back"| CreateBackupIntro
@@ -67,7 +68,7 @@ flowchart TD
     Master --> Accounts
 ```
 
-After passphrase verification, the dedicated **Creating MasterKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, at **Save your Secret Combinations** after the pasted key matched, or at **Congratulations** after every combination was verified. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. The completion screen blocks Back, displays only a centered outlined check, then automatically marks setup complete after three seconds and replaces the wizard with the account list.
+After passphrase verification, the dedicated **Creating MasterKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. In this creation operation only, the initial relay backup of the original MasterKey is encrypted, signed, queried, published, and authenticated with the Nostr identity derived from the 24-word `brave` sub-account mnemonic; Brave Sync adds its daily 25th word to those same 24 words. General retries and consolidation retain the original master identity and may later create a duplicate relay copy under it. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, at **Save your Secret Combinations** after the pasted key matched, or at **Congratulations** after every combination was verified. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. The completion screen blocks Back, displays only a centered outlined check, then automatically marks setup complete after three seconds and replaces the wizard with the account list.
 
 ## Master-account setup
 
