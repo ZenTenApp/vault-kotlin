@@ -32,8 +32,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
@@ -63,20 +60,16 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
 @Composable
 fun CreateMasterKeyConfirmSecretCombinationsScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyBackupViewModel = hiltViewModel(),
+    viewModel: CreateMasterKeyBackupViewModel = rememberCreateMasterKeyBackupViewModel(navController),
     onCompleted: () -> Unit = {},
 ) {
     val expected = remember { viewModel.secretCombinationIndices() }
-    // Deliberately not saveable: leaving this destination must erase every re-entry.
-    val entries = remember { mutableStateListOf(*Array(24) { "" }) }
-    var activeSegment by remember { mutableIntStateOf(0) }
+    val entries = viewModel.secretCombinationEntries
+    val activeSegment = viewModel.activeSecretCombinationSegment
     var completed by remember { mutableStateOf(false) }
 
     ScreenshotProtection()
-    BackHandler {
-        entries.indices.forEach { entries[it] = "" }
-        navController.popBackStack()
-    }
+    BackHandler { navController.popBackStack() }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
         Column(
@@ -87,10 +80,7 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ConfirmCombinationsBackLink {
-                entries.indices.forEach { entries[it] = "" }
-                navController.popBackStack()
-            }
+            ConfirmCombinationsBackLink { navController.popBackStack() }
             Spacer(Modifier.height(28.dp))
             Text(
                 text = stringResource(R.string.create_master_key_confirm_secret_combinations_title),
@@ -120,7 +110,7 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
                     entries = entries,
                     activeSegment = activeSegment,
                     onEntryChanged = { index, value ->
-                        entries[index] = value
+                        viewModel.updateSecretCombinationEntry(index, value)
                         if (value == expected[index].toString()) {
                             if (index == expected.lastIndex) {
                                 completed = true
@@ -133,7 +123,7 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
                                     }
                                 }
                             } else {
-                                activeSegment = index + 1
+                                viewModel.advanceSecretCombinationEntry()
                             }
                         }
                     },
@@ -207,7 +197,7 @@ private fun ConfirmCombinationPicker(
         itemsIndexed(expected.chunked(3), key = { index, _ -> index }) { rowIndex, row ->
             val positionFromCenter = rowIndex.compareTo(activeRow)
             ConfirmCombinationRow(
-                label = ('A'.code + rowIndex).toChar(),
+                label = rowIndex + 1,
                 expected = row,
                 entries = entries.subList(rowIndex * 3, rowIndex * 3 + 3),
                 firstSegmentIndex = rowIndex * 3,
@@ -223,7 +213,7 @@ private fun ConfirmCombinationPicker(
 
 @Composable
 private fun ConfirmCombinationRow(
-    label: Char,
+    label: Int,
     expected: List<Int>,
     entries: List<String>,
     firstSegmentIndex: Int,

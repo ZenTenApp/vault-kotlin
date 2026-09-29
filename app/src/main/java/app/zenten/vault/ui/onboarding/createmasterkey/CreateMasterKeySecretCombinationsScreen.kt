@@ -190,7 +190,7 @@ private val CombinationRowSpacing = 10.dp
 private val CombinationSlotHeight = CombinationRowHeight + CombinationRowSpacing
 
 /**
- * Three-row snapping wheel. Empty edge padding lets A and H occupy the center target
+ * Three-row snapping wheel. Empty edge padding lets rows 1 and 8 occupy the center target
  * without wrapping, while only this compact region—not the whole screen—scrolls.
  */
 @Composable
@@ -220,7 +220,7 @@ private fun SecretCombinationPicker(groups: List<List<Int>>, visible: Boolean) {
     ) {
         itemsIndexed(groups, key = { index, _ -> index }) { rowIndex, group ->
             SecretCombinationRow(
-                label = ('A'.code + rowIndex).toChar(),
+                label = rowIndex + 1,
                 indices = group,
                 visible = visible,
                 positionFromCenter = rowIndex.compareTo(centeredIndex),
@@ -233,7 +233,7 @@ private fun SecretCombinationPicker(groups: List<List<Int>>, visible: Boolean) {
 
 @Composable
 private fun SecretCombinationRow(
-    label: Char,
+    label: Int,
     indices: List<Int>,
     visible: Boolean,
     /** Negative above center, zero at center, positive below center. */

@@ -1,5 +1,9 @@
 package app.zenten.vault.ui.onboarding.createmasterkey
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.zenten.vault.crypto.Seedify
@@ -22,6 +26,22 @@ class CreateMasterKeyBackupViewModel @Inject constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(CreateMasterKeyBackupState())
     val state: StateFlow<CreateMasterKeyBackupState> = _state.asStateFlow()
+
+    /** Verification input survives Back navigation while this wizard graph remains active. */
+    val secretCombinationEntries = mutableStateListOf(*Array(24) { "" })
+
+    var activeSecretCombinationSegment by mutableIntStateOf(0)
+        private set
+
+    fun updateSecretCombinationEntry(index: Int, value: String) {
+        secretCombinationEntries[index] = value
+    }
+
+    fun advanceSecretCombinationEntry() {
+        if (activeSecretCombinationSegment < secretCombinationEntries.lastIndex) {
+            activeSecretCombinationSegment++
+        }
+    }
 
     /** Matches associated-account local backup: raw single-line base64, never PEM text. */
     fun masterKeyForExport(): String? = secureStorage.getMasterAccount()?.zenTenKey?.let { stored ->

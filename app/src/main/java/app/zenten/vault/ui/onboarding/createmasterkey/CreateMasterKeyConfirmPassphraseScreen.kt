@@ -72,7 +72,7 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
             Spacer(Modifier.height(28.dp))
 
             PassphraseField(
-                label = stringResource(R.string.create_master_key_confirm_passphrase_label),
+                label = null,
                 value = reEnteredPassphrase,
                 onValueChange = {
                     reEnteredPassphrase = it
