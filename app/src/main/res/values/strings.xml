@@ -58,10 +58,13 @@
     <!-- Create MasterKey flow: irreversible account creation progress -->
     <string name="create_master_key_creating_title">Creating MasterKey</string>
     <string name="create_master_key_creating_warning">Warning: Don’t close the app during this process.</string>
-    <string name="create_master_key_creating_key">Creating your encrypted MasterKey…</string>
-    <string name="create_master_key_saving_key">Saving your MasterKey securely on this device…</string>
-    <string name="create_master_key_syncing_backups">Syncing your MasterKey account with backup sources…</string>
-    <string name="create_master_key_syncing_backup_source">Syncing %1$s • %2$d of %3$d backup sources complete</string>
+    <string name="create_master_key_creating_key">Created Encrypted MasterKey</string>
+    <string name="create_master_key_deriving_nostr">Derived Nostr Key Pair</string>
+    <string name="create_master_key_deriving_sync_code">Derived Sync Code</string>
+    <string name="create_master_key_backup_relay">Backup VaultKey to Nostr Relay %1$d</string>
+    <string name="create_master_key_backup_sync_server">Backup VaultKey to Sync Server %1$d</string>
+    <string name="create_master_key_created_successfully">MasterKey created successfully</string>
+    <string name="create_master_key_operation_in_progress">MasterKey creation in progress</string>
 
     <!-- Create MasterKey flow: step 4, export the first Vault Backup -->
     <string name="create_master_key_backup_intro_title">Create Backup</string>
