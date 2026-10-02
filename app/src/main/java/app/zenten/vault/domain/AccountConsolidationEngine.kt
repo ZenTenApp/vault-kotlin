@@ -36,11 +36,12 @@ class AccountConsolidationEngine(
         val successes = mutableSetOf<String>()
         val failures = mutableSetOf<String>()
         val sources = enabledSources()
+        val progressSources = sources.map { MasterBackupSource(it.label, it.type) }
         val runContext = sourceFactory.createRunContext(master)
         sources.forEachIndexed { index, config ->
             // Report both edges of each source operation so the UI can show the active
             // destination as well as progress that advances after it finishes.
-            onProgress(MasterBackupProgress(config.label, index, sources.size))
+            onProgress(MasterBackupProgress(progressSources, index, index))
             val source = sourceFactory.create(config, runContext)
             setStatus(BackupAccountId.Master, config, AccountSourceBackupState.CHECKING)
             source.index(master).fold(
@@ -76,7 +77,7 @@ class AccountConsolidationEngine(
                     )
                 },
             )
-            onProgress(MasterBackupProgress(config.label, index + 1, sources.size))
+            onProgress(MasterBackupProgress(progressSources, index, index + 1))
         }
         val configs = sources.associateBy { it.id }
         val relayQuorum = successes.any { configs[it]?.type == BackupSourceType.NOSTR_RELAY && configs[it]?.countsTowardQuorum == true }
@@ -85,9 +86,17 @@ class AccountConsolidationEngine(
     }
 
     data class MasterBackupProgress(
-        val sourceLabel: String,
+        val sources: List<MasterBackupSource>,
+        val activeSourceIndex: Int,
         val completedSources: Int,
-        val totalSources: Int,
+    ) {
+        val activeSource: MasterBackupSource get() = sources[activeSourceIndex]
+        val totalSources: Int get() = sources.size
+    }
+
+    data class MasterBackupSource(
+        val label: String,
+        val type: BackupSourceType,
     )
 
     /** Reconciles one associated account without restoring, writing, or changing statuses for other accounts. */

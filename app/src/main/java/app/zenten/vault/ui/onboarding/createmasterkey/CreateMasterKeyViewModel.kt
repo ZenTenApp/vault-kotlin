@@ -111,13 +111,16 @@ class CreateMasterKeyViewModel @Inject constructor(
         )
         viewModelScope.launch {
             runCatching {
-                withContext(Dispatchers.Default) {
-                    val key = SshKeyCodec.generateEncrypted(
+                val key = withContext(Dispatchers.Default) {
+                    SshKeyCodec.generateEncrypted(
                         // Microsecond-resolution id, matching the convention used
                         // for every other account created by the app.
                         createdAt = clock.millis() * 1_000L,
                         passphrase = passphrase.toCharArray(),
                     )
+                }
+                _state.value = _state.value.copy(progressStage = MasterKeyCreationStage.DERIVING_NOSTR_KEY_PAIR)
+                val (master, createFlowRelayIdentity, parsedSeed) = withContext(Dispatchers.Default) {
                     // Parsing is another bcrypt operation, so it must remain on the worker
                     // dispatcher along with every identity derived from the decrypted seed.
                     val parsed = SshKeyCodec.parse(key.privateKeyPem, passphrase.toCharArray())
@@ -134,10 +137,15 @@ class CreateMasterKeyViewModel @Inject constructor(
                     val createFlowRelayIdentity = NostrKeyDerivation.derive(
                         Seedify.toBraveAccountMnemonic(parsed.seed),
                     ).toPersistedKeyPair()
-                    Triple(master, createFlowRelayIdentity, Seedify.toBraveSyncWordIndices(parsed.seed))
+                    Triple(master, createFlowRelayIdentity, parsed.seed)
                 }
+                _state.value = _state.value.copy(progressStage = MasterKeyCreationStage.DERIVING_SYNC_CODE)
+                val secretCombinationIndices = withContext(Dispatchers.Default) {
+                    Seedify.toBraveSyncWordIndices(parsedSeed)
+                }
+                Triple(master, createFlowRelayIdentity, secretCombinationIndices)
             }.mapCatching { (master, createFlowRelayIdentity, secretCombinationIndices) ->
-                _state.value = _state.value.copy(progressStage = MasterKeyCreationStage.SAVING_KEY)
+                _state.value = _state.value.copy(progressStage = MasterKeyCreationStage.SYNCING_BACKUPS)
                 // Local commit happens before any network call. The setup service records
                 // BACKUP_INTRO even if one or more configured sources are unavailable.
                 setupService.persistGeneratedMasterAndBackup(master, createFlowRelayIdentity) { progress ->
@@ -150,11 +158,13 @@ class CreateMasterKeyViewModel @Inject constructor(
             }.onSuccess { secretCombinationIndices ->
                 chosenPassphrase = null
                 secretCombinationsLoadStarted = true
-                _state.value = CreateMasterKeyState(
+                _state.value = _state.value.copy(
+                    generating = false,
                     keyGenerated = true,
                     navigateToBackup = true,
                     secretCombinationIndices = secretCombinationIndices,
                     secretCombinationsLoading = false,
+                    progressStage = MasterKeyCreationStage.COMPLETE,
                 )
             }.onFailure {
                 // The message is intentionally dropped: it could echo key or
@@ -313,8 +323,10 @@ data class CreateMasterKeyState(
 
 enum class MasterKeyCreationStage {
     CREATING_KEY,
-    SAVING_KEY,
+    DERIVING_NOSTR_KEY_PAIR,
+    DERIVING_SYNC_CODE,
     SYNCING_BACKUPS,
+    COMPLETE,
 }
 
 enum class BackupConfirmationResult {
