@@ -2,8 +2,6 @@ package app.zenten.vault.domain
 
 import app.zenten.vault.bravesync.BravePasswordService
 import app.zenten.vault.crypto.Seedify
-import app.zenten.vault.crypto.NostrKeyDerivation
-import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 import kotlinx.coroutines.Dispatchers
@@ -36,19 +34,11 @@ class BraveSyncBackupService(
     }
 
     fun decodeAssociatedAccount(vaultKey: Account, entry: BravePasswordService.Password): Account? = runCatching {
+        // The vaultkey record has no numeric ID, so it is rejected here: normal recovery
+        // deliberately restores associated accounts only.
         val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
         val passphrase = requireNotNull(vaultKey.zenTenPass)
-        val key = canonicalKey(entry.password, passphrase.toCharArray())
-        val parsed = SshKeyCodec.parse(key, passphrase.toCharArray())
-        Account(
-            createdAt = accountId,
-            zenTenKey = key,
-            zenTenPass = passphrase,
-            pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
-            nostr = NostrKeyDerivation.derive(
-                Seedify.fromSshKey(key, passphrase.toCharArray()),
-            ).toPersistedKeyPair(),
-        )
+        accountFromSshKey(accountId, entry.password, passphrase)
     }.getOrNull()
 
     /** Checks the vaultKey record separately because normal recovery deliberately restores associated accounts only. */

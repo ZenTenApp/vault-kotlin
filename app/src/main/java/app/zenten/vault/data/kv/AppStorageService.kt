@@ -30,6 +30,10 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         preferences[CONSOLIDATION_CHECKPOINT]?.let { runCatching { json.decodeFromString<ConsolidationCheckpoint>(it) }.getOrNull() }
     }
     val lastConsolidationCompletedAtMillis: Flow<Long?> = dataStore.data.map { it[LAST_CONSOLIDATION_COMPLETED] }
+
+    /** Tracked apart from account consolidation because the Vault Key has its own cycle. */
+    val lastVaultKeyConsolidationCompletedAtMillis: Flow<Long?> =
+        dataStore.data.map { it[LAST_VAULT_KEY_CONSOLIDATION_COMPLETED] }
     val locallyBackedUpAccountIds: Flow<Set<String>> = dataStore.data.map { preferences ->
         decodeList<String>(preferences[LOCALLY_BACKED_UP_ACCOUNT_IDS]).toSet()
     }
@@ -93,6 +97,14 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         it.remove(CONSOLIDATION_CHECKPOINT)
     }
 
+    /**
+     * Records when a Vault Key cycle last finished. It does not clear the consolidation
+     * checkpoint, which belongs to the separate account-consolidation cycle.
+     */
+    suspend fun markVaultKeyConsolidationCompleted(atMillis: Long) = dataStore.edit {
+        it[LAST_VAULT_KEY_CONSOLIDATION_COMPLETED] = atMillis
+    }
+
     /** Records only an account ID; private key material remains in encrypted storage. */
     suspend fun markAccountLocallyBackedUp(accountId: Long) = dataStore.edit { preferences ->
         val ids = decodeList<String>(preferences[LOCALLY_BACKED_UP_ACCOUNT_IDS]).toMutableSet()
@@ -143,6 +155,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val ACCOUNT_SOURCE_STATUSES = stringPreferencesKey("account_source_statuses_v2")
         val CONSOLIDATION_CHECKPOINT = stringPreferencesKey("consolidation_checkpoint_v2")
         val LAST_CONSOLIDATION_COMPLETED = longPreferencesKey("last_consolidation_completed_v2")
+        val LAST_VAULT_KEY_CONSOLIDATION_COMPLETED = longPreferencesKey("last_vault_key_consolidation_completed_v1")
         val LOCALLY_BACKED_UP_ACCOUNT_IDS = stringPreferencesKey("locally_backed_up_account_ids_v1")
         val PENDING_LOCAL_BACKUP_ACCOUNT_IDS = stringPreferencesKey("pending_local_backup_account_ids_v1")
         val CACHED_ACCOUNT_PROFILES = stringPreferencesKey("cached_account_profiles_v1")

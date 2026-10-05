@@ -15,6 +15,7 @@ The default source list and consolidation behavior are documented in [Backup sta
 3. `AccountConsolidationEngine.backupVaultKey` checks and, where absent, writes every enabled source sequentially.
 4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the Vault Key.
 5. If quorum fails, the Vault Key remains securely stored, setup remains incomplete, and retry does not require reimport.
+6. After setup, `AccountConsolidationEngine.consolidateVaultKey` keeps that record reconciled from app startup, an hourly `VaultKeyConsolidationWorker`, and the **Consolidate VaultKey backup** action on the Vault Key screen. It applies a one-hour freshness threshold and its own pending-write check; manual requests bypass freshness.
 
 ### Associated-account creation
 
@@ -37,14 +38,21 @@ Presence is determined by identifier only. Consolidation does not decrypt an alr
 | Vault Key | `37801` | `vaultkey` | normalized Vault Key OpenSSH private key |
 | Associated | `37802` | decimal `createdAt` | normalized encrypted OpenSSH private key |
 
-Normally, the event author/signature identity is derived from the original Vault Key seed. The initial remote backup performed specifically by the **Create VaultKey** wizard is the exception: it derives a NIP-06 identity from the 24-word mnemonic of Seedify's deterministic `brave` associated account and uses that identity for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication. The backed-up plaintext is still the original VaultKey's canonical single-line Base64 OpenSSH private key. Imported-Vault Key setup, later retries, associated-account backup, and consolidation continue to use the stored original-seed Vault Key Nostr identity; later consolidation may consequently add a duplicate relay Vault Key backup under that identity.
+The relay identity depends on the record class, and the two are never mixed:
+
+| Record class | Relay identity | Recoverable from |
+| --- | --- | --- |
+| Vault Key (`37801`) | NIP-06 identity derived from the 24-word mnemonic of Seedify's deterministic `brave` associated account | the 24 written-down words |
+| Associated account (`37802`) | the stored Vault Key Nostr identity | the Vault Key private key and passphrase |
+
+That identity is used for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication of its own record class. The backed-up Vault Key plaintext is still the original VaultKey's canonical single-line Base64 OpenSSH private key. `DefaultBackupSourceFactory` derives the Brave identity once per engine operation and passes it to `NostrBackupSource`, so Vault Key creation, imported-Vault Key setup, retries, and Vault Key consolidation all address the same relay record instead of creating a duplicate under a second identity.
 
 ### NIP-42 lifecycle
 
 `NostrRelayService` creates an authenticated one-shot Quartz connection for source reads and writes:
 
 1. Install `RelayAuthenticator` before connecting.
-2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that operation (the Brave sub-account identity only during initial in-app creation; otherwise the stored Vault Key identity).
+2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that record class (the Brave sub-account identity for Vault Key records; the stored Vault Key identity for associated accounts).
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
 4. Pin the challenged relay in Quartz's connection pool for the full operation timeout while waiting for a definitive AUTH acknowledgement. `fetchAll` removes its subscription after `CLOSED`, so an authenticated read maintains a temporary keep-alive subscription until the handshake and retry finish. If the initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
 5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.

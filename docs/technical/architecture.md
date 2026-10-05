@@ -18,7 +18,7 @@ app.zenten.vault
 ├── data/         Secure account storage and non-secret operational preferences
 ├── network/      Nostr relay transport, event encoding, and NIP-42 authentication
 ├── bravesync/    Brave Sync client, crypto, password records, and transport
-├── background/   WorkManager targeted and full-vault consolidation, retry, and periodic work
+├── background/   WorkManager targeted and all-account consolidation, retry, and periodic work
 └── di/           Hilt dependency injection
 ```
 
@@ -51,6 +51,8 @@ The current app has no custom-source management UI. The repository API is retain
 
 `AccountConsolidationEngine` owns one coroutine `Mutex` around Vault Key backup, account backup, pending retry, and consolidation. Within each operation it uses ordered loops and suspend calls without `async`, ensuring no intentional network concurrency across sources or accounts.
 
+The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key only), `consolidateAccount` (one associated account), and `consolidate` (all associated accounts, with restore). Vault Key reconciliation is separate from account consolidation because the two record classes are published under different Nostr identities; see [Encrypted backup](../features/encrypted-backup.md).
+
 ## Core lifecycle
 
 1. **Vault Key setup:** persist Vault Key locally, inspect/write all sources sequentially, and complete setup only with one eligible Nostr plus one eligible Brave success. Retain the local Vault Key on quorum failure.
@@ -61,15 +63,16 @@ The current app has no custom-source management UI. The repository API is retain
 
 ## App-entry safety gate
 
-`RemoteOperationPrecondition` is the single prerequisite policy for timestamp-sensitive remote operations. It requires an active network with `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and a device clock within two minutes of HTTPS server time. It makes non-cached `HEAD` requests to `https://www.google.com/generate_204` and then `https://cloudflare.com`, parses the first usable HTTP `Date` header, and adjusts the result by half of the measured request round-trip time before comparing it to the wall clock. `AppAccessGuard` applies this policy on creation, resume, network changes, and manual retry, replacing navigation with `AppBlockedScreen` for proven internet or clock-skew failures. `AccountConsolidationWorker` and `ProfilePublicationWorker` apply the same policy before producing timestamped remote data and retry when internet is not validated or clock skew is known bad. If neither server is available or supplies a valid `Date` header, both paths continue because that failure cannot prove a device-time error. HTTPS/TLS protects the response in transit, but the check does not independently prove either endpoint's clock or the network is trustworthy.
+`RemoteOperationPrecondition` is the single prerequisite policy for timestamp-sensitive remote operations. It requires an active network with `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and a device clock within two minutes of HTTPS server time. It makes non-cached `HEAD` requests to `https://www.google.com/generate_204` and then `https://cloudflare.com`, parses the first usable HTTP `Date` header, and adjusts the result by half of the measured request round-trip time before comparing it to the wall clock. `AppAccessGuard` applies this policy on creation, resume, network changes, and manual retry, replacing navigation with `AppBlockedScreen` for proven internet or clock-skew failures. `AccountConsolidationWorker`, `VaultKeyConsolidationWorker`, and `ProfilePublicationWorker` apply the same policy before producing timestamped remote data and retry when internet is not validated or clock skew is known bad. If neither server is available or supplies a valid `Date` header, both paths continue because that failure cannot prove a device-time error. HTTPS/TLS protects the response in transit, but the check does not independently prove either endpoint's clock or the network is trustworthy.
 
 ## Background execution
 
-- One `AccountConsolidationWorker` handles both targeted and full-vault work. An optional account ID selects targeted work; otherwise it runs a full-vault cycle.
+- One `AccountConsolidationWorker` handles both targeted and all-account work. An optional account ID selects targeted work; otherwise it runs a full associated-account cycle.
+- One `VaultKeyConsolidationWorker` handles the Vault Key record only. It is a separate worker because that record uses a different Nostr identity and must be retried on its own schedule.
 - One-time targeted work is unique per account.
 - Pending-write retry is unique work.
 - Immediate consolidation is unique work after setup.
-- Periodic consolidation runs every hour with a connected-network constraint.
+- Periodic consolidation runs every hour with a connected-network constraint, as two independent unique periodic jobs: one for the Vault Key and one for associated accounts.
 - Kind `0` profile and kind `10050` DM-relay-list publication are one unique account-keyed work item with a connected-network constraint and exponential backoff. WorkManager input contains only the account ID; the worker reads encrypted account state at execution time and requires acknowledgement of both events from every configured profile relay (`wss://user.kindpag.es`, `wss://purplepag.es`, `wss://directory.yabu.me`, `wss://profiles.nostr1.com`, `wss://relay.primal.net`, `wss://relay.snort.social`, `wss://nos.lol`). The kind `10050` event advertises `wss://dm1.zentext.me`, `wss://dm2.nostr.box`, and `wss://dm3.npub.cx` as NIP-17 delivery relays.
 - `VaultApplication` supplies WorkManager's Hilt worker factory through `Configuration.Provider`; the manifest removes the default WorkManager startup initializer to avoid initializing it without that configuration.
 - A persisted checkpoint describes interrupted progress; operations are idempotent by canonical account ID.
