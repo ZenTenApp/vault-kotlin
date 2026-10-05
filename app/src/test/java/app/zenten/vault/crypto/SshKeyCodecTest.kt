@@ -27,8 +27,22 @@ class SshKeyCodecTest {
         assertEquals(value(vector, "seedHex"), parsed.seed.hex())
         assertEquals(value(vector, "ed25519PubkeyHex"), parsed.publicKey.hex())
         assertEquals(value(vector, "sshFingerprint"), SshKeyCodec.fingerprint(parsed.publicKey))
+        assertEquals(
+            value(vector, "sshFingerprint"),
+            SshKeyCodec.fingerprintFromPublicKeyLine(SshKeyCodec.publicKeyLine(parsed.publicKey, "test-comment")),
+        )
         assertEquals(value(vector, "mnemonic24"), Seedify.toMnemonic(parsed.seed))
         assertEquals(value(vector, "mnemonic24"), Seedify.fromSshKey(pem, passphrase))
+    }
+
+    @Test
+    fun rejects_invalid_public_key_lines_when_calculating_fingerprints() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.fingerprintFromPublicKeyLine("ssh-rsa invalid")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.fingerprintFromPublicKeyLine("ssh-ed25519 invalid-base64")
+        }
     }
 
     @Test
@@ -73,6 +87,13 @@ class SshKeyCodecTest {
         assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pem))
         assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(canonical))
         assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey("{\"OPENSSH PRIVATE KEY\":\"$canonical\"}"))
+    }
+
+    @Test
+    fun reads_bcrypt_kdf_rounds_without_a_passphrase() {
+        val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
+
+        assertEquals(1, SshKeyCodec.bcryptKdfRounds(pem))
     }
 
     @Test
@@ -122,6 +143,7 @@ class SshKeyCodecTest {
         assertTrue(parsed.encrypted)
         assertEquals(createdAt.toString(), parsed.comment)
         assertTrue(generated.publicKey.endsWith(" $createdAt"))
+        assertEquals(SshKeyCodec.BCRYPT_PBKDF_ROUNDS, SshKeyCodec.bcryptKdfRounds(generated.privateKeyPem))
         assertArrayEquals(parsed.publicKey, SshKeyCodec.parse(generated.privateKeyPem, passphrase).publicKey)
         assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(generated.privateKeyPem, CharArray(0)) }
         assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(generated.privateKeyPem, "wrong".toCharArray()) }

@@ -1,6 +1,7 @@
 package app.zenten.vault.ui.accounts
 
 import android.content.ClipData
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -20,7 +23,6 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,10 +37,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.toClipEntry
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.ui.components.VaultCard
 import app.zenten.vault.ui.theme.LocalExtendedColors
@@ -69,7 +76,11 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             displayName = state.profile?.displayName,
             modifier = Modifier.fillMaxWidth(),
         )
-        NostrIdentityCard(formatNpub(account.nostr.pubkey))
+        NostrIdentityCard(npub = formatNpub(account.nostr.pubkey))
+        SshKeyCard(
+            fingerprint = formatSshFingerprint(account.pubkey),
+            kdfRounds = formatKdfRounds(account.zenTenKey),
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             text = "Backup status",
@@ -83,43 +94,97 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
 
 @Composable
 private fun NostrIdentityCard(npub: String) {
-    val clipboard = LocalClipboard.current
-    val coroutineScope = rememberCoroutineScope()
     VaultCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "ID on NOSTR protocol",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                )
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            clipboard.setClipEntry(ClipData.newPlainText("Nostr public key", npub).toClipEntry())
-                        }
-                    },
-                    enabled = npub != "Unavailable",
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
-                        contentDescription = "Copy npub",
-                    )
-                }
-            }
             Text(
-                text = npub,
-                style = MaterialTheme.typography.bodyLarge,
+                text = "ID on NOSTR protocol",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+            )
+            CopyableIdentityValue(
+                value = npub,
+                clipboardLabel = "Nostr public key",
+                contentDescription = "Copy npub",
             )
         }
     }
+}
+
+@Composable
+private fun SshKeyCard(fingerprint: String, kdfRounds: String) {
+    VaultCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "SSH key fingerprint",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+            )
+            CopyableIdentityValue(
+                value = fingerprint,
+                clipboardLabel = "SSH key fingerprint",
+                contentDescription = "Copy SSH key fingerprint",
+            )
+            Text(
+                text = "KDF rounds: $kdfRounds",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CopyableIdentityValue(
+    value: String,
+    clipboardLabel: String,
+    contentDescription: String,
+) {
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
+    val isAvailable = value != "Unavailable"
+    val copyValue = {
+        coroutineScope.launch {
+            clipboard.setClipEntry(ClipData.newPlainText(clipboardLabel, value).toClipEntry())
+        }
+        Unit
+    }
+    val copyIconId = "copyIcon"
+    Text(
+        text = buildAnnotatedString {
+            append(value)
+            append(" ")
+            appendInlineContent(copyIconId, alternateText = "copy")
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                enabled = isAvailable,
+                onClickLabel = contentDescription,
+                onClick = copyValue,
+            ),
+        style = MaterialTheme.typography.bodyLarge,
+        inlineContent = mapOf(
+            copyIconId to InlineTextContent(
+                placeholder = Placeholder(
+                    width = 1.2.em,
+                    height = 1.2.em,
+                    placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = null,
+                    tint = if (isAvailable) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        ),
+    )
 }
 
 @Composable
@@ -182,6 +247,14 @@ private fun backupStatusStyle(state: AccountSourceBackupState): Pair<ImageVector
     -> Icons.Outlined.Sync to MaterialTheme.colorScheme.primary
     AccountSourceBackupState.UNKNOWN -> Icons.AutoMirrored.Outlined.HelpOutline to MaterialTheme.colorScheme.onSurfaceVariant
 }
+
+internal fun formatSshFingerprint(publicKeyLine: String?): String =
+    publicKeyLine?.let { runCatching { SshKeyCodec.fingerprintFromPublicKeyLine(it) }.getOrNull() }
+        ?: "Unavailable"
+
+internal fun formatKdfRounds(privateKey: String?): String =
+    privateKey?.let { runCatching { SshKeyCodec.bcryptKdfRounds(it).toString() }.getOrNull() }
+        ?: "Unavailable"
 
 internal fun formatRelativeTime(timestampMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
     val elapsedMinutes = ((nowMillis - timestampMillis).coerceAtLeast(0) / 60_000).toInt()

@@ -1,5 +1,6 @@
 package app.zenten.vault.ui.accounts
 
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -34,6 +35,33 @@ class AccountsListFormattingTest {
 
         assertTrue(npub.matches(Regex("npub1[a-z0-9]+")))
         assertTrue(npub.length > formatShortNpub("00".repeat(32)).length)
+    }
+
+    @Test
+    fun `stored SSH public key is formatted as a fingerprint for account details`() {
+        val publicKey = ByteArray(32) { it.toByte() }
+
+        assertEquals(
+            SshKeyCodec.fingerprint(publicKey),
+            formatSshFingerprint(SshKeyCodec.publicKeyLine(publicKey, "account")),
+        )
+        assertEquals("Unavailable", formatSshFingerprint(null))
+        assertEquals("Unavailable", formatSshFingerprint("invalid"))
+    }
+
+    @Test
+    fun `stored encrypted SSH key is formatted as KDF rounds for account details`() {
+        val pem = requireNotNull(javaClass.getResourceAsStream("/golden/crypto-vectors.json"))
+            .bufferedReader()
+            .use { it.readText() }
+        val encodedKey = Regex("\\\"encryptedEd25519Pem\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
+            .find(pem)!!
+            .groupValues[1]
+            .replace("\\n", "\n")
+
+        assertEquals("1", formatKdfRounds(encodedKey))
+        assertEquals("Unavailable", formatKdfRounds(null))
+        assertEquals("Unavailable", formatKdfRounds("invalid"))
     }
 
     @Test
