@@ -42,7 +42,7 @@ Status appears per source in associated-account details and on a dedicated Vault
 | Backup failed | The latest write failed. | Check connectivity and retry. |
 | Unknown | The source could not be checked conclusively. | Refresh; do not assume the copy is absent. |
 
-Background consolidation runs hourly, subject to network availability, and avoids unnecessary rechecks when fresh and no writes are pending.
+Background consolidation runs hourly, subject to network availability, and avoids unnecessary rechecks when fresh and no writes are pending. General consolidation processes associated accounts only: it uses the Vault Key Nostr identity on relays and the Brave seed on Brave Sync. Vault Key consolidation is separate and uses the Brave-derived Nostr identity on relays plus the same Brave seed on Brave Sync.
 
 ## Privacy expectations
 

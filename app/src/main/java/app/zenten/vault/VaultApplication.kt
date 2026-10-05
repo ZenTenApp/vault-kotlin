@@ -26,6 +26,10 @@ class VaultApplication : Application(), Configuration.Provider {
         scheduler.schedulePeriodic()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             appStorage.clearLegacyBackupState()
+            // The Vault Key and associated accounts are reconciled separately because they are
+            // published under different Nostr identities. Neither is forced: both skip work
+            // when their own previous cycle is still fresh.
+            engine.consolidateVaultKey()
             engine.consolidate(ConsolidationTrigger.STARTUP)
         }
     }

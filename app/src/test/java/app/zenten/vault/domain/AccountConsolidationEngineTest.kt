@@ -70,6 +70,62 @@ class AccountConsolidationEngineTest {
     }
 
     @Test
+    fun scheduled_vault_key_consolidation_uses_the_stored_vault_key_and_ignores_accounts() = runTest {
+        fixture { engine, _, storage, factory ->
+            every { storage.getAccounts() } returns listOf(account(10, "local"))
+
+            val result = engine.consolidateVaultKey()!!
+
+            assertTrue(result.quorumReached)
+            // Only the Vault Key record is indexed and written; account IDs are never touched.
+            assertEquals(
+                DefaultBackupSources.all.flatMap { listOf("index:${it.id}:1", "write:${it.id}:vaultkey") },
+                factory.calls,
+            )
+        }
+    }
+
+    @Test
+    fun scheduled_vault_key_consolidation_is_skipped_while_its_own_result_is_fresh() = runTest {
+        fixture { engine, _, _, factory ->
+            // The first cycle records a completion timestamp at the fixed test clock.
+            assertTrue(engine.consolidateVaultKey() != null)
+            val callsAfterFirstRun = factory.calls.size
+
+            assertEquals(null, engine.consolidateVaultKey())
+            assertEquals(callsAfterFirstRun, factory.calls.size)
+            // An explicit user action still bypasses freshness.
+            assertTrue(engine.consolidateVaultKey(force = true) != null)
+            assertTrue(factory.calls.size > callsAfterFirstRun)
+        }
+    }
+
+    @Test
+    fun scheduled_vault_key_consolidation_runs_again_while_a_vault_key_write_is_pending() = runTest {
+        fixture { engine, appStorage, _, factory ->
+            // Fail every write so the engine records a pending Vault Key retry entry.
+            factory.sources.values.forEach { it.writeResult = Result.failure(IllegalStateException("rejected")) }
+            assertFalse(engine.consolidateVaultKey()!!.quorumReached)
+            assertTrue(appStorage.pendingSourceWrites.first().any { it.accountId == BackupAccountId.VAULT_KEY_VALUE })
+            val callsAfterFirstRun = factory.calls.size
+
+            // Freshness must not suppress a cycle that still has queued work.
+            assertTrue(engine.consolidateVaultKey() != null)
+            assertTrue(factory.calls.size > callsAfterFirstRun)
+        }
+    }
+
+    @Test
+    fun scheduled_vault_key_consolidation_does_nothing_without_a_stored_vault_key() = runTest {
+        fixture { engine, _, storage, factory ->
+            every { storage.getVaultKey() } returns null
+
+            assertEquals(null, engine.consolidateVaultKey(force = true))
+            assertTrue(factory.calls.isEmpty())
+        }
+    }
+
+    @Test
     fun targeted_consolidation_only_updates_and_writes_the_selected_account() = runTest {
         fixture { engine, appStorage, storage, factory ->
             val selected = account(10, "selected")
@@ -103,6 +159,23 @@ class AccountConsolidationEngineTest {
 
             assertEquals(0, result.writes)
             assertTrue(factory.calls.none { it.startsWith("write:") })
+        }
+    }
+
+    @Test
+    fun general_consolidation_excludes_vault_key_writes_and_statuses() = runTest {
+        fixture { engine, appStorage, storage, factory ->
+            every { storage.getAccounts() } returns listOf(account(10, "local"))
+            val verified = setOf(BackupAccountId.VaultKey, BackupAccountId.associated(10))
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(verified, emptyMap())
+            }
+
+            engine.consolidate(ConsolidationTrigger.MANUAL, force = true)!!
+
+            assertTrue(factory.calls.filter { it.startsWith("write:") }.none { it.endsWith(":vaultkey") })
+            assertTrue(appStorage.accountSourceStatuses.first().none { it.accountId == BackupAccountId.VAULT_KEY_VALUE })
         }
     }
 

@@ -55,7 +55,9 @@ class VaultKeyDetailViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VaultKeyDetailState())
 
     fun retryVaultKey() { viewModelScope.launch { setupService.retryVaultKeyBackup() } }
-    fun consolidate() { scheduler.scheduleConsolidation() }
+
+    /** Reconciles the Vault Key record only; associated accounts have their own actions. */
+    fun consolidate() { scheduler.scheduleVaultKeyConsolidation() }
 }
 
 data class VaultKeyDetailState(
@@ -75,7 +77,7 @@ fun VaultKeyDetailScreen(viewModel: VaultKeyDetailViewModel = hiltViewModel()) {
         state.sources.forEach { SourceStatusRow(it) }
         if (state.setupComplete) {
             Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                Text("Consolidate backups")
+                Text("Consolidate VaultKey backup")
             }
         } else {
             Button(onClick = viewModel::retryVaultKey, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {

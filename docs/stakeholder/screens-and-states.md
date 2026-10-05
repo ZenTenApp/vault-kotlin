@@ -95,7 +95,7 @@ flowchart TD
 ### Settings
 
 - Settings uses a centered title and a Back action that returns to **Accounts**.
-- The current vault section contains one full-width **Vault Key** item with supporting text. It opens Vault Key source status and full-vault consolidation controls.
+- The current vault section contains one full-width **Vault Key** item with supporting text. It opens Vault Key source status and Vault Key consolidation controls.
 
 ### Create associated account
 
@@ -112,7 +112,7 @@ flowchart TD
 
 ### Account detail and Vault Key
 
-Account detail reuses the same account summary card shown in the account list, without list-navigation click behavior. A separate card below it shows the account's full NIP-19 `npub` in emphasized body text, a medium-weight **Nostr identity** heading, and an accessible copy icon at the top right that copies only the public npub. Each fixed source has its own card with the endpoint as its title and a right-aligned icon-and-text state row: backed up, missing, checking, backing up, failed, or unknown. Internally, both a source-acknowledged write and a later read-confirmed copy display as **Backed up**; read-back is a reconciliation detail rather than a pending user action. Backed-up rows show the last successful backup time. Associated-account details provide **Consolidate backup** rather than a blind retry-write action: sources are checked first, only that account is reconciled, and existing canonical account IDs are not written again. The Vault Key screen does not disclose its SSH public key and shows exactly one primary action: **Retry Vault Key setup** while quorum setup is incomplete, or **Consolidate backups** for the whole vault after setup completes. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
+Account detail reuses the same account summary card shown in the account list, without list-navigation click behavior. A separate card below it shows the account's full NIP-19 `npub` in emphasized body text, a medium-weight **Nostr identity** heading, and an accessible copy icon at the top right that copies only the public npub. Each fixed source has its own card with the endpoint as its title and a right-aligned icon-and-text state row: backed up, missing, checking, backing up, failed, or unknown. Internally, both a source-acknowledged write and a later read-confirmed copy display as **Backed up**; read-back is a reconciliation detail rather than a pending user action. Backed-up rows show the last successful backup time. Associated-account details provide **Consolidate backup** rather than a blind retry-write action: sources are checked first, only that account is reconciled, and existing canonical account IDs are not written again. The Vault Key screen does not disclose its SSH public key and shows exactly one primary action: **Retry Vault Key setup** while quorum setup is incomplete, or **Consolidate VaultKey backup** after setup completes. That action reconciles the Vault Key record only. State must have textual/accessibility meaning rather than color alone. Timestamps may be shown, but secret payloads and authentication details must never appear.
 
 ## States requiring client approval
 

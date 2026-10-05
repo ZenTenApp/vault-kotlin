@@ -79,6 +79,12 @@ class SetupService(
 }
 
 interface BackupWorkScheduler {
+    /** Enqueues a full associated-account consolidation cycle. */
     fun scheduleConsolidation()
+
+    /** Enqueues a cycle for one associated account only. */
     fun scheduleAccountConsolidation(accountId: Long)
+
+    /** Enqueues a Vault Key-only cycle, which uses its own Nostr identity. */
+    fun scheduleVaultKeyConsolidation()
 }

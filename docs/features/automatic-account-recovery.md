@@ -6,11 +6,13 @@ After the user imports the same Vault Key, source consolidation restores every v
 
 ## Trigger and ordering
 
-A successful Vault Key-quorum setup schedules immediate consolidation. Consolidation also runs periodically once per hour and can be invoked manually. `AccountConsolidationEngine` serializes all remote work and completes its restore phase across all sources before starting any backup repair.
+A successful Vault Key-quorum setup schedules immediate consolidation. Consolidation also runs at app startup, periodically once per hour, and can be invoked manually. `AccountConsolidationEngine` serializes all remote work and completes its restore phase across all sources before starting any backup repair.
+
+This account cycle is scheduled independently of the Vault Key cycle, which has its own hourly worker and is never restored remotely.
 
 For each enabled source in stable order:
 
-1. Index Vault Key and associated canonical IDs.
+1. Index canonical IDs, retaining the associated-account ones; the Vault Key ID belongs to the separate Vault Key flow.
 2. Compare IDs with current local secure storage.
 3. For IDs already local, do not decrypt or compare payloads.
 4. For each associated ID absent locally on a trusted restore-enabled source, try duplicate candidates newest-first.
