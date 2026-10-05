@@ -106,7 +106,7 @@ Use a provider-neutral ID:
 @Serializable
 sealed interface BackupAccountId {
     @Serializable
-    data object Master : BackupAccountId
+    data object Vault Key : BackupAccountId
 
     @Serializable
     data class Associated(val createdAt: Long) : BackupAccountId
@@ -116,7 +116,7 @@ sealed interface BackupAccountId {
 Remote canonical representations remain unchanged:
 
 ```text
-Master:      masterkey
+Vault Key:      vaultkey
 Associated:  decimal createdAt
 ```
 
@@ -135,15 +135,15 @@ Replace grouped backup targets with independently instantiated source adapters:
 interface AccountBackupSource {
     val config: BackupSourceConfig
 
-    suspend fun index(master: Account): SourceIndexResult
+    suspend fun index(Vault Key: Account): SourceIndexResult
 
     suspend fun restoreCandidate(
-        master: Account,
+        Vault Key: Account,
         candidate: RemoteAccountCandidate,
     ): Result<Account>
 
     suspend fun write(
-        master: Account,
+        Vault Key: Account,
         accountId: BackupAccountId,
         account: Account,
     ): SourceWriteResult
@@ -194,7 +194,7 @@ A restored account must pass the existing security contract:
 - valid Nostr event signature, kind, author, and `d` tag where applicable;
 - successful decryption;
 - valid Ed25519 OpenSSH private key;
-- successful parsing with the retained master passphrase;
+- successful parsing with the retained Vault Key passphrase;
 - normalized private-key representation.
 
 Invalid candidates never enter secure local storage.
@@ -216,7 +216,7 @@ When an account is missing locally:
 
 When the account already exists locally, candidate payloads are not inspected.
 
-## 4. Master import flow
+## 4. Vault Key import flow
 
 ### 4.1 State progression
 
@@ -224,24 +224,24 @@ Introduce explicit onboarding states:
 
 ```text
 EMPTY
-→ MASTER_STORED_PENDING_BACKUP
-→ MASTER_BACKUP_IN_PROGRESS
+→ VAULT_KEY_STORED_PENDING_BACKUP
+→ VAULT_KEY_BACKUP_IN_PROGRESS
 → SETUP_COMPLETE
 ```
 
-The securely stored master account is retained if quorum is not reached. `setupComplete` remains false, and the user receives a retry action without having to re-enter the private key.
+The securely stored Vault Key is retained if quorum is not reached. `setupComplete` remains false, and the user receives a retry action without having to re-enter the private key.
 
 ### 4.2 Sequential backup algorithm
 
 After validation and deterministic Nostr/Brave derivation:
 
-1. Store the master account in secure storage.
-2. Mark onboarding as pending master backup.
+1. Store the Vault Key in secure storage.
+2. Mark onboarding as pending Vault Key backup.
 3. Process all five enabled default sources sequentially.
 4. For each source:
-   - index/check for `masterkey` when appropriate;
+   - index/check for `vaultkey` when appropriate;
    - if already present, count it as confirmed success by ID;
-   - otherwise write the master backup;
+   - otherwise write the Vault Key backup;
    - accept an acknowledged Nostr write or successful Brave commit for initial quorum;
    - record source-level status and failure category.
 5. Continue through all five sources even if quorum is reached early.
@@ -261,7 +261,7 @@ Any eligible source of each type may satisfy its side of the quorum; sources are
 
 #### Full success
 
-When all sources accepted or already contained the master:
+When all sources accepted or already contained the Vault Key:
 
 - mark setup complete;
 - schedule immediate consolidation;
@@ -272,14 +272,14 @@ When all sources accepted or already contained the master:
 When at least one relay and one Brave server succeeded but some sources failed:
 
 - mark setup complete;
-- persist failed `(master, source)` operations;
+- persist failed `(Vault Key, source)` operations;
 - schedule retries;
 - schedule consolidation;
 - show degraded source statuses without blocking app use.
 
 #### No relay quorum, no Brave quorum, or neither
 
-- retain the master securely;
+- retain the Vault Key securely;
 - keep setup incomplete;
 - show a safe, category-specific error;
 - allow retry without re-importing the key.
@@ -336,7 +336,7 @@ A process-wide mutex and priority queue enforce:
 
 Priority order:
 
-1. master quorum retry;
+1. Vault Key quorum retry;
 2. newly created associated-account backup;
 3. persisted failed write retry;
 4. manual consolidation;
@@ -367,7 +367,7 @@ For each enabled source that is both `restoreEnabled` and `trustedForRestore`, i
    - persist the first valid account immediately;
    - add it to the local inventory;
    - continue on invalid candidates.
-6. Never restore the master from a source. The master record participates only in presence checking and repair.
+6. Never restore the Vault Key from a source. The Vault Key record participates only in presence checking and repair.
 
 An account restored from an earlier source becomes part of local inventory before the next source is processed. If later sources report the same ID, they are marked present without payload inspection.
 
@@ -391,7 +391,7 @@ For each enabled source that indexed successfully in phase 1:
 1. Select the retained phase-1 index.
 2. Compare all current local IDs against that index.
 3. Process locally present but remotely missing IDs sequentially:
-   - master first;
+   - Vault Key first;
    - associated accounts in stable registry order.
 4. After each acknowledged write:
    - add the ID to the in-memory source index;
@@ -485,7 +485,7 @@ Errors will be categorized safely:
 
 Raw payloads, keys, passphrases, sync codes, authorization tokens, NIP-42 challenges, and server response bodies will not be persisted in status or diagnostics.
 
-## 8. Account and master status UI
+## 8. Account and Vault Key status UI
 
 ### 8.1 Associated-account details
 
@@ -509,18 +509,18 @@ Each source row will show:
 
 Status changes will update live while work runs.
 
-### 8.2 Master-account details
+### 8.2 Vault Key-account details
 
-Add a dedicated Master Account details screen reachable from the main/root screen.
+Add a dedicated Vault Key details screen reachable from the main/root screen.
 
 It will show:
 
-- master public-key/fingerprint information where appropriate;
+- Vault Key public-key/fingerprint information where appropriate;
 - setup/quorum state;
 - relay quorum summary;
 - Brave quorum summary;
 - the same per-source backup rows;
-- retry master backup;
+- retry Vault Key backup;
 - trigger consolidation.
 
 Sensitive-key disclosure will retain the existing secure-window safeguards.
@@ -534,7 +534,7 @@ Remove:
 - `BackupStatusViewModel`;
 - `BackupStatusScreen`.
 
-Per-account and master details become the canonical backup-status surfaces.
+Per-account and Vault Key details become the canonical backup-status surfaces.
 
 ## 9. Persistence
 
@@ -610,7 +610,7 @@ Secure account storage remains intact as the primary local account store.
 
 Full consolidation runs after:
 
-- successful master quorum;
+- successful Vault Key quorum;
 - startup when stale or pending work exists;
 - periodic WorkManager execution;
 - manual user request;
@@ -638,7 +638,7 @@ Replace relay-specific worker naming with:
 
 - `AccountBackupWorker` for pending account/source writes;
 - `AccountConsolidationWorker` for complete cycles;
-- optional `MasterBackupRetryWorker` if separating incomplete-onboarding work simplifies constraints.
+- optional `VaultKeyBackupRetryWorker` if separating incomplete-onboarding work simplifies constraints.
 
 All workers call the same operation coordinator and cannot bypass global serialization.
 
@@ -655,7 +655,7 @@ BraveSyncTransport(
 
 Both default endpoints use:
 
-- the same sync code derived from the master;
+- the same sync code derived from the Vault Key;
 - the same service key;
 - the same protobuf protocol;
 - the same authorization mechanism;
@@ -684,7 +684,7 @@ For every operation:
 
 - establish a connection to one relay;
 - handle that relay's challenge;
-- authenticate with the master-derived Nostr signer;
+- authenticate with the Vault Key-derived Nostr signer;
 - perform the read or write;
 - wait for the appropriate EOSE or OK result;
 - close the connection.
@@ -779,16 +779,16 @@ domain/backup/consolidation/
     AccountConsolidationEngine.kt
     ConsolidationModels.kt
     BackupOperationCoordinator.kt
-    MasterBackupPolicy.kt
+    VaultKeyBackupPolicy.kt
     PendingBackupService.kt
 
 background/
     AccountBackupWorker.kt
     AccountConsolidationWorker.kt
 
-ui/master/
-    MasterAccountDetailScreen.kt
-    MasterAccountDetailViewModel.kt
+ui/Vault Key/
+    VaultKeyDetailScreen.kt
+    VaultKeyDetailViewModel.kt
 ```
 
 Exact package boundaries can be adjusted to repository conventions during implementation.
@@ -810,7 +810,7 @@ Verify:
 - quorum and trust flags;
 - adding a source schedules consolidation.
 
-### 14.2 Master onboarding tests
+### 14.2 Vault Key onboarding tests
 
 Cover:
 
@@ -821,7 +821,7 @@ Cover:
 - neither category succeeds;
 - all five sources are attempted despite early quorum;
 - operations are sequential;
-- master is retained when quorum fails;
+- Vault Key is retained when quorum fails;
 - setup remains incomplete on quorum failure;
 - retry succeeds without re-import;
 - partial failures become pending source writes;
@@ -871,7 +871,7 @@ Also test:
 - final read-back upgrades them to `PRESENT`;
 - one failed account write does not stop later accounts;
 - accounts restored from any source propagate to other successfully indexed sources;
-- master is indexed and repaired but never remotely restored;
+- Vault Key is indexed and repaired but never remotely restored;
 - repeat cycle is idempotent;
 - no network concurrency occurs;
 - interrupted cycle restarts from a fresh restore phase.
@@ -884,8 +884,8 @@ Verify:
 - live status changes;
 - safe error summaries;
 - retry action;
-- master details navigation;
-- master quorum display;
+- Vault Key details navigation;
+- Vault Key quorum display;
 - global Backup Status destination removed;
 - sensitive values never appear in status or error UI.
 
@@ -906,9 +906,9 @@ No production private keys or sync credentials will be committed.
 The implementation is complete when:
 
 1. The five default sources are represented and processed independently in fixed order.
-2. Master import attempts all five sources sequentially.
+2. Vault Key import attempts all five sources sequentially.
 3. Setup succeeds only with at least one eligible relay and one eligible Brave server.
-4. Failed quorum retains the master securely and permits retry without re-import.
+4. Failed quorum retains the Vault Key securely and permits retry without re-import.
 5. Successful quorum allows app entry and starts consolidation in the background.
 6. Associated accounts are stored locally before any remote work.
 7. Every remote operation is globally serialized.
@@ -919,7 +919,7 @@ The implementation is complete when:
 12. Each written source receives one final read-back after its writes.
 13. Source and account failures do not prevent later work.
 14. Per-account/source status is durable and live in account details.
-15. Master status is available on a dedicated Master Account details screen.
+15. Vault Key status is available on a dedicated Vault Key details screen.
 16. The global Backup Status screen is removed.
 17. Pending retries are tracked per account and source.
 18. Interrupted consolidation restarts with a fresh restore phase.
@@ -942,7 +942,7 @@ To keep reviews manageable, implementation should proceed in these stages:
    - explicit authentication lifecycle and relay tests.
 4. **Persistence replacement**
    - source-specific status, pending writes, and cycle checkpoints.
-5. **Master backup policy**
+5. **Vault Key backup policy**
    - quorum, retained pending setup, retry flow.
 6. **Consolidation engine**
    - sequential restore phase, backup phase, and final verification.
@@ -951,7 +951,7 @@ To keep reviews manageable, implementation should proceed in these stages:
 8. **Workers and application startup**
    - one-hour scheduling, freshness, retry backoff, and one coordinator.
 9. **UI**
-   - account source statuses, Master Account details, and removal of global status.
+   - account source statuses, Vault Key details, and removal of global status.
 10. **Cleanup**
     - delete obsolete grouped-target services, queues, workers, and tests.
 11. **End-to-end verification and documentation**

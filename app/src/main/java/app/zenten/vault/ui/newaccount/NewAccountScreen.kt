@@ -41,7 +41,7 @@ import app.zenten.vault.ui.VaultDestinations
 
 @Composable
 fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountViewModel = hiltViewModel()) {
-    var masterPassphrase by remember { mutableStateOf("") }
+    var vaultKeyPassphrase by remember { mutableStateOf("") }
     var accountName by remember { mutableStateOf("") }
     var passphraseVisible by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
@@ -65,10 +65,10 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
         Text("Create New Account", style = MaterialTheme.typography.headlineMedium)
         if (!state.passphraseVerified) {
             OutlinedTextField(
-                value = masterPassphrase,
-                onValueChange = { masterPassphrase = it },
+                value = vaultKeyPassphrase,
+                onValueChange = { vaultKeyPassphrase = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("MasterKey Passphrase") },
+                label = { Text("VaultKey Passphrase") },
                 visualTransformation = if (passphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = { passphraseVisible = !passphraseVisible }) {
@@ -95,15 +95,15 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
             onClick = {
-                if (state.passphraseVerified) viewModel.create(masterPassphrase, accountName)
-                else viewModel.verifyPassphrase(masterPassphrase)
+                if (state.passphraseVerified) viewModel.create(vaultKeyPassphrase, accountName)
+                else viewModel.verifyPassphrase(vaultKeyPassphrase)
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = if (state.passphraseVerified) {
                 accountName.trim().length in AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH &&
                     !state.creating
             } else {
-                masterPassphrase.isNotBlank()
+                vaultKeyPassphrase.isNotBlank()
             },
         ) {
             if (state.creating) {

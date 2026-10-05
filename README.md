@@ -1,6 +1,6 @@
 # ZenTen Vault
 
-ZenTen Vault is an Android proof of concept for managing SSH credentials with user-held recovery material and redundant encrypted backups. A user begins with the private key and passphrase for an existing master account, then creates associated accounts that are automatically restored when discovered on another device.
+ZenTen Vault is an Android proof of concept for managing SSH credentials with user-held recovery material and redundant encrypted backups. A user begins with the private key and passphrase for an existing Vault Key, then creates associated accounts that are automatically restored when discovered on another device.
 
 > **Proof of concept — not production-ready.** Key-management software requires independent security review, release hardening, and operational controls before it should be trusted with real credentials.
 

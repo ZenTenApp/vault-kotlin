@@ -126,7 +126,7 @@ function buildNip44Vector() {
     pub2
   );
 
-  // Self-encryption round-trip target (sender == recipient == master).
+  // Self-encryption round-trip target (sender == recipient == Vault Key).
   const selfSk = '00000000000000000000000000000000000000000000000000000000deadbeef';
   const selfPub = getPublicKey(utils.hexToBytes(selfSk));
   const selfConv = nip44.v2.utils.getConversationKey(

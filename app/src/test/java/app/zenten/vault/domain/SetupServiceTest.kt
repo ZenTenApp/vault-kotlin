@@ -1,7 +1,7 @@
 package app.zenten.vault.domain
 
 import app.zenten.vault.data.kv.AppStorageService
-import app.zenten.vault.data.kv.CreateMasterKeyStep
+import app.zenten.vault.data.kv.CreateVaultKeyStep
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
@@ -22,57 +22,57 @@ import org.junit.jupiter.api.Test
 
 class SetupServiceTest {
     @Test
-    fun quorum_failure_retains_master_and_leaves_setup_incomplete() = runTest {
+    fun quorum_failure_retains_vault_key_and_leaves_setup_incomplete() = runTest {
         val fixture = Fixture()
-        coEvery { fixture.engine.backupMaster(master, any()) } returns AccountConsolidationEngine.MasterBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = false,
             successfulSourceIds = setOf("relay"),
             failedSourceIds = setOf("brave"),
         )
 
-        val result = fixture.service.performSetup(master)
+        val result = fixture.service.performSetup(vaultKey)
 
         assertFalse(result.isSuccess)
-        verify(exactly = 1) { fixture.secureStorage.addMasterAccount(master) }
-        verify(exactly = 0) { fixture.secureStorage.removeMasterAccount() }
+        verify(exactly = 1) { fixture.secureStorage.addVaultKey(vaultKey) }
+        verify(exactly = 0) { fixture.secureStorage.removeVaultKey() }
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
         coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
     }
 
     @Test
-    fun generated_master_is_persisted_and_all_source_backups_are_attempted_without_completing_setup() = runTest {
+    fun generated_vault_key_is_persisted_and_all_source_backups_are_attempted_without_completing_setup() = runTest {
         val fixture = Fixture()
-        coEvery { fixture.engine.backupMaster(master, any()) } returns AccountConsolidationEngine.MasterBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = false,
             braveQuorum = false,
             successfulSourceIds = emptySet(),
             failedSourceIds = setOf("relay", "brave"),
         )
 
-        assertTrue(fixture.service.persistGeneratedMasterAndBackup(master, createFlowRelayIdentity).isSuccess)
+        assertTrue(fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity).isSuccess)
 
-        verify(exactly = 1) { fixture.secureStorage.addMasterAccount(master) }
+        verify(exactly = 1) { fixture.secureStorage.addVaultKey(vaultKey) }
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
-        coVerify(exactly = 1) { fixture.appStorage.setCreateMasterKeyStep(CreateMasterKeyStep.BACKUP_INTRO) }
+        coVerify(exactly = 1) { fixture.appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO) }
         coVerify(exactly = 1) {
-            fixture.engine.backupMaster(master.copy(nostr = createFlowRelayIdentity), any())
+            fixture.engine.backupVaultKey(vaultKey.copy(nostr = createFlowRelayIdentity), any())
         }
         coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
     }
 
     @Test
-    fun retry_uses_retained_master_and_completes_after_both_quorums() = runTest {
+    fun retry_uses_retained_vault_key_and_completes_after_both_quorums() = runTest {
         val fixture = Fixture()
-        every { fixture.secureStorage.getMasterAccount() } returns master
-        coEvery { fixture.engine.backupMaster(master, any()) } returns AccountConsolidationEngine.MasterBackupResult(
+        every { fixture.secureStorage.getVaultKey() } returns vaultKey
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = true,
             successfulSourceIds = setOf("relay", "brave"),
             failedSourceIds = emptySet(),
         )
 
-        assertTrue(fixture.service.retryMasterBackup().isSuccess)
+        assertTrue(fixture.service.retryVaultKeyBackup().isSuccess)
 
         coVerify(exactly = 1) { fixture.appStorage.setSetupComplete() }
         verify(exactly = 1) { fixture.scheduler.scheduleConsolidation() }
@@ -81,11 +81,11 @@ class SetupServiceTest {
     @Test
     fun associated_account_is_saved_before_remote_work_is_scheduled() = runTest {
         val fixture = Fixture()
-        every { fixture.secureStorage.getMasterAccount() } returns master
+        every { fixture.secureStorage.getVaultKey() } returns vaultKey
         every { fixture.appStorage.setupComplete } returns flowOf(true)
         val account = Account(20, "associated", "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
-        assertTrue(fixture.service.addAccount(master, account).isSuccess)
+        assertTrue(fixture.service.addAccount(vaultKey, account).isSuccess)
 
         verifyOrder {
             fixture.secureStorage.addAccount(account)
@@ -94,12 +94,12 @@ class SetupServiceTest {
     }
 
     @Test
-    fun associated_account_is_rejected_when_master_backup_quorum_is_incomplete() = runTest {
+    fun associated_account_is_rejected_when_vault_key_backup_quorum_is_incomplete() = runTest {
         val fixture = Fixture()
         every { fixture.appStorage.setupComplete } returns flowOf(false)
         val account = Account(20, "associated", "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
-        val result = fixture.service.addAccount(master, account)
+        val result = fixture.service.addAccount(vaultKey, account)
 
         assertFalse(result.isSuccess)
         assertTrue(result.exceptionOrNull()?.message?.contains("quorum") == true)
@@ -115,22 +115,22 @@ class SetupServiceTest {
         val service = SetupService(secureStorage, appStorage, engine, scheduler)
 
         init {
-            every { secureStorage.addMasterAccount(any()) } just runs
-            every { secureStorage.removeMasterAccount() } just runs
+            every { secureStorage.addVaultKey(any()) } just runs
+            every { secureStorage.removeVaultKey() } just runs
             every { secureStorage.addAccount(any()) } just runs
             every { scheduler.scheduleConsolidation() } just runs
             every { scheduler.scheduleAccountConsolidation(any()) } just runs
             coJustRun { appStorage.clearSetupComplete() }
             coJustRun { appStorage.setSetupComplete() }
-            coJustRun { appStorage.setCreateMasterKeyStep(any()) }
+            coJustRun { appStorage.setCreateVaultKeyStep(any()) }
         }
     }
 
     companion object {
         val createFlowRelayIdentity = NostrKeyPair("02".repeat(32), "03".repeat(32))
-        val master = Account(
+        val vaultKey = Account(
             createdAt = 1,
-            zenTenKey = "master",
+            zenTenKey = "vaultKey",
             zenTenPass = "pass",
             nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )

@@ -10,15 +10,15 @@ flowchart TD
     Prerequisites -->|No| Blocked["Unavailable screen: explain errors/warnings and offer a recheck"]
     Blocked --> Prerequisites
     Prerequisites -->|Yes| Root["Root checks persisted state"]
-    Root --> Setup{"Master setup complete?"}
-    Setup -->|No| GeneratedProgress{"Generated MasterKey already committed?"}
+    Root --> Setup{"Vault Key setup complete?"}
+    Setup -->|No| GeneratedProgress{"Generated VaultKey already committed?"}
     GeneratedProgress -->|No| Welcome["Get started"]
     GeneratedProgress -->|Create Backup pending| CreateBackupIntro
     GeneratedProgress -->|Confirm Backup pending| CreateConfirmBackup
     GeneratedProgress -->|Secret Combinations pending| CreateSecrets
     GeneratedProgress -->|Congratulations pending| Congratulations
-    Welcome -->|"Login with MasterKey"| MasterSetup["Set up master account"]
-    Welcome -->|"Create MasterKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
+    Welcome -->|"Login with VaultKey"| VaultKeySetup["Set up Vault Key"]
+    Welcome -->|"Create VaultKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
     CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["Create Passphrase: unmet rules disappear after 2-second success feedback"]
     CreatePassphrase -->|"Back"| CreateIntro
@@ -27,22 +27,22 @@ flowchart TD
     CreateConfirm -->|"Verify"| CreateMatch{"Re-entry matches the chosen passphrase?"}
     CreateMatch -->|No| CreateMismatch["Inline error; nothing created"]
     CreateMismatch --> CreateConfirm
-    CreateMatch -->|Yes| CreateProgressScreen["Creating MasterKey: no Back; warn not to close app"]
-    CreateProgressScreen --> CreateGenerate["Show creation stage; generate encrypted Ed25519 MasterKey"]
+    CreateMatch -->|Yes| CreateProgressScreen["Creating VaultKey: no Back; warn not to close app"]
+    CreateProgressScreen --> CreateGenerate["Show creation stage; generate encrypted Ed25519 VaultKey"]
     CreateGenerate -->|Failure| CreateGenerateFailed["Return to confirmation with generic retry message; nothing created"]
     CreateGenerateFailed --> CreateConfirm
-    CreateGenerate -->|Success| CreateStore["Show secure-save stage; store generated master locally"]
+    CreateGenerate -->|Success| CreateStore["Show secure-save stage; store generated Vault Key locally"]
     CreateStore --> CreateIdentity["Derive Nostr identity from the 24-word Brave sub-account mnemonic"]
     CreateIdentity --> CreateRemote["Use that identity for initial relay backup; use 24 words + daily 25th word for Brave Sync"]
     CreateRemote --> CreateProgress["Persist next unfinished wizard step"]
     CreateProgress --> CreateBackupIntro["Create Backup: explain the first Vault Backup"]
     CreateBackupIntro -->|"Back"| CreateBackupIntro
-    CreateBackupIntro -->|"Export MasterKey"| CreateExport["Choose an installed text target and export encrypted MasterKey"]
-    CreateExport --> CreateConfirmBackup["Confirm Backup: paste MasterKey"]
+    CreateBackupIntro -->|"Export VaultKey"| CreateExport["Choose an installed text target and export encrypted VaultKey"]
+    CreateExport --> CreateConfirmBackup["Confirm Backup: paste VaultKey"]
     CreateConfirmBackup -->|"Back"| CreateBackupIntro
-    CreateConfirmBackup -->|"Paste MasterKey"| CreateClipboard{"Clipboard read and cleared; supported key format?"}
+    CreateConfirmBackup -->|"Paste VaultKey"| CreateClipboard{"Clipboard read and cleared; supported key format?"}
     CreateClipboard -->|No| CreateConfirmBackup
-    CreateClipboard -->|Yes| CreateBackupMatch{"Pasted key matches generated MasterKey?"}
+    CreateClipboard -->|Yes| CreateBackupMatch{"Pasted key matches generated VaultKey?"}
     CreateBackupMatch -->|No| CreateConfirmBackup
     CreateBackupMatch -->|Yes| CreateSecrets["Secret Combinations: 24 BIP-39 indices in eight groups of three"]
     CreateSecrets -->|"Hide / show"| CreateSecrets
@@ -52,7 +52,7 @@ flowchart TD
     VerifySecrets -->|"Correct segment"| VerifySecrets
     VerifySecrets -->|"Back"| CreateSecrets
     VerifySecrets -->|"All 24 correct"| Congratulations["Completion: large outlined check for 3 seconds"]
-    Congratulations -->|"Automatic"| MarkComplete["Mark generated MasterKey setup complete"]
+    Congratulations -->|"Automatic"| MarkComplete["Mark generated VaultKey setup complete"]
     MarkComplete --> Accounts
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
@@ -63,32 +63,32 @@ flowchart TD
     Accounts --> Create["Create new SSH account"]
     Accounts --> Detail["Account details"]
     Accounts --> Settings["Settings"]
-    Settings --> Master["Master Account"]
+    Settings --> Vault Key["Vault Key"]
     Detail --> Accounts
-    Master --> Accounts
+    Vault Key --> Accounts
 ```
 
-After passphrase verification, the dedicated **Creating MasterKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. In this creation operation only, the initial relay backup of the original MasterKey is encrypted, signed, queried, published, and authenticated with the Nostr identity derived from the 24-word `brave` sub-account mnemonic; Brave Sync adds its daily 25th word to those same 24 words. General retries and consolidation retain the original master identity and may later create a duplicate relay copy under it. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-MasterKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, at **Save your Secret Combinations** after the pasted key matched, or at **Congratulations** after every combination was verified. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. The completion screen blocks Back, displays only a centered outlined check, then automatically marks setup complete after three seconds and replaces the wizard with the account list.
+After passphrase verification, the dedicated **Creating VaultKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. In this creation operation only, the initial relay backup of the original VaultKey is encrypted, signed, queried, published, and authenticated with the Nostr identity derived from the 24-word `brave` sub-account mnemonic; Brave Sync adds its daily 25th word to those same 24 words. General retries and consolidation retain the original Vault Key identity and may later create a duplicate relay copy under it. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-VaultKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, at **Save your Secret Combinations** after the pasted key matched, or at **Congratulations** after every combination was verified. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. The completion screen blocks Back, displays only a centered outlined check, then automatically marks setup complete after three seconds and replaces the wizard with the account list.
 
-## Master-account setup
+## Vault Key-account setup
 
 ```mermaid
 flowchart TD
-    Start["Select Paste MasterKey"] --> Clipboard{"Clipboard text read and current entry cleared?"}
+    Start["Select Paste VaultKey"] --> Clipboard{"Clipboard text read and current entry cleared?"}
     Clipboard -->|No| PasteError["Show safe error and remain on paste step"]
     Clipboard -->|Yes| KeyFormat{"Supported encrypted OpenSSH-v1 Ed25519 container?"}
     KeyFormat -->|No| PasteError
     KeyFormat -->|Yes| Passphrase["Keep key off-screen and enter key passphrase"]
     Passphrase --> Validate{"Key and passphrase valid?"}
     Validate -->|No| Error["Show safe error and remain on setup"]
-    Validate -->|Yes| Store["Store master account securely"]
+    Validate -->|Yes| Store["Store Vault Key securely"]
     Store --> Sources["Check enabled backup sources sequentially"]
-    Sources --> Missing["Write master only to successfully checked sources where it is absent"]
+    Sources --> Missing["Write Vault Key only to successfully checked sources where it is absent"]
     Missing --> Quorum{"Eligible Nostr and Brave backups confirmed?"}
     Quorum -->|Yes| Complete["Mark setup complete"]
     Complete --> Schedule["Schedule full-vault consolidation"]
     Schedule --> Accounts["Open My Accounts"]
-    Quorum -->|No| Incomplete["Keep master stored and leave setup incomplete"]
+    Quorum -->|No| Incomplete["Keep Vault Key stored and leave setup incomplete"]
     Incomplete --> Retry["Retry backup without re-importing"]
     Retry --> Sources
 ```
@@ -99,11 +99,11 @@ The setup screen never renders the supplied key and does not show secret materia
 
 ```mermaid
 flowchart TD
-    Add["Select Create New Account"] --> EnterPassphrase["Enter master passphrase"]
+    Add["Select Create New Account"] --> EnterPassphrase["Enter Vault Key passphrase"]
     EnterPassphrase --> Verify{"Passphrase valid?"}
     Verify -->|No| Rejected["Show error and do not create account"]
     Verify -->|Yes| EnterName["Enter mandatory account name, 8-128 characters"]
-    EnterName --> Check{"Name valid, master quorum complete, and fewer than 99 associated accounts?"}
+    EnterName --> Check{"Name valid, Vault Key quorum complete, and fewer than 99 associated accounts?"}
     Check -->|No| Rejected
     Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH account"]
     Generate --> Save["Save account locally and record pending export"]
@@ -124,8 +124,8 @@ Launching the selected app is recorded, but Android cannot confirm that the rece
 
 ```mermaid
 flowchart TD
-    Trigger["Successful setup, Master Account action, or hourly work"] --> Phase1["Phase 1: build a remote inventory and restore missing local accounts"]
-    Phase1 --> Index["For each enabled source, retrieve its stored master and account IDs"]
+    Trigger["Successful setup, Vault Key action, or hourly work"] --> Phase1["Phase 1: build a remote inventory and restore missing local accounts"]
+    Phase1 --> Index["For each enabled source, retrieve its stored Vault Key and account IDs"]
     Index --> IndexOK{"Could the app retrieve that source's stored ID list?"}
     IndexOK -->|No| Unknown["Mark the source unavailable or unknown and exclude it from this run's repair"]
     IndexOK -->|Yes| Restore{"Valid missing local account found on a trusted restore source?"}
@@ -138,7 +138,7 @@ flowchart TD
     AllIndexed -->|Yes| Phase2["Phase 2: repair missing remote backups"]
     Phase2 --> SelectSource["Choose a source whose inventory was retrieved successfully"]
     SelectSource --> Compare["Compare the complete local vault, including recovered accounts, with that source's inventory"]
-    Compare --> MissingRemote{"Master or associated-account ID absent from this source?"}
+    Compare --> MissingRemote{"Vault Key or associated-account ID absent from this source?"}
     MissingRemote -->|Yes| Write["Write that missing backup to the source"]
     MissingRemote -->|No| NextAccount["Check the next local account"]
     Write --> Acknowledged{"Source acknowledges the write?"}
@@ -155,14 +155,14 @@ flowchart TD
 
 Phase 1 completes for every source before phase 2 begins. This ensures accounts recovered from one source are included when the app repairs another source. Existing local accounts are never overwritten by remote records. Sources whose inventory cannot be retrieved are not written to because the app cannot safely determine whether a backup is absent.
 
-**How the source check works:** Before reading or writing account data, the app asks each backup source for its list of stored identifiers: `masterkey` for the master account and a numeric creation ID for each associated account. A successful response is a reliable basis for deciding whether a backup is already present or needs writing. A failed response does not prove an account is absent, so the app does not write to that source during the current run.
+**How the source check works:** Before reading or writing account data, the app asks each backup source for its list of stored identifiers: `vaultkey` for the Vault Key and a numeric creation ID for each associated account. A successful response is a reliable basis for deciding whether a backup is already present or needs writing. A failed response does not prove an account is absent, so the app does not write to that source during the current run.
 
 ## Targeted account consolidation
 
 ```mermaid
 flowchart TD
     Trigger["Select Consolidate backup on an associated account"] --> Select["Use the selected account ID"]
-    Select --> Index["For each enabled source, retrieve its stored master and account IDs"]
+    Select --> Index["For each enabled source, retrieve its stored Vault Key and account IDs"]
     Index --> IndexOK{"Could the app retrieve that source's stored ID list?"}
     IndexOK -->|No| Unknown["Mark that account's source status unavailable or unknown"]
     IndexOK -->|Yes| Present{"Selected account ID already present?"}
@@ -191,10 +191,10 @@ flowchart LR
     Status --> One["Select Consolidate backup"]
     One --> Targeted["Run targeted consolidation"]
     Accounts --> Settings["Open Settings"]
-    Settings --> Master["Open Master Account"]
-    Master --> MasterState{"Master quorum complete?"}
-    MasterState -->|No| Retry["Retry master setup"]
-    MasterState -->|Yes| All["Select Consolidate backups"]
+    Settings --> VaultKey["Open Vault Key"]
+    VaultKey --> VaultKeyState{"Vault Key quorum complete?"}
+    VaultKeyState -->|No| Retry["Retry Vault Key setup"]
+    VaultKeyState -->|Yes| All["Select Consolidate backups"]
     All --> Full["Run full-vault consolidation"]
 ```
 

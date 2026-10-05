@@ -5,8 +5,8 @@
     <string name="get_started_logo_description">ZenTen Vault logo</string>
     <string name="get_started_title">Welcome to ZenTen Vault</string>
     <string name="get_started_subtitle">Your keys stay yours. Create accounts, store credentials, and keep encrypted backups entirely under your control.</string>
-    <string name="get_started_create_master_key">Create MasterKey</string>
-    <string name="get_started_login_master_key">Login with MasterKey</string>
+    <string name="get_started_create_vault_key">Create VaultKey</string>
+    <string name="get_started_login_vault_key">Login with VaultKey</string>
     <string name="get_started_continue_with">or continue with</string>
     <string name="get_started_provider_google">Google</string>
     <string name="get_started_provider_apple">Apple</string>
@@ -19,90 +19,90 @@
     -->
     <string name="get_started_coming_soon">%1$s is not available yet — coming soon.</string>
 
-    <!-- Create MasterKey flow: step 1, "Getting Started" intro/consent screen -->
-    <string name="create_master_key_back">Back</string>
-    <string name="create_master_key_intro_icon_description">Pen and paper reminder</string>
-    <string name="create_master_key_intro_title">Getting Started</string>
-    <string name="create_master_key_intro_body1">Grab a pen and paper to prepare for the backup process.</string>
-    <string name="create_master_key_intro_body2">Before manually writing down your secret combinations make sure you are somewhere safe with no people or cameras nearby. </string>
-    <string name="create_master_key_intro_warning">Warning: Backup is unrecoverable if lost.</string>
-    <string name="create_master_key_intro_consent">I understand that if I lose this information no one can help me recover it.</string>
-    <string name="create_master_key_intro_confirm">Confirm</string>
+    <!-- Create VaultKey flow: step 1, "Getting Started" intro/consent screen -->
+    <string name="create_vault_key_back">Back</string>
+    <string name="create_vault_key_intro_icon_description">Pen and paper reminder</string>
+    <string name="create_vault_key_intro_title">Getting Started</string>
+    <string name="create_vault_key_intro_body1">Grab a pen and paper to prepare for the backup process.</string>
+    <string name="create_vault_key_intro_body2">Before manually writing down your secret combinations make sure you are somewhere safe with no people or cameras nearby. </string>
+    <string name="create_vault_key_intro_warning">Warning: Backup is unrecoverable if lost.</string>
+    <string name="create_vault_key_intro_consent">I understand that if I lose this information no one can help me recover it.</string>
+    <string name="create_vault_key_intro_confirm">Confirm</string>
 
-    <!-- Create MasterKey flow: shared passphrase-field accessibility labels -->
-    <string name="create_master_key_passphrase_show">Show passphrase</string>
-    <string name="create_master_key_passphrase_hide">Hide passphrase</string>
+    <!-- Create VaultKey flow: shared passphrase-field accessibility labels -->
+    <string name="create_vault_key_passphrase_show">Show passphrase</string>
+    <string name="create_vault_key_passphrase_hide">Hide passphrase</string>
 
-    <!-- Create MasterKey flow: step 2, choose the MasterKey passphrase -->
-    <string name="create_master_key_passphrase_title">Create Passphrase</string>
-    <string name="create_master_key_passphrase_icon_description">Padlock</string>
-    <string name="create_master_key_passphrase_label">Create Passphrase</string>
-    <string name="create_master_key_passphrase_rule_length">8+ characters</string>
-    <string name="create_master_key_passphrase_rule_uppercase">Uppercase letter</string>
-    <string name="create_master_key_passphrase_rule_lowercase">Lowercase letter</string>
-    <string name="create_master_key_passphrase_rule_number">Number</string>
-    <string name="create_master_key_passphrase_rule_special">Special character</string>
-    <string name="create_master_key_passphrase_rule_satisfied">%1$s, satisfied</string>
-    <string name="create_master_key_passphrase_rule_pending">%1$s, still required</string>
-    <string name="create_master_key_passphrase_confirm">Confirm</string>
+    <!-- Create VaultKey flow: step 2, choose the VaultKey passphrase -->
+    <string name="create_vault_key_passphrase_title">Create Passphrase</string>
+    <string name="create_vault_key_passphrase_icon_description">Padlock</string>
+    <string name="create_vault_key_passphrase_label">Create Passphrase</string>
+    <string name="create_vault_key_passphrase_rule_length">8+ characters</string>
+    <string name="create_vault_key_passphrase_rule_uppercase">Uppercase letter</string>
+    <string name="create_vault_key_passphrase_rule_lowercase">Lowercase letter</string>
+    <string name="create_vault_key_passphrase_rule_number">Number</string>
+    <string name="create_vault_key_passphrase_rule_special">Special character</string>
+    <string name="create_vault_key_passphrase_rule_satisfied">%1$s, satisfied</string>
+    <string name="create_vault_key_passphrase_rule_pending">%1$s, still required</string>
+    <string name="create_vault_key_passphrase_confirm">Confirm</string>
 
-    <!-- Create MasterKey flow: step 3, re-enter the passphrase -->
-    <string name="create_master_key_confirm_passphrase_title">Re-enter Passphrase</string>
-    <string name="create_master_key_confirm_passphrase_icon_description">Padlock inside a repeat arrow</string>
-    <string name="create_master_key_confirm_passphrase_verify">Verify</string>
-    <string name="create_master_key_confirm_passphrase_generating">Creating MasterKey…</string>
-    <string name="create_master_key_confirm_passphrase_mismatch">The passphrases do not match. Re-enter the passphrase you chose.</string>
+    <!-- Create VaultKey flow: step 3, re-enter the passphrase -->
+    <string name="create_vault_key_confirm_passphrase_title">Re-enter Passphrase</string>
+    <string name="create_vault_key_confirm_passphrase_icon_description">Padlock inside a repeat arrow</string>
+    <string name="create_vault_key_confirm_passphrase_verify">Verify</string>
+    <string name="create_vault_key_confirm_passphrase_generating">Creating VaultKey…</string>
+    <string name="create_vault_key_confirm_passphrase_mismatch">The passphrases do not match. Re-enter the passphrase you chose.</string>
     <!-- Deliberately generic: an underlying crypto error must not echo key or passphrase material. -->
-    <string name="create_master_key_confirm_passphrase_generation_failed">MasterKey creation failed. Please try again.</string>
+    <string name="create_vault_key_confirm_passphrase_generation_failed">VaultKey creation failed. Please try again.</string>
 
-    <!-- Create MasterKey flow: irreversible account creation progress -->
-    <string name="create_master_key_creating_title">Creating MasterKey</string>
-    <string name="create_master_key_creating_warning">Warning: Don’t close the app during this process.</string>
-    <string name="create_master_key_creating_key">Created Encrypted MasterKey</string>
-    <string name="create_master_key_deriving_nostr">Derived Nostr Key Pair</string>
-    <string name="create_master_key_deriving_sync_code">Derived Sync Code</string>
-    <string name="create_master_key_backup_relay">Backup VaultKey to Nostr Relay %1$d</string>
-    <string name="create_master_key_backup_sync_server">Backup VaultKey to Sync Server %1$d</string>
-    <string name="create_master_key_created_successfully">MasterKey created successfully</string>
-    <string name="create_master_key_operation_in_progress">MasterKey creation in progress</string>
+    <!-- Create VaultKey flow: irreversible account creation progress -->
+    <string name="create_vault_key_creating_title">Creating VaultKey</string>
+    <string name="create_vault_key_creating_warning">Warning: Don’t close the app during this process.</string>
+    <string name="create_vault_key_creating_key">Created Encrypted VaultKey</string>
+    <string name="create_vault_key_deriving_nostr">Derived Nostr Key Pair</string>
+    <string name="create_vault_key_deriving_sync_code">Derived Sync Code</string>
+    <string name="create_vault_key_backup_relay">Backup VaultKey to Nostr Relay %1$d</string>
+    <string name="create_vault_key_backup_sync_server">Backup VaultKey to Sync Server %1$d</string>
+    <string name="create_vault_key_created_successfully">VaultKey created successfully</string>
+    <string name="create_vault_key_operation_in_progress">VaultKey creation in progress</string>
 
-    <!-- Create MasterKey flow: step 4, export the first Vault Backup -->
-    <string name="create_master_key_backup_intro_title">Create Backup</string>
-    <string name="create_master_key_backup_intro_icon_description">Safe with a combination dial</string>
-    <string name="create_master_key_backup_intro_body1">Your first MasterKey Backup is a digital backup that requires you to store it safely somewhere on your device. </string>
-    <string name="create_master_key_backup_intro_body2">Any of your preferred encrypted note apps with additional security will suffice for this step. </string>
-    <string name="create_master_key_backup_intro_confirm">Export MasterKey</string>
-    <string name="create_master_key_backup_no_targets">No installed app can receive text exports.</string>
-    <string name="create_master_key_backup_target_title">Save MasterKey with</string>
-    <string name="create_master_key_backup_target_cancel">Cancel</string>
-    <string name="create_master_key_backup_target_missing">That app is no longer available. Choose another app.</string>
-    <string name="create_master_key_backup_target_denied">Android did not allow this app to receive the export. Choose another app.</string>
-    <string name="create_master_key_backup_unavailable">The MasterKey is unavailable. Restart Vault and try again.</string>
+    <!-- Create VaultKey flow: step 4, export the first Vault Backup -->
+    <string name="create_vault_key_backup_intro_title">Create Backup</string>
+    <string name="create_vault_key_backup_intro_icon_description">Safe with a combination dial</string>
+    <string name="create_vault_key_backup_intro_body1">Your first VaultKey Backup is a digital backup that requires you to store it safely somewhere on your device. </string>
+    <string name="create_vault_key_backup_intro_body2">Any of your preferred encrypted note apps with additional security will suffice for this step. </string>
+    <string name="create_vault_key_backup_intro_confirm">Export VaultKey</string>
+    <string name="create_vault_key_backup_no_targets">No installed app can receive text exports.</string>
+    <string name="create_vault_key_backup_target_title">Save VaultKey with</string>
+    <string name="create_vault_key_backup_target_cancel">Cancel</string>
+    <string name="create_vault_key_backup_target_missing">That app is no longer available. Choose another app.</string>
+    <string name="create_vault_key_backup_target_denied">Android did not allow this app to receive the export. Choose another app.</string>
+    <string name="create_vault_key_backup_unavailable">The VaultKey is unavailable. Restart Vault and try again.</string>
 
-    <!-- Create MasterKey flow: step 5, verify the exported backup -->
-    <string name="create_master_key_confirm_backup_title">Confirm Backup</string>
-    <string name="create_master_key_confirm_backup_icon_description">Backup confirmation shield</string>
-    <string name="create_master_key_confirm_backup_body">To confirm you have safely exported and stored your Backup, please upload it below by clicking on the button.</string>
-    <string name="create_master_key_confirm_backup_action">Paste MasterKey</string>
-    <string name="create_master_key_confirm_backup_read_error">Vault could not read the clipboard. Copy the MasterKey and try again.</string>
-    <string name="create_master_key_confirm_backup_clear_error">Vault could not clear the clipboard. Clear it manually, then try again.</string>
-    <string name="create_master_key_confirm_backup_empty_error">The clipboard does not contain a private key. Copy the MasterKey and try again.</string>
-    <string name="create_master_key_confirm_backup_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
-    <string name="create_master_key_confirm_backup_mismatch_error">This MasterKey does not match the backup you just exported.</string>
+    <!-- Create VaultKey flow: step 5, verify the exported backup -->
+    <string name="create_vault_key_confirm_backup_title">Confirm Backup</string>
+    <string name="create_vault_key_confirm_backup_icon_description">Backup confirmation shield</string>
+    <string name="create_vault_key_confirm_backup_body">To confirm you have safely exported and stored your Backup, please upload it below by clicking on the button.</string>
+    <string name="create_vault_key_confirm_backup_action">Paste VaultKey</string>
+    <string name="create_vault_key_confirm_backup_read_error">Vault could not read the clipboard. Copy the VaultKey and try again.</string>
+    <string name="create_vault_key_confirm_backup_clear_error">Vault could not clear the clipboard. Clear it manually, then try again.</string>
+    <string name="create_vault_key_confirm_backup_empty_error">The clipboard does not contain a private key. Copy the VaultKey and try again.</string>
+    <string name="create_vault_key_confirm_backup_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
+    <string name="create_vault_key_confirm_backup_mismatch_error">This VaultKey does not match the backup you just exported.</string>
 
-    <!-- Create MasterKey flow: step 6, transcribe Brave recovery word positions -->
-    <string name="create_master_key_secret_combinations_title">Secret Combinations</string>
-    <string name="create_master_key_secret_combinations_warning_title">Keep these combinations safe</string>
-    <string name="create_master_key_secret_combinations_warning_body">Write down all 8 combinations and store them offline. Vault cannot restore them if they are lost.</string>
-    <string name="create_master_key_secret_combinations_instruction">Scroll to view all 8 combinations</string>
-    <string name="create_master_key_secret_combinations_consent">I have saved all 8 secret combinations</string>
-    <string name="create_master_key_secret_combinations_confirm">Continue</string>
-    <string name="create_master_key_secret_combinations_unavailable">Secret Combinations are unavailable. Restart Vault and try again.</string>
+    <!-- Create VaultKey flow: step 6, transcribe Brave recovery word positions -->
+    <string name="create_vault_key_secret_combinations_title">Secret Combinations</string>
+    <string name="create_vault_key_secret_combinations_warning_title">Keep these combinations safe</string>
+    <string name="create_vault_key_secret_combinations_warning_body">Write down all 8 combinations and store them offline. Vault cannot restore them if they are lost.</string>
+    <string name="create_vault_key_secret_combinations_instruction">Scroll to view all 8 combinations</string>
+    <string name="create_vault_key_secret_combinations_consent">I have saved all 8 secret combinations</string>
+    <string name="create_vault_key_secret_combinations_confirm">Continue</string>
+    <string name="create_vault_key_secret_combinations_unavailable">Secret Combinations are unavailable. Restart Vault and try again.</string>
 
-    <!-- Create MasterKey flow: step 7, verify every secret combination -->
-    <string name="create_master_key_confirm_secret_combinations_title">Secret Combinations</string>
-    <string name="create_master_key_confirm_secret_combinations_body">Enter your Secret Combinations that you just wrote down accurately or you will not be permitted to continue. Every input has to be correct.</string>
+    <!-- Create VaultKey flow: step 7, verify every secret combination -->
+    <string name="create_vault_key_confirm_secret_combinations_title">Secret Combinations</string>
+    <string name="create_vault_key_confirm_secret_combinations_body">Enter your Secret Combinations that you just wrote down accurately or you will not be permitted to continue. Every input has to be correct.</string>
 
-    <!-- Create MasterKey flow: final success screen -->
-    <string name="create_master_key_congratulations_icon_description">MasterKey setup complete</string>
+    <!-- Create VaultKey flow: final success screen -->
+    <string name="create_vault_key_congratulations_icon_description">VaultKey setup complete</string>
 </resources>

@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
@@ -37,22 +37,22 @@ import java.time.Instant
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class CreateMasterKeyViewModelTest {
+class CreateVaultKeyViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val clock = Clock.fixed(Instant.parse("2026-02-01T00:00:00Z"), ZoneOffset.UTC)
 
     private fun viewModel(
         secureStorage: SecureStorageService = mockk(),
         engine: AccountConsolidationEngine = mockk(),
-    ): CreateMasterKeyViewModel {
+    ): CreateVaultKeyViewModel {
         val appStorage = mockk<AppStorageService>()
-        every { secureStorage.addMasterAccount(any()) } just runs
+        every { secureStorage.addVaultKey(any()) } just runs
         coJustRun { appStorage.clearSetupComplete() }
-        coJustRun { appStorage.setCreateMasterKeyStep(any()) }
-        coEvery { engine.backupMaster(any(), any()) } returns AccountConsolidationEngine.MasterBackupResult(
+        coJustRun { appStorage.setCreateVaultKeyStep(any()) }
+        coEvery { engine.backupVaultKey(any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
         )
-        return CreateMasterKeyViewModel(
+        return CreateVaultKeyViewModel(
             clock,
             SetupService(secureStorage, appStorage, engine),
             secureStorage,
@@ -74,7 +74,7 @@ class CreateMasterKeyViewModelTest {
      * Suspending on the state flow lets that background work actually finish
      * instead of asserting on a still-in-progress state.
      */
-    private suspend fun CreateMasterKeyViewModel.awaitVerificationResult(): CreateMasterKeyState =
+    private suspend fun CreateVaultKeyViewModel.awaitVerificationResult(): CreateVaultKeyState =
         state.first { !it.generating }
 
     @Test
@@ -146,7 +146,7 @@ class CreateMasterKeyViewModelTest {
 
     @Test
     fun reuses_secret_combination_indices_derived_during_key_generation() = runTest(dispatcher) {
-        val storedMaster = slot<Account>()
+        val storedVaultKey = slot<Account>()
         val secureStorage = mockk<SecureStorageService>()
         val viewModel = viewModel(secureStorage)
         val passphrase = "Correct1 horse!"
@@ -154,16 +154,16 @@ class CreateMasterKeyViewModelTest {
         viewModel.choosePassphrase(passphrase)
         viewModel.verifyAndGenerate(passphrase)
         viewModel.awaitVerificationResult()
-        io.mockk.verify { secureStorage.addMasterAccount(capture(storedMaster)) }
+        io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        val seed = SshKeyCodec.parse(storedMaster.captured.zenTenKey, passphrase.toCharArray()).seed
+        val seed = SshKeyCodec.parse(storedVaultKey.captured.zenTenKey, passphrase.toCharArray()).seed
         assertEquals(Seedify.toBraveSyncWordIndices(seed), viewModel.state.value.secretCombinationIndices)
         assertFalse(viewModel.state.value.secretCombinationsLoading)
     }
 
     @Test
-    fun stores_the_master_key_in_the_same_single_line_format_used_by_associated_account_exports() = runTest(dispatcher) {
-        val storedMaster = slot<Account>()
+    fun stores_the_vault_key_in_the_same_single_line_format_used_by_associated_account_exports() = runTest(dispatcher) {
+        val storedVaultKey = slot<Account>()
         val secureStorage = mockk<SecureStorageService>()
         val viewModel = viewModel(secureStorage)
         val passphrase = "Correct1 horse!"
@@ -171,40 +171,40 @@ class CreateMasterKeyViewModelTest {
         viewModel.choosePassphrase(passphrase)
         viewModel.verifyAndGenerate(passphrase)
         viewModel.awaitVerificationResult()
-        io.mockk.verify(exactly = 1) { secureStorage.addMasterAccount(capture(storedMaster)) }
+        io.mockk.verify(exactly = 1) { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        assertFalse(storedMaster.captured.zenTenKey.contains("-----BEGIN OPENSSH PRIVATE KEY-----"))
-        assertFalse(storedMaster.captured.zenTenKey.contains('\n'))
+        assertFalse(storedVaultKey.captured.zenTenKey.contains("-----BEGIN OPENSSH PRIVATE KEY-----"))
+        assertFalse(storedVaultKey.captured.zenTenKey.contains('\n'))
         assertEquals(
-            storedMaster.captured.zenTenKey,
-            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedMaster.captured.zenTenKey),
+            storedVaultKey.captured.zenTenKey,
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedVaultKey.captured.zenTenKey),
         )
     }
 
     @Test
     fun initial_relay_backup_uses_the_brave_sub_account_nostr_identity() = runTest(dispatcher) {
-        val storedMaster = slot<Account>()
-        val backedUpMaster = slot<Account>()
+        val storedVaultKey = slot<Account>()
+        val backedUpVaultKey = slot<Account>()
         val secureStorage = mockk<SecureStorageService>()
         val engine = mockk<AccountConsolidationEngine>()
         val viewModel = viewModel(secureStorage, engine)
         val passphrase = "Correct1 horse!"
-        coEvery { engine.backupMaster(capture(backedUpMaster), any()) } returns
-            AccountConsolidationEngine.MasterBackupResult(true, true, emptySet(), emptySet())
+        coEvery { engine.backupVaultKey(capture(backedUpVaultKey), any()) } returns
+            AccountConsolidationEngine.VaultKeyBackupResult(true, true, emptySet(), emptySet())
 
         viewModel.choosePassphrase(passphrase)
         viewModel.verifyAndGenerate(passphrase)
         viewModel.awaitVerificationResult()
-        io.mockk.verify { secureStorage.addMasterAccount(capture(storedMaster)) }
+        io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        val seed = SshKeyCodec.parse(storedMaster.captured.zenTenKey, passphrase.toCharArray()).seed
+        val seed = SshKeyCodec.parse(storedVaultKey.captured.zenTenKey, passphrase.toCharArray()).seed
         val expected = NostrKeyDerivation.derive(Seedify.toBraveAccountMnemonic(seed))
-        assertEquals(expected.publicKey.joinToString("") { "%02x".format(it) }, backedUpMaster.captured.nostr.pubkey)
-        assertEquals(expected.privateKey.joinToString("") { "%02x".format(it) }, backedUpMaster.captured.nostr.privkey)
+        assertEquals(expected.publicKey.joinToString("") { "%02x".format(it) }, backedUpVaultKey.captured.nostr.pubkey)
+        assertEquals(expected.privateKey.joinToString("") { "%02x".format(it) }, backedUpVaultKey.captured.nostr.privkey)
         val expectedStored = NostrKeyDerivation.derive(Seedify.toMnemonic(seed))
-        assertEquals(expectedStored.publicKey.joinToString("") { "%02x".format(it) }, storedMaster.captured.nostr.pubkey)
-        assertTrue(storedMaster.captured.nostr != backedUpMaster.captured.nostr)
-        coVerify(exactly = 1) { engine.backupMaster(any(), any()) }
+        assertEquals(expectedStored.publicKey.joinToString("") { "%02x".format(it) }, storedVaultKey.captured.nostr.pubkey)
+        assertTrue(storedVaultKey.captured.nostr != backedUpVaultKey.captured.nostr)
+        coVerify(exactly = 1) { engine.backupVaultKey(any(), any()) }
     }
 
     @Test

@@ -13,11 +13,11 @@ flowchart LR
 
 ## 1. First-time setup
 
-**User goal:** Start a vault using an existing master account.
+**User goal:** Start a vault using an existing Vault Key.
 
 **Starting point:** The app is new.
 
-1. The user selects **Login with MasterKey** on **Get started**, copies the Ed25519 OpenSSH private key, selects **Paste MasterKey**, and then enters its passphrase in step two. The key is not displayed, and the app clears the current clipboard entry before advancing. **Create MasterKey** opens a wizard that collects consent and a passphrase, verifies the re-entered passphrase, generates and stores an encrypted MasterKey, exports it through an installed text-capable app, asks the user to paste it back to confirm the stored backup, and presents the Brave recovery mnemonic as grouped BIP-39 indices for offline transcription, then requires each index to be re-entered sequentially to verify the copy. Setup still cannot complete because the post-verification step is not implemented. The federated options (Google, Apple, Microsoft) are not implemented and report "coming soon".
+1. The user selects **Login with VaultKey** on **Get started**, copies the Ed25519 OpenSSH private key, selects **Paste VaultKey**, and then enters its passphrase in step two. The key is not displayed, and the app clears the current clipboard entry before advancing. **Create VaultKey** opens a wizard that collects consent and a passphrase, verifies the re-entered passphrase, generates and stores an encrypted VaultKey, exports it through an installed text-capable app, asks the user to paste it back to confirm the stored backup, and presents the Brave recovery mnemonic as grouped BIP-39 indices for offline transcription, then requires each index to be re-entered sequentially to verify the copy. Setup still cannot complete because the post-verification step is not implemented. The federated options (Google, Apple, Microsoft) are not implemented and report "coming soon".
 2. The app validates the material locally and prepares the vault identity.
 3. The app creates the required initial protected backup and reports progress.
 4. When setup succeeds, the user reaches **Accounts**.
@@ -31,13 +31,13 @@ flowchart LR
 
 **User goal:** Create a separate credential for a new service, project, or environment.
 
-**Starting point:** Setup is complete and the required master backup quorum has been satisfied.
+**Starting point:** Setup is complete and the required Vault Key backup quorum has been satisfied.
 
 1. The user selects **Create New Account** from the bottom center of **Accounts**.
-2. The app asks for the **MasterKey Passphrase**, which the user can show or hide, and verifies it before continuing.
+2. The app asks for the **VaultKey Passphrase**, which the user can show or hide, and verifies it before continuing.
 3. The app asks for a mandatory **Account Name** containing 8 to 128 characters.
 4. The user selects **Create Account**, or selects **Cancel** to return without creating one.
-5. The app confirms that master backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
+5. The app confirms that Vault Key backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
 6. The app saves the new associated account and its name on the device first.
 7. The app starts background consolidation, checking each destination before writing only confirmed gaps.
 8. The user exports the encrypted OpenSSH private key through the device Sharesheet to Notes, Messages, or another available app. The account name is later published publicly as its Nostr profile `display_name`.
@@ -62,9 +62,9 @@ flowchart LR
 
 **User goal:** Understand whether an account has known backup coverage.
 
-1. The user opens an account, or opens **Settings** and selects **Master account**.
+1. The user opens an account, or opens **Settings** and selects **Vault Key**.
 2. The app lists each configured destination and its current status.
-3. From an associated-account screen, the user selects **Consolidate backup** to reconcile only that account. From the Master Account screen, the user selects **Consolidate backups** to reconcile the whole vault.
+3. From an associated-account screen, the user selects **Consolidate backup** to reconcile only that account. From the Vault Key screen, the user selects **Consolidate backups** to reconcile the whole vault.
 4. The app checks every source before writing and does not push an account to a source that already reports its canonical ID. Full-vault consolidation can also restore valid missing local accounts; targeted consolidation does not process unrelated accounts.
 5. The user sees whether each destination is backed up, missing, unknown, or needs attention.
 
@@ -75,11 +75,11 @@ flowchart LR
 **User goal:** Rebuild access to previously generated associated accounts after losing or replacing a device.
 
 1. The user installs the app on a new device.
-2. The user completes setup using the same master account private key and passphrase.
+2. The user completes setup using the same Vault Key private key and passphrase.
 3. The app uses that identity to look for protected backup copies.
 4. Every valid discovered associated account is restored automatically.
 5. Restored accounts appear in **Accounts** and are available locally.
 
 **Success:** The user regains all valid discovered associated accounts when usable remote backups can be found.
 
-**Important limitation:** The app cannot recover the master account private key or its passphrase. If either is unavailable, this recovery path is unavailable.
+**Important limitation:** The app cannot recover the Vault Key private key or its passphrase. If either is unavailable, this recovery path is unavailable.

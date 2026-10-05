@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import android.animation.ValueAnimator
 import androidx.compose.foundation.BorderStroke

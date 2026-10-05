@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Spacer
@@ -35,8 +35,8 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
 
 /** Shows the irreversible local creation and remote synchronization work after verification. */
 @Composable
-fun CreateMasterKeyCreatingScreen(navController: NavHostController) {
-    val viewModel = rememberCreateMasterKeyViewModel(navController)
+fun CreateVaultKeyCreatingScreen(navController: NavHostController) {
+    val viewModel = rememberCreateVaultKeyViewModel(navController)
     val state by viewModel.state.collectAsState()
 
     // Leaving midway could expose an earlier wizard step after the account was committed.
@@ -48,8 +48,8 @@ fun CreateMasterKeyCreatingScreen(navController: NavHostController) {
             state.navigateToBackup -> {
                 delay(2_000)
                 viewModel.onBackupStepShown()
-                navController.navigate(VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO) {
-                    popUpTo(VaultDestinations.CREATE_MASTER_KEY_CREATING) { inclusive = true }
+                navController.navigate(VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO) {
+                    popUpTo(VaultDestinations.CREATE_VAULT_KEY_CREATING) { inclusive = true }
                 }
             }
             state.generationFailed -> navController.popBackStack()
@@ -57,18 +57,18 @@ fun CreateMasterKeyCreatingScreen(navController: NavHostController) {
     }
 
     val progress = state.backupProgress
-    val creatingText = stringResource(R.string.create_master_key_creating_key)
-    val nostrText = stringResource(R.string.create_master_key_deriving_nostr)
-    val syncCodeText = stringResource(R.string.create_master_key_deriving_sync_code)
+    val creatingText = stringResource(R.string.create_vault_key_creating_key)
+    val nostrText = stringResource(R.string.create_vault_key_deriving_nostr)
+    val syncCodeText = stringResource(R.string.create_vault_key_deriving_sync_code)
     val relayTexts = progress?.sources
         ?.filter { it.type == BackupSourceType.NOSTR_RELAY }
-        ?.mapIndexed { index, _ -> stringResource(R.string.create_master_key_backup_relay, index + 1) }
+        ?.mapIndexed { index, _ -> stringResource(R.string.create_vault_key_backup_relay, index + 1) }
         .orEmpty()
     val syncServerTexts = progress?.sources
         ?.filter { it.type == BackupSourceType.BRAVE_SYNC }
-        ?.mapIndexed { index, _ -> stringResource(R.string.create_master_key_backup_sync_server, index + 1) }
+        ?.mapIndexed { index, _ -> stringResource(R.string.create_vault_key_backup_sync_server, index + 1) }
         .orEmpty()
-    val terminalLines = masterKeyCreationTerminalLines(
+    val terminalLines = vaultKeyCreationTerminalLines(
         stage = state.progressStage,
         progress = progress,
         creatingText = creatingText,
@@ -77,17 +77,17 @@ fun CreateMasterKeyCreatingScreen(navController: NavHostController) {
         relayTexts = relayTexts,
         syncServerTexts = syncServerTexts,
     )
-    val complete = state.progressStage == MasterKeyCreationStage.COMPLETE
+    val complete = state.progressStage == VaultKeyCreationStage.COMPLETE
 
-    CreateMasterKeyScaffold(
-        title = stringResource(R.string.create_master_key_creating_title),
-        heroIcon = R.drawable.hero_icon_create_masterkey,
-        heroIconDescription = stringResource(R.string.create_master_key_passphrase_icon_description),
+    CreateVaultKeyScaffold(
+        title = stringResource(R.string.create_vault_key_creating_title),
+        heroIcon = R.drawable.hero_icon_create_vaultkey,
+        heroIconDescription = stringResource(R.string.create_vault_key_passphrase_icon_description),
         onBack = null,
         content = {
             Spacer(Modifier.height(28.dp))
             Text(
-                text = stringResource(R.string.create_master_key_creating_warning),
+                text = stringResource(R.string.create_vault_key_creating_warning),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
@@ -97,15 +97,15 @@ fun CreateMasterKeyCreatingScreen(navController: NavHostController) {
             DecodeRevealTerminal(
                 lines = terminalLines,
                 accessibilityStatus = if (complete) {
-                    stringResource(R.string.create_master_key_created_successfully)
+                    stringResource(R.string.create_vault_key_created_successfully)
                 } else {
-                    stringResource(R.string.create_master_key_operation_in_progress)
+                    stringResource(R.string.create_vault_key_operation_in_progress)
                 },
             )
             if (complete) {
                 Spacer(Modifier.height(24.dp))
-                MasterKeyCreationSuccess(
-                    text = stringResource(R.string.create_master_key_created_successfully),
+                VaultKeyCreationSuccess(
+                    text = stringResource(R.string.create_vault_key_created_successfully),
                 )
             }
         },
@@ -113,43 +113,43 @@ fun CreateMasterKeyCreatingScreen(navController: NavHostController) {
     )
 }
 
-internal fun masterKeyCreationTerminalLines(
-    stage: MasterKeyCreationStage?,
-    progress: AccountConsolidationEngine.MasterBackupProgress?,
+internal fun vaultKeyCreationTerminalLines(
+    stage: VaultKeyCreationStage?,
+    progress: AccountConsolidationEngine.VaultKeyBackupProgress?,
     creatingText: String,
     nostrText: String,
     syncCodeText: String,
     relayTexts: List<String>,
     syncServerTexts: List<String>,
 ): List<DecodeRevealLine> = when (stage) {
-        MasterKeyCreationStage.DERIVING_NOSTR_KEY_PAIR -> listOf(
+        VaultKeyCreationStage.DERIVING_NOSTR_KEY_PAIR -> listOf(
             DecodeRevealLine(creatingText, active = false),
             DecodeRevealLine(nostrText, active = true),
         )
-        MasterKeyCreationStage.DERIVING_SYNC_CODE -> listOf(
+        VaultKeyCreationStage.DERIVING_SYNC_CODE -> listOf(
             DecodeRevealLine(creatingText, active = false),
             DecodeRevealLine(nostrText, active = false),
             DecodeRevealLine(syncCodeText, active = true),
         )
-        MasterKeyCreationStage.SYNCING_BACKUPS, MasterKeyCreationStage.COMPLETE -> buildList {
+        VaultKeyCreationStage.SYNCING_BACKUPS, VaultKeyCreationStage.COMPLETE -> buildList {
             add(DecodeRevealLine(creatingText, active = false))
             add(DecodeRevealLine(nostrText, active = false))
             add(DecodeRevealLine(syncCodeText, active = false))
             val sourceLines = backupSourceLines(progress, relayTexts, syncServerTexts)
             sourceLines.forEachIndexed { index, text ->
-                val completed = stage == MasterKeyCreationStage.COMPLETE || index < (progress?.completedSources ?: 0)
-                val active = stage == MasterKeyCreationStage.SYNCING_BACKUPS &&
+                val completed = stage == VaultKeyCreationStage.COMPLETE || index < (progress?.completedSources ?: 0)
+                val active = stage == VaultKeyCreationStage.SYNCING_BACKUPS &&
                     index == progress?.activeSourceIndex && !completed
                 if (completed || active) add(DecodeRevealLine(text, active = active))
             }
         }
-        MasterKeyCreationStage.CREATING_KEY, null -> listOf(
+        VaultKeyCreationStage.CREATING_KEY, null -> listOf(
             DecodeRevealLine(creatingText, active = true),
         )
     }
 
 internal fun backupSourceLines(
-    progress: AccountConsolidationEngine.MasterBackupProgress?,
+    progress: AccountConsolidationEngine.VaultKeyBackupProgress?,
     relayTexts: List<String>,
     syncServerTexts: List<String>,
 ): List<String> {
@@ -164,7 +164,7 @@ internal fun backupSourceLines(
 }
 
 @Composable
-private fun MasterKeyCreationSuccess(text: String) {
+private fun VaultKeyCreationSuccess(text: String) {
     val success = LocalExtendedColors.current.success.color
     Column(
         modifier = Modifier.fillMaxWidth(),

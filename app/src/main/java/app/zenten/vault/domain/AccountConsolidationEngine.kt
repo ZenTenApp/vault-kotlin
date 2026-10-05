@@ -29,40 +29,40 @@ class AccountConsolidationEngine(
 ) {
     private val operationMutex = Mutex()
 
-    suspend fun backupMaster(
-        master: Account,
-        onProgress: suspend (MasterBackupProgress) -> Unit = {},
-    ): MasterBackupResult = operationMutex.withLock {
+    suspend fun backupVaultKey(
+        vaultKey: Account,
+        onProgress: suspend (VaultKeyBackupProgress) -> Unit = {},
+    ): VaultKeyBackupResult = operationMutex.withLock {
         val successes = mutableSetOf<String>()
         val failures = mutableSetOf<String>()
         val sources = enabledSources()
-        val progressSources = sources.map { MasterBackupSource(it.label, it.type) }
-        val runContext = sourceFactory.createRunContext(master)
+        val progressSources = sources.map { VaultKeyBackupSource(it.label, it.type) }
+        val runContext = sourceFactory.createRunContext(vaultKey)
         sources.forEachIndexed { index, config ->
             // Report both edges of each source operation so the UI can show the active
             // destination as well as progress that advances after it finishes.
-            onProgress(MasterBackupProgress(progressSources, index, index))
+            onProgress(VaultKeyBackupProgress(progressSources, index, index))
             val source = sourceFactory.create(config, runContext)
-            setStatus(BackupAccountId.Master, config, AccountSourceBackupState.CHECKING)
-            source.index(master).fold(
+            setStatus(BackupAccountId.VaultKey, config, AccountSourceBackupState.CHECKING)
+            source.index(vaultKey).fold(
                 onSuccess = { index ->
-                    if (BackupAccountId.Master in index.ids) {
+                    if (BackupAccountId.VaultKey in index.ids) {
                         successes += config.id
-                        setStatus(BackupAccountId.Master, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
-                        appStorage.clearPendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id)
+                        setStatus(BackupAccountId.VaultKey, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
+                        appStorage.clearPendingSourceWrite(BackupAccountId.VAULT_KEY_VALUE, config.id)
                     } else {
-                        setStatus(BackupAccountId.Master, config, AccountSourceBackupState.BACKING_UP)
-                        source.write(master, BackupAccountId.Master, master).fold(
+                        setStatus(BackupAccountId.VaultKey, config, AccountSourceBackupState.BACKING_UP)
+                        source.write(vaultKey, BackupAccountId.VaultKey, vaultKey).fold(
                             onSuccess = {
                                 successes += config.id
-                                setStatus(BackupAccountId.Master, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
-                                appStorage.clearPendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id)
+                                setStatus(BackupAccountId.VaultKey, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
+                                appStorage.clearPendingSourceWrite(BackupAccountId.VAULT_KEY_VALUE, config.id)
                             },
                             onFailure = { error ->
                                 failures += config.id
-                                setStatus(BackupAccountId.Master, config, AccountSourceBackupState.BACKUP_FAILED, error = error)
+                                setStatus(BackupAccountId.VaultKey, config, AccountSourceBackupState.BACKUP_FAILED, error = error)
                                 appStorage.upsertPendingSourceWrite(
-                                    PendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id, PendingWriteReason.MASTER_QUORUM, 1, clock.millis()),
+                                    PendingSourceWrite(BackupAccountId.VAULT_KEY_VALUE, config.id, PendingWriteReason.VAULT_KEY_QUORUM, 1, clock.millis()),
                                 )
                             },
                         )
@@ -71,50 +71,50 @@ class AccountConsolidationEngine(
                 onFailure = { error ->
                     // Unknown is not missing: never write unless a successful index proves absence.
                     failures += config.id
-                    setStatus(BackupAccountId.Master, config, AccountSourceBackupState.UNKNOWN, checked = true, error = error)
+                    setStatus(BackupAccountId.VaultKey, config, AccountSourceBackupState.UNKNOWN, checked = true, error = error)
                     appStorage.upsertPendingSourceWrite(
-                        PendingSourceWrite(BackupAccountId.MASTER_VALUE, config.id, PendingWriteReason.MASTER_QUORUM, 1, clock.millis()),
+                        PendingSourceWrite(BackupAccountId.VAULT_KEY_VALUE, config.id, PendingWriteReason.VAULT_KEY_QUORUM, 1, clock.millis()),
                     )
                 },
             )
-            onProgress(MasterBackupProgress(progressSources, index, index + 1))
+            onProgress(VaultKeyBackupProgress(progressSources, index, index + 1))
         }
         val configs = sources.associateBy { it.id }
         val relayQuorum = successes.any { configs[it]?.type == BackupSourceType.NOSTR_RELAY && configs[it]?.countsTowardQuorum == true }
         val braveQuorum = successes.any { configs[it]?.type == BackupSourceType.BRAVE_SYNC && configs[it]?.countsTowardQuorum == true }
-        MasterBackupResult(relayQuorum, braveQuorum, successes, failures)
+        VaultKeyBackupResult(relayQuorum, braveQuorum, successes, failures)
     }
 
-    data class MasterBackupProgress(
-        val sources: List<MasterBackupSource>,
+    data class VaultKeyBackupProgress(
+        val sources: List<VaultKeyBackupSource>,
         val activeSourceIndex: Int,
         val completedSources: Int,
     ) {
-        val activeSource: MasterBackupSource get() = sources[activeSourceIndex]
+        val activeSource: VaultKeyBackupSource get() = sources[activeSourceIndex]
         val totalSources: Int get() = sources.size
     }
 
-    data class MasterBackupSource(
+    data class VaultKeyBackupSource(
         val label: String,
         val type: BackupSourceType,
     )
 
     /** Reconciles one associated account without restoring, writing, or changing statuses for other accounts. */
     suspend fun consolidateAccount(accountId: Long, trigger: ConsolidationTrigger = ConsolidationTrigger.MANUAL): ConsolidationResult = operationMutex.withLock {
-        val master = requireNotNull(secureStorage.getMasterAccount()) { "Master account is unavailable" }
+        val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
         val account = requireNotNull(secureStorage.getAccountById(accountId)) { "Account is unavailable" }
         val id = BackupAccountId.associated(accountId)
         val cycleId = UUID.randomUUID().toString()
         val started = clock.millis()
         var writes = 0
         var failures = 0
-        val runContext = sourceFactory.createRunContext(master)
+        val runContext = sourceFactory.createRunContext(vaultKey)
 
         enabledSources().forEach { config ->
             checkpoint(cycleId, trigger, ConsolidationPhase.RESTORE, config.id, id.value, started)
             val source = sourceFactory.create(config, runContext)
             setStatus(id, config, AccountSourceBackupState.CHECKING)
-            source.index(master).fold(
+            source.index(vaultKey).fold(
                 onSuccess = { initial ->
                     if (id in initial.ids) {
                         setStatus(id, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
@@ -122,11 +122,11 @@ class AccountConsolidationEngine(
                     } else {
                         checkpoint(cycleId, trigger, ConsolidationPhase.BACKUP, config.id, id.value, started)
                         setStatus(id, config, AccountSourceBackupState.BACKING_UP, checked = true)
-                        source.write(master, id, account).fold(
+                        source.write(vaultKey, id, account).fold(
                             onSuccess = {
                                 writes++
                                 setStatus(id, config, AccountSourceBackupState.WRITE_CONFIRMED, successful = true)
-                                source.index(master).fold(
+                                source.index(vaultKey).fold(
                                     onSuccess = { verified ->
                                         if (id in verified.ids) {
                                             setStatus(id, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
@@ -176,11 +176,11 @@ class AccountConsolidationEngine(
             val pending = appStorage.pendingSourceWrites.first()
             if (last != null && now - last < FRESHNESS_MILLIS && pending.isEmpty()) return@withLock null
         }
-        val master = secureStorage.getMasterAccount() ?: return@withLock null
+        val vaultKey = secureStorage.getVaultKey() ?: return@withLock null
         val cycleId = UUID.randomUUID().toString()
         val started = clock.millis()
         val sources = enabledSources()
-        val runContext = sourceFactory.createRunContext(master)
+        val runContext = sourceFactory.createRunContext(vaultKey)
         val sourceInstances = sources.associate { it.id to sourceFactory.create(it, runContext) }
         val indexes = linkedMapOf<String, SourceIndex>()
         val indexFailures = linkedMapOf<String, Throwable>()
@@ -192,18 +192,18 @@ class AccountConsolidationEngine(
         sources.forEach { config ->
             checkpoint(cycleId, trigger, ConsolidationPhase.RESTORE, config.id, null, started)
             val source = sourceInstances.getValue(config.id)
-            localInventory(master).keys.forEach { setStatus(it, config, AccountSourceBackupState.CHECKING) }
-            source.index(master).fold(
+            localInventory(vaultKey).keys.forEach { setStatus(it, config, AccountSourceBackupState.CHECKING) }
+            source.index(vaultKey).fold(
                 onSuccess = { index ->
                     indexes[config.id] = index
-                    val localBefore = localInventory(master)
+                    val localBefore = localInventory(vaultKey)
                     localBefore.keys.forEach { id ->
                         setStatus(id, config, if (id in index.ids) AccountSourceBackupState.PRESENT else AccountSourceBackupState.MISSING, checked = true)
                     }
                     if (config.restoreEnabled && config.trustedForRestore) {
-                        index.ids.filterNot { it.isMaster || it in localBefore }.forEach { id ->
+                        index.ids.filterNot { it.isVaultKey || it in localBefore }.forEach { id ->
                             val candidates = index.candidates[id].orEmpty().sortedByDescending { it.sortOrder }
-                            val recovered = candidates.firstNotNullOfOrNull { candidate -> source.restoreCandidate(master, candidate).getOrNull() }
+                            val recovered = candidates.firstNotNullOfOrNull { candidate -> source.restoreCandidate(vaultKey, candidate).getOrNull() }
                             if (recovered != null) {
                                 secureStorage.addAccount(recovered)
                                 restored++
@@ -215,13 +215,13 @@ class AccountConsolidationEngine(
                 onFailure = { error ->
                     failures++
                     indexFailures[config.id] = error
-                    localInventory(master).keys.forEach { setStatus(it, config, AccountSourceBackupState.UNKNOWN, checked = true, error = error) }
+                    localInventory(vaultKey).keys.forEach { setStatus(it, config, AccountSourceBackupState.UNKNOWN, checked = true, error = error) }
                 },
             )
         }
 
         // Backfill late discoveries against every retained phase-1 index before repair starts.
-        val completeInventory = localInventory(master)
+        val completeInventory = localInventory(vaultKey)
         sources.forEach { config ->
             val index = indexes[config.id]
             completeInventory.keys.forEach { id ->
@@ -241,12 +241,12 @@ class AccountConsolidationEngine(
             val known = initial.ids.toMutableSet()
             val acknowledgedWrites = mutableSetOf<BackupAccountId>()
             val failedWrites = mutableSetOf<BackupAccountId>()
-            val inventory = localInventory(master)
+            val inventory = localInventory(vaultKey)
             inventory.forEach accountLoop@{ (id, account) ->
                 if (id in known) return@accountLoop
                 checkpoint(cycleId, trigger, ConsolidationPhase.BACKUP, config.id, id.value, started)
                 setStatus(id, config, AccountSourceBackupState.BACKING_UP)
-                source.write(master, id, account).fold(
+                source.write(vaultKey, id, account).fold(
                     onSuccess = {
                         writes++
                         known += id
@@ -262,9 +262,9 @@ class AccountConsolidationEngine(
                     },
                 )
             }
-            source.index(master).fold(
+            source.index(vaultKey).fold(
                 onSuccess = { verified ->
-                    localInventory(master).keys.forEach { id ->
+                    localInventory(vaultKey).keys.forEach { id ->
                         when {
                             id in verified.ids -> {
                                 setStatus(id, config, AccountSourceBackupState.PRESENT, checked = true, successful = true)
@@ -307,8 +307,8 @@ class AccountConsolidationEngine(
 
     private suspend fun enabledSources() = sourceRepository.current().filter { it.enabled }
 
-    private fun localInventory(master: Account): LinkedHashMap<BackupAccountId, Account> = linkedMapOf<BackupAccountId, Account>().apply {
-        put(BackupAccountId.Master, master)
+    private fun localInventory(vaultKey: Account): LinkedHashMap<BackupAccountId, Account> = linkedMapOf<BackupAccountId, Account>().apply {
+        put(BackupAccountId.VaultKey, vaultKey)
         secureStorage.getAccounts().forEach { put(BackupAccountId.associated(it.createdAt), it) }
     }
 
@@ -346,7 +346,7 @@ class AccountConsolidationEngine(
         )
     }
 
-    data class MasterBackupResult(
+    data class VaultKeyBackupResult(
         val relayQuorum: Boolean,
         val braveQuorum: Boolean,
         val successfulSourceIds: Set<String>,

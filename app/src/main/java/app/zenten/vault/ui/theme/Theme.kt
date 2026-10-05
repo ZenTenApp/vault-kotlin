@@ -59,7 +59,7 @@ data class ColorFamily(
  *
  * - [success]: positive/verified state, for example a confirmed backup.
  * - [link]: iOS-style system blue used only for the in-content "Back" navigation
- *   link in the master-key flow. Intentionally not `colorScheme.primary`, which
+ *   link in the vault-key flow. Intentionally not `colorScheme.primary`, which
  *   is reserved for primary actions, and not part of the generated palette.
  */
 @Immutable
@@ -304,7 +304,7 @@ private val darkSchemeHighContrast = darkColorScheme(
 )
 
 /**
- * iOS-style system blue for the master-key flow's "Back" link. Not part of the
+ * iOS-style system blue for the vault-key flow's "Back" link. Not part of the
  * generated palette, and identical across every scheme and contrast level.
  */
 private val vaultLink = Color(0xFF007AFF)

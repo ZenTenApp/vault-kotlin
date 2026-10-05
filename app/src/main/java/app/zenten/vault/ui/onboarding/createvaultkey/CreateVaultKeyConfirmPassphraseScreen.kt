@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,15 +22,15 @@ import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
 
 /**
- * Step 3 of the in-app **Create MasterKey** flow: re-enter the passphrase
+ * Step 3 of the in-app **Create VaultKey** flow: re-enter the passphrase
  * chosen in step 2.
  *
  * Re-entry guards against a typo in a secret the user can never recover.
  * **Verify** compares this entry with the stored one through the wizard's
- * graph-scoped [CreateMasterKeyViewModel]:
+ * graph-scoped [CreateVaultKeyViewModel]:
  *
  * - on a mismatch nothing is generated and an inline error is shown, so a typo
- *   can never be baked into the MasterKey;
+ *   can never be baked into the VaultKey;
  * - on a match a fresh Ed25519 OpenSSH key encrypted with that passphrase is
  *   generated, saved locally, backed up to every configured source, and the
  *   wizard advances to the next step.
@@ -40,9 +40,9 @@ import app.zenten.vault.ui.components.VaultPillButton
  * so the wait is visible.
  */
 @Composable
-fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
+fun CreateVaultKeyConfirmPassphraseScreen(navController: NavHostController) {
     var reEnteredPassphrase by remember { mutableStateOf("") }
-    val viewModel = rememberCreateMasterKeyViewModel(navController)
+    val viewModel = rememberCreateVaultKeyViewModel(navController)
     val state by viewModel.state.collectAsState()
 
     // Passphrase input is on screen here, so block screenshots and recordings.
@@ -53,7 +53,7 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
     LaunchedEffect(state.generating) {
         if (state.generating) {
             reEnteredPassphrase = ""
-            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CREATING)
+            navController.navigate(VaultDestinations.CREATE_VAULT_KEY_CREATING)
         }
     }
 
@@ -63,10 +63,10 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
         if (state.passphraseMissing) navController.popBackStack()
     }
 
-    CreateMasterKeyScaffold(
-        title = stringResource(R.string.create_master_key_confirm_passphrase_title),
+    CreateVaultKeyScaffold(
+        title = stringResource(R.string.create_vault_key_confirm_passphrase_title),
         heroIcon = R.drawable.hero_icon_confirm_passphrase,
-        heroIconDescription = stringResource(R.string.create_master_key_confirm_passphrase_icon_description),
+        heroIconDescription = stringResource(R.string.create_vault_key_confirm_passphrase_icon_description),
         onBack = navController::popBackStack,
         content = {
             Spacer(Modifier.height(28.dp))
@@ -89,9 +89,9 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
                 Text(
                     text = stringResource(
                         if (state.mismatch) {
-                            R.string.create_master_key_confirm_passphrase_mismatch
+                            R.string.create_vault_key_confirm_passphrase_mismatch
                         } else {
-                            R.string.create_master_key_confirm_passphrase_generation_failed
+                            R.string.create_vault_key_confirm_passphrase_generation_failed
                         },
                     ),
                     style = MaterialTheme.typography.bodyMedium,
@@ -103,7 +103,7 @@ fun CreateMasterKeyConfirmPassphraseScreen(navController: NavHostController) {
         actions = {
             VaultPillButton(
                 label = stringResource(
-                    R.string.create_master_key_confirm_passphrase_verify,
+                    R.string.create_vault_key_confirm_passphrase_verify,
                 ),
                 // Blocked while generating so a second tap cannot start a second key.
                 enabled = reEnteredPassphrase.isNotEmpty() && !state.generating,

@@ -20,17 +20,17 @@ class NewAccountViewModel @Inject constructor(
     private val _state = MutableStateFlow(NewAccountState())
     val state: StateFlow<NewAccountState> = _state.asStateFlow()
 
-    fun verifyPassphrase(masterPassphrase: String) {
-        accountService.verifyMasterPassphrase(masterPassphrase)
+    fun verifyPassphrase(vaultKeyPassphrase: String) {
+        accountService.verifyVaultKeyPassphrase(vaultKeyPassphrase)
             .onSuccess { _state.value = NewAccountState(passphraseVerified = true) }
             .onFailure { _state.value = NewAccountState(error = it.message ?: "Could not verify passphrase") }
     }
 
-    fun create(masterPassphrase: String, accountName: String) {
+    fun create(vaultKeyPassphrase: String, accountName: String) {
         if (_state.value.creating) return
         _state.value = _state.value.copy(creating = true, error = null)
         viewModelScope.launch {
-            accountService.createAssociatedAccount(masterPassphrase, accountName)
+            accountService.createAssociatedAccount(vaultKeyPassphrase, accountName)
                 .onSuccess {
                     appStorage.requireAccountLocalBackup(it.createdAt)
                     _state.value = NewAccountState(created = it)

@@ -10,14 +10,14 @@ import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
 import app.zenten.vault.network.nostr.NostrRelayGateway
 
-/** Restores only associated account events. Master recovery remains user SSH-key onboarding. */
+/** Restores only associated account events. VaultKey recovery remains user SSH-key onboarding. */
 class RecoveryService(
     private val relayGateway: NostrRelayGateway,
     private val secureStorage: SecureStorageService,
     private val braveSyncBackupService: BraveSyncBackupService? = null,
 ) {
-    suspend fun discoverAssociatedAccounts(master: Account): RecoveryResult {
-        val nostr = master.nostr
+    suspend fun discoverAssociatedAccounts(vaultKey: Account): RecoveryResult {
+        val nostr = vaultKey.nostr
         val events = relayGateway.fetchAuthenticatedByAuthorAndKind(
             nostr.pubkey,
             BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
@@ -27,14 +27,14 @@ class RecoveryService(
         val skipped = mutableListOf<String>()
         val knownAccountIds = secureStorage.getAccounts().mapTo(mutableSetOf()) { it.createdAt }
         events.forEach { event ->
-            val account = decodeAssociatedAccount(event, master)
+            val account = decodeAssociatedAccount(event, vaultKey)
             if (account == null) skipped += event.id
             else if (knownAccountIds.add(account.createdAt)) {
                 secureStorage.addAccount(account)
                 recovered += account
             }
         }
-        val brave = braveSyncBackupService?.let { service -> runCatching { service.discoverAssociatedAccounts(master) }.getOrNull() }
+        val brave = braveSyncBackupService?.let { service -> runCatching { service.discoverAssociatedAccounts(vaultKey) }.getOrNull() }
         brave?.accounts.orEmpty().forEach { account ->
             if (knownAccountIds.add(account.createdAt)) {
                 secureStorage.addAccount(account)
@@ -45,8 +45,8 @@ class RecoveryService(
         return RecoveryResult(recovered, skipped, events.size, brave?.discoveredEntryCount ?: 0, brave?.decryptionFailures ?: 0)
     }
 
-    fun decodeAssociatedAccount(event: NostrEvent, master: Account): Account? = runCatching {
-        val nostr = master.nostr
+    fun decodeAssociatedAccount(event: NostrEvent, vaultKey: Account): Account? = runCatching {
+        val nostr = vaultKey.nostr
         require(NostrEventCodec.isValid(event))
         require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
         val dTag = event.tags.single { it.firstOrNull() == "d" }.getOrNull(1)
@@ -54,7 +54,7 @@ class RecoveryService(
         val createdAt = dTag.toLong()
         val sshPrivateKey = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
         require(sshPrivateKey.isNotBlank())
-        val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
+        val passphrase = requireNotNull(vaultKey.zenTenPass) { "VaultKey account passphrase is unavailable" }
         val parsed = app.zenten.vault.crypto.SshKeyCodec.parse(sshPrivateKey, passphrase.toCharArray())
         Account(
             createdAt = createdAt,

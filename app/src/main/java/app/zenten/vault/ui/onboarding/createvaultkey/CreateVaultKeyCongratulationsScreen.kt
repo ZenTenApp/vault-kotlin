@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
@@ -26,9 +26,9 @@ private const val SUCCESS_DISPLAY_MILLIS = 3_000L
 
 /** Brief success confirmation shown after every recovery segment is verified. */
 @Composable
-fun CreateMasterKeyCongratulationsScreen(
+fun CreateVaultKeyCongratulationsScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
+    viewModel: CreateVaultKeyViewModel = rememberCreateVaultKeyViewModel(navController),
 ) {
     // Verification is complete, so returning to secret entry would only expose stale inputs.
     BackHandler(enabled = true) {}
@@ -36,9 +36,9 @@ fun CreateMasterKeyCongratulationsScreen(
     LaunchedEffect(Unit) {
         // Leave the unambiguous success indicator visible before completing setup automatically.
         delay(SUCCESS_DISPLAY_MILLIS)
-        viewModel.completeGeneratedMasterKeySetup {
+        viewModel.completeGeneratedVaultKeySetup {
             navController.navigate(VaultDestinations.ACCOUNTS) {
-                popUpTo(VaultDestinations.CREATE_MASTER_KEY_GRAPH) { inclusive = true }
+                popUpTo(VaultDestinations.CREATE_VAULT_KEY_GRAPH) { inclusive = true }
                 launchSingleTop = true
             }
         }
@@ -54,7 +54,7 @@ fun CreateMasterKeyCongratulationsScreen(
             Icon(
                 imageVector = Icons.Outlined.CheckCircle,
                 contentDescription = stringResource(
-                    R.string.create_master_key_congratulations_icon_description,
+                    R.string.create_vault_key_congratulations_icon_description,
                 ),
                 tint = LocalExtendedColors.current.success.color,
                 modifier = Modifier.size(160.dp),

@@ -68,7 +68,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Setup MasterKey Account",
+            text = "Setup VaultKey Account",
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
         )
@@ -77,7 +77,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         when (step) {
             SetupStep.PRIVATE_KEY -> {
                 Text(
-                    text = "Copy your MasterKey, then paste it from your clipboard.",
+                    text = "Copy your VaultKey, then paste it from your clipboard.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -125,18 +125,18 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !state.inProgress,
                 ) {
-                    Text("Paste MasterKey")
+                    Text("Paste VaultKey")
                 }
                 clipboardError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
 
             SetupStep.PASSPHRASE -> {
-                Text("Enter the passphrase that protects your MasterKey.")
+                Text("Enter the passphrase that protects your VaultKey.")
                 OutlinedTextField(
                     value = passphrase,
                     onValueChange = { passphrase = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("MasterKey Passphase") },
+                    placeholder = { Text("VaultKey Passphase") },
                     visualTransformation = PasswordVisualTransformation(),
                     enabled = !state.inProgress,
                 )
@@ -144,8 +144,8 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         }
         state.stage?.let { Text(it) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (state.canRetryStoredMaster) {
-            Button(onClick = viewModel::retryStoredMaster, modifier = Modifier.fillMaxWidth(), enabled = !state.inProgress) {
+        if (state.canRetryStoredVaultKey) {
+            Button(onClick = viewModel::retryStoredVaultKey, modifier = Modifier.fillMaxWidth(), enabled = !state.inProgress) {
                 Text("Retry backup without re-importing")
             }
         }
@@ -155,7 +155,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                 modifier = Modifier.fillMaxWidth(),
                 enabled = passphrase.isNotBlank() && !state.inProgress,
             ) {
-                if (state.inProgress) CircularProgressIndicator() else Text("Create MasterKey Account")
+                if (state.inProgress) CircularProgressIndicator() else Text("Create VaultKey Account")
             }
         }
         OutlinedButton(

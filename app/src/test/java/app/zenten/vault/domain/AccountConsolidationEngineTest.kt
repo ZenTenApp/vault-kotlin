@@ -27,29 +27,29 @@ import java.time.ZoneOffset
 
 class AccountConsolidationEngineTest {
     @Test
-    fun master_backup_attempts_all_sources_in_order_and_requires_both_type_quorums() = runTest {
+    fun vault_key_backup_attempts_all_sources_in_order_and_requires_both_type_quorums() = runTest {
         fixture { engine, _, storage, factory ->
             every { storage.getAccounts() } returns emptyList()
             factory.sources.values.forEach { it.writeResult = Result.success(Unit) }
 
-            val result = engine.backupMaster(master)
+            val result = engine.backupVaultKey(vaultKey)
 
             assertTrue(result.quorumReached)
             assertEquals(1, factory.runContextCreations)
-            assertEquals(DefaultBackupSources.all.flatMap { listOf("index:${it.id}:1", "write:${it.id}:masterkey") }, factory.calls)
+            assertEquals(DefaultBackupSources.all.flatMap { listOf("index:${it.id}:1", "write:${it.id}:vaultkey") }, factory.calls)
         }
     }
 
     @Test
-    fun master_backup_does_not_write_when_source_index_fails() = runTest {
+    fun vault_key_backup_does_not_write_when_source_index_fails() = runTest {
         fixture { engine, _, _, factory ->
             val first = factory.sources.values.first()
             first.indexResult = Result.failure(java.io.IOException("offline"))
 
-            val result = engine.backupMaster(master)
+            val result = engine.backupVaultKey(vaultKey)
 
             assertTrue(first.config.id in result.failedSourceIds)
-            assertTrue("write:${first.config.id}:masterkey" !in factory.calls)
+            assertTrue("write:${first.config.id}:vaultkey" !in factory.calls)
         }
     }
 
@@ -61,7 +61,7 @@ class AccountConsolidationEngineTest {
                 else Result.failure(IllegalStateException("rejected"))
             }
 
-            val result = engine.backupMaster(master)
+            val result = engine.backupVaultKey(vaultKey)
 
             assertTrue(result.relayQuorum)
             assertFalse(result.braveQuorum)
@@ -110,7 +110,7 @@ class AccountConsolidationEngineTest {
     fun consolidation_does_not_write_accounts_already_indexed_at_a_source() = runTest {
         fixture { engine, _, storage, factory ->
             every { storage.getAccounts() } returns listOf(account(10, "local"))
-            val allPresent = setOf(BackupAccountId.Master, BackupAccountId.associated(10))
+            val allPresent = setOf(BackupAccountId.VaultKey, BackupAccountId.associated(10))
             factory.sources.values.forEach { source ->
                 source.indexes += SourceIndex(allPresent, emptyMap())
                 source.indexes += SourceIndex(allPresent, emptyMap())
@@ -131,14 +131,14 @@ class AccountConsolidationEngineTest {
             every { storage.getAccounts() } answers { local.toList() }
             every { storage.addAccount(any()) } answers { local += firstArg<Account>() }
             factory.sources.values.forEach { source ->
-                source.indexes += SourceIndex(setOf(BackupAccountId.Master, BackupAccountId.associated(10)), emptyMap())
-                source.indexes += SourceIndex(setOf(BackupAccountId.Master, BackupAccountId.associated(10), BackupAccountId.associated(20)), emptyMap())
+                source.indexes += SourceIndex(setOf(BackupAccountId.VaultKey, BackupAccountId.associated(10)), emptyMap())
+                source.indexes += SourceIndex(setOf(BackupAccountId.VaultKey, BackupAccountId.associated(10), BackupAccountId.associated(20)), emptyMap())
             }
             val first = factory.sources.getValue(DefaultBackupSources.all.first().id)
             val candidate = FakeCandidate(BackupAccountId.associated(20))
             first.indexes.clear()
             first.indexes += SourceIndex(
-                setOf(BackupAccountId.Master, BackupAccountId.associated(10), BackupAccountId.associated(20)),
+                setOf(BackupAccountId.VaultKey, BackupAccountId.associated(10), BackupAccountId.associated(20)),
                 mapOf(BackupAccountId.associated(20) to listOf(candidate)),
             )
             first.indexes += first.indexes.first()
@@ -167,7 +167,7 @@ class AccountConsolidationEngineTest {
                 File(directory, "settings.preferences_pb")
             })
             val storage = mockk<SecureStorageService>()
-            every { storage.getMasterAccount() } returns master
+            every { storage.getVaultKey() } returns vaultKey
             every { storage.getAccounts() } returns emptyList()
             every { storage.getAccountById(any()) } returns null
             every { storage.addAccount(any()) } just runs
@@ -187,7 +187,7 @@ class AccountConsolidationEngineTest {
         val sources = DefaultBackupSources.all.associate { it.id to FakeSource(it, calls) }
         var runContextCreations = 0
 
-        override fun createRunContext(master: Account): BackupSourceRunContext =
+        override fun createRunContext(vaultKey: Account): BackupSourceRunContext =
             object : BackupSourceRunContext {}.also { runContextCreations++ }
 
         override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): AccountBackupSource =
@@ -204,16 +204,16 @@ class AccountConsolidationEngineTest {
         var indexResult: Result<SourceIndex>? = null
         var indexCount = 0
 
-        override suspend fun index(master: Account): Result<SourceIndex> {
+        override suspend fun index(vaultKey: Account): Result<SourceIndex> {
             indexCount++
             calls += "index:${config.id}:$indexCount"
             return indexResult ?: Result.success(indexes.removeFirstOrNull() ?: SourceIndex(emptySet(), emptyMap()))
         }
 
-        override suspend fun restoreCandidate(master: Account, candidate: RemoteAccountCandidate): Result<Account> =
+        override suspend fun restoreCandidate(vaultKey: Account, candidate: RemoteAccountCandidate): Result<Account> =
             restored[candidate]?.let { Result.success(it) } ?: Result.failure(IllegalArgumentException("invalid"))
 
-        override suspend fun write(master: Account, accountId: BackupAccountId, account: Account): Result<Unit> {
+        override suspend fun write(vaultKey: Account, accountId: BackupAccountId, account: Account): Result<Unit> {
             calls += "write:${config.id}:${accountId.value}"
             return writeResult
         }
@@ -229,7 +229,7 @@ class AccountConsolidationEngineTest {
             NostrKeyDerivation.derive("alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady").publicKey.hex(),
             "01".repeat(32),
         )
-        val master = account(1, "master")
+        val vaultKey = account(1, "vaultKey")
         fun account(id: Long, key: String) = Account(id, key, "pass", nostr = nostr)
 
         private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }

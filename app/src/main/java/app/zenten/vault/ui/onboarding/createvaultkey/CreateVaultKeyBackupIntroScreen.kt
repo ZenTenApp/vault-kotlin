@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import android.content.ActivityNotFoundException
 import androidx.activity.compose.BackHandler
@@ -24,11 +24,11 @@ import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import app.zenten.vault.ui.components.VaultPillButton
 
-/** Step 4: export the generated MasterKey through the local-backup target picker. */
+/** Step 4: export the generated VaultKey through the local-backup target picker. */
 @Composable
-fun CreateMasterKeyBackupIntroScreen(
+fun CreateVaultKeyBackupIntroScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
+    viewModel: CreateVaultKeyViewModel = rememberCreateVaultKeyViewModel(navController),
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
@@ -42,20 +42,20 @@ fun CreateMasterKeyBackupIntroScreen(
     LaunchedEffect(state.navigateToConfirmation) {
         if (state.navigateToConfirmation) {
             viewModel.onConfirmationShown()
-            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP)
+            navController.navigate(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP)
         }
     }
 
-    CreateMasterKeyScaffold(
-        title = stringResource(R.string.create_master_key_backup_intro_title),
+    CreateVaultKeyScaffold(
+        title = stringResource(R.string.create_vault_key_backup_intro_title),
         heroIcon = R.drawable.hero_icon_create_backup,
-        heroIconDescription = stringResource(R.string.create_master_key_backup_intro_icon_description),
+        heroIconDescription = stringResource(R.string.create_vault_key_backup_intro_icon_description),
         onBack = null,
         content = {
             Spacer(Modifier.height(12.dp))
-            CreateMasterKeyDescription(stringResource(R.string.create_master_key_backup_intro_body1))
+            CreateVaultKeyDescription(stringResource(R.string.create_vault_key_backup_intro_body1))
             Spacer(Modifier.height(12.dp))
-            CreateMasterKeyDescription(stringResource(R.string.create_master_key_backup_intro_body2))
+            CreateVaultKeyDescription(stringResource(R.string.create_vault_key_backup_intro_body2))
             exportError?.let {
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -66,15 +66,15 @@ fun CreateMasterKeyBackupIntroScreen(
             }
         },
         actions = {
-            CreateMasterKeyWarningRow(centered = true)
+            CreateVaultKeyWarningRow(centered = true)
             Spacer(Modifier.height(16.dp))
             VaultPillButton(
-                label = stringResource(R.string.create_master_key_backup_intro_confirm),
+                label = stringResource(R.string.create_vault_key_backup_intro_confirm),
                 enabled = !state.advancing,
                 onClick = {
                     exportError = null
-                    if (viewModel.masterKeyForExport() == null) {
-                        exportError = R.string.create_master_key_backup_unavailable
+                    if (viewModel.vaultKeyForExport() == null) {
+                        exportError = R.string.create_vault_key_backup_unavailable
                     } else {
                         targets = LocalAccountBackupShare.availableTargets(context.packageManager)
                     }
@@ -88,22 +88,22 @@ fun CreateMasterKeyBackupIntroScreen(
             targets = availableTargets,
             onDismiss = { targets = null },
             onTargetSelected = { target ->
-                val masterKey = viewModel.masterKeyForExport()
-                if (masterKey == null) {
+                val vaultKey = viewModel.vaultKeyForExport()
+                if (vaultKey == null) {
                     targets = null
-                    exportError = R.string.create_master_key_backup_unavailable
+                    exportError = R.string.create_vault_key_backup_unavailable
                     return@BackupExportTargetDialog
                 }
                 try {
-                    context.startActivity(LocalAccountBackupShare.targetedSendIntent(masterKey, target))
+                    context.startActivity(LocalAccountBackupShare.targetedSendIntent(vaultKey, target))
                     targets = null
                     viewModel.recordExportStarted()
                 } catch (_: ActivityNotFoundException) {
                     targets = null
-                    exportError = R.string.create_master_key_backup_target_missing
+                    exportError = R.string.create_vault_key_backup_target_missing
                 } catch (_: SecurityException) {
                     targets = null
-                    exportError = R.string.create_master_key_backup_target_denied
+                    exportError = R.string.create_vault_key_backup_target_denied
                 }
             },
         )

@@ -2,12 +2,12 @@
 
 This document describes the current implementation for two distinct flows:
 
-1. importing a **master** OpenSSH Ed25519 private key and deriving its 24-word recovery mnemonic; and
+1. importing a **Vault Key** OpenSSH Ed25519 private key and deriving its 24-word recovery mnemonic; and
 2. generating a fresh OpenSSH Ed25519 key for an **associated account**.
 
 Both flows temporarily derive a mnemonic from the SSH seed to create the account's Nostr identity. The mnemonic is not persisted.
 
-## Master account: OpenSSH key to 24-word mnemonic
+## Vault Key: OpenSSH key to 24-word mnemonic
 
 ```text
 Pasted passphrase-protected OpenSSH private key + passphrase
@@ -28,7 +28,7 @@ val mnemonic = Seedify.toMnemonic(parsed.seed)
 val nostr = NostrKeyDerivation.derive(mnemonic)
 ```
 
-The mnemonic exists only as a temporary onboarding value used for Nostr derivation. The resulting master account retains the normalized private key, passphrase, SSH public-key line, and derived Nostr keys before `SetupService` persists it and makes the required master backup.
+The mnemonic exists only as a temporary onboarding value used for Nostr derivation. The resulting Vault Key retains the normalized private key, passphrase, SSH public-key line, and derived Nostr keys before `SetupService` persists it and makes the required Vault Key backup.
 
 ### Accepted input and OpenSSH-v1 parsing
 
@@ -86,7 +86,7 @@ No prefix, hash, or extra passphrase is applied before mnemonic encoding. The mn
 `domain/AccountService.kt` creates an associated account as follows:
 
 1. Allocate a unique, microsecond-style `createdAt` identifier.
-2. Call `SshKeyCodec.generateEncrypted(createdAt, masterPassphrase)`.
+2. Call `SshKeyCodec.generateEncrypted(createdAt, vaultKeyPassphrase)`.
 3. Normalize and store the generated OpenSSH private key as single-line Base64.
 4. Persist locally, then start backup coordination through `SetupService.addAccount`.
 
@@ -98,21 +98,21 @@ val seed = private.encoded
 val public = private.generatePublicKey().encoded
 ```
 
-It serializes the generated material into an OpenSSH-v1 container encrypted with the retained master-account passphrase (`aes256-ctr` and `bcrypt_pbkdf`) using a work factor of 512 rounds. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding. The generated public-key line also uses `createdAt` as its comment. Parsing uses the round count stored in each container, so keys generated previously with a different work factor remain readable.
+It serializes the generated material into an OpenSSH-v1 container encrypted with the retained vault-key passphrase (`aes256-ctr` and `bcrypt_pbkdf`) using a work factor of 512 rounds. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding. The generated public-key line also uses `createdAt` as its comment. Parsing uses the round count stored in each container, so keys generated previously with a different work factor remain readable.
 
 ### Important distinction
 
 A generated associated key has the same Ed25519 `seed || public` representation, so it *could* be parsed and passed through `Seedify.toMnemonic` later. The current associated-account creation path temporarily derives a mnemonic to create its Nostr identity but does not persist the mnemonic.
 
 ```text
-Imported master key:
+Imported vault key:
   parse key -> extract seed -> temporarily derive mnemonic -> derive/store Nostr identity
 
 Generated associated key:
   generate seed/key pair -> serialize/store OpenSSH key -> temporarily derive mnemonic -> derive/store Nostr identity -> back up key
 ```
 
-A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The generated-master flow also derives Seedify's deterministic `brave` sub-account seed as `SHA-256(SHA-256(UTF-8("brave")) || originalMasterSeed)` and encodes it as a 24-word BIP-39 mnemonic. Those 24 words serve two purposes during initial creation: Brave Sync appends its daily 25th word, while NIP-06 derives the Nostr identity used to back up the original MasterKey on relays. The app presents the 24 words as recovery indices but does not persist the mnemonic or indices separately. The stored master retains the Nostr identity derived directly from the original seed for all later general backup and consolidation operations.
+A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The generated-Vault Key flow also derives Seedify's deterministic `brave` sub-account seed as `SHA-256(SHA-256(UTF-8("brave")) || originalVaultKeySeed)` and encodes it as a 24-word BIP-39 mnemonic. Those 24 words serve two purposes during initial creation: Brave Sync appends its daily 25th word, while NIP-06 derives the Nostr identity used to back up the original VaultKey on relays. The app presents the 24 words as recovery indices but does not persist the mnemonic or indices separately. The stored Vault Key retains the Nostr identity derived directly from the original seed for all later general backup and consolidation operations.
 
 ## Verification
 
@@ -127,9 +127,9 @@ Compatibility vectors are in `app/src/test/resources/golden/crypto-vectors.json`
 
 ## Primary implementation locations
 
-- Master onboarding: `app/src/main/java/app/zenten/vault/ui/onboarding/OnboardingViewModel.kt`
+- Vault Key onboarding: `app/src/main/java/app/zenten/vault/ui/onboarding/OnboardingViewModel.kt`
 - OpenSSH parsing and generation: `app/src/main/java/app/zenten/vault/crypto/SshKeyCodec.kt`
 - BIP-39 mnemonic conversion: `app/src/main/java/app/zenten/vault/crypto/Seedify.kt`
 - Nostr derivation: `app/src/main/java/app/zenten/vault/crypto/NostrKeyDerivation.kt`
 - Associated-account lifecycle: `app/src/main/java/app/zenten/vault/domain/AccountService.kt`
-- Master setup and backup handoff: `app/src/main/java/app/zenten/vault/domain/SetupService.kt`
+- Vault Key setup and backup handoff: `app/src/main/java/app/zenten/vault/domain/SetupService.kt`

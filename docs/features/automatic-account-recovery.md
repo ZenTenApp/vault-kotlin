@@ -2,15 +2,15 @@
 
 ## Purpose
 
-After the user imports the same master account, source consolidation restores every valid remotely backed-up associated account that is absent locally. The master itself is never recovered remotely: the user must supply its private key and passphrase.
+After the user imports the same Vault Key, source consolidation restores every valid remotely backed-up associated account that is absent locally. The Vault Key itself is never recovered remotely: the user must supply its private key and passphrase.
 
 ## Trigger and ordering
 
-A successful master-quorum setup schedules immediate consolidation. Consolidation also runs periodically once per hour and can be invoked manually. `AccountConsolidationEngine` serializes all remote work and completes its restore phase across all sources before starting any backup repair.
+A successful Vault Key-quorum setup schedules immediate consolidation. Consolidation also runs periodically once per hour and can be invoked manually. `AccountConsolidationEngine` serializes all remote work and completes its restore phase across all sources before starting any backup repair.
 
 For each enabled source in stable order:
 
-1. Index master and associated canonical IDs.
+1. Index Vault Key and associated canonical IDs.
 2. Compare IDs with current local secure storage.
 3. For IDs already local, do not decrypt or compare payloads.
 4. For each associated ID absent locally on a trusted restore-enabled source, try duplicate candidates newest-first.
@@ -27,10 +27,10 @@ A Nostr candidate is eligible only when:
 
 - the event signature is valid;
 - kind is `37802`;
-- author matches the master-derived Nostr public key;
+- author matches the Vault Key-derived Nostr public key;
 - the single `d` tag is a decimal associated-account ID;
 - NIP-44 self-decryption succeeds; and
-- the decrypted value normalizes and parses as an Ed25519 OpenSSH private key with the retained master passphrase.
+- the decrypted value normalizes and parses as an Ed25519 OpenSSH private key with the retained Vault Key passphrase.
 
 Source reads use NIP-42 authentication on the same connection when a relay challenges the client.
 
@@ -41,9 +41,9 @@ A Brave candidate is eligible only when:
 - username is a decimal account ID;
 - URL is exactly `https://<accountId>.zenten/`;
 - notes are empty; and
-- password normalizes and parses as an Ed25519 OpenSSH private key with the retained master passphrase.
+- password normalizes and parses as an Ed25519 OpenSSH private key with the retained Vault Key passphrase.
 
-Each Brave-compatible server is queried independently with the master-derived sync code.
+Each Brave-compatible server is queried independently with the Vault Key-derived sync code.
 
 ## Duplicate behavior
 
@@ -57,7 +57,7 @@ Recovered accounts are written only through `SecureStorageService`. Status, pend
 
 | Situation | Behavior |
 | --- | --- |
-| No local master | Consolidation does not run. |
+| No local Vault Key | Consolidation does not run. |
 | Source index fails | Mark source status unknown and continue. |
 | No matching valid record | Restore nothing and continue. |
 | Newest duplicate is invalid | Try the next candidate for that ID. |

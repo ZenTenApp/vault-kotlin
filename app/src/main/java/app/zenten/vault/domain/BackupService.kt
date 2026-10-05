@@ -14,25 +14,25 @@ class BackupService(
     private val relayGateway: NostrRelayGateway,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    suspend fun backupMaster(master: Account): PublishResult {
-        val nostr = master.nostr
+    suspend fun backupVaultKey(vaultKey: Account): PublishResult {
+        val nostr = vaultKey.nostr
         return relayGateway.publishAuthenticated(
-            buildBackupEvent(master, master, MASTER_D_TAG, MASTER_BACKUP_KIND),
+            buildBackupEvent(vaultKey, vaultKey, VAULT_KEY_D_TAG, VAULT_KEY_BACKUP_KIND),
             nostr.privateKey(),
         )
     }
 
-    suspend fun backupAssociatedAccount(master: Account, account: Account): PublishResult {
-        val nostr = master.nostr
+    suspend fun backupAssociatedAccount(vaultKey: Account, account: Account): PublishResult {
+        val nostr = vaultKey.nostr
         return relayGateway.publishAuthenticated(
-            buildBackupEvent(master, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND),
+            buildBackupEvent(vaultKey, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND),
             nostr.privateKey(),
         )
     }
 
-    /** Builds the signed backup event; the same master key signs an optional NIP-42 challenge. */
-    fun buildBackupEvent(master: Account, account: Account, dTag: String, kind: Int): NostrEvent {
-        val nostr = master.nostr
+    /** Builds the signed backup event; the same vault key signs an optional NIP-42 challenge. */
+    fun buildBackupEvent(vaultKey: Account, account: Account, dTag: String, kind: Int): NostrEvent {
+        val nostr = vaultKey.nostr
         validateContract(account, dTag, kind)
         if (kind == ASSOCIATED_ACCOUNT_BACKUP_KIND) requireEncryptedAssociatedKey(account)
         // The NIP-44 plaintext is exactly the single-line base64 OpenSSH private key.
@@ -56,15 +56,17 @@ class BackupService(
     }
 
     private fun validateContract(account: Account, dTag: String, kind: Int) = when (kind) {
-        MASTER_BACKUP_KIND -> require(dTag == MASTER_D_TAG) { "Master backup d tag must be $MASTER_D_TAG" }
+        VAULT_KEY_BACKUP_KIND -> require(dTag == VAULT_KEY_D_TAG) {
+            "VaultKey backup d tag must be $VAULT_KEY_D_TAG"
+        }
         ASSOCIATED_ACCOUNT_BACKUP_KIND -> require(dTag == account.createdAt.toString()) { "Associated account d tag must be its createdAt timestamp" }
         else -> throw IllegalArgumentException("Unsupported backup kind: $kind")
     }
 
     companion object {
-        const val MASTER_BACKUP_KIND = 37_801
+        const val VAULT_KEY_BACKUP_KIND = 37_801
         const val ASSOCIATED_ACCOUNT_BACKUP_KIND = 37_802
-        const val MASTER_D_TAG = "masterkey"
+        const val VAULT_KEY_D_TAG = "vaultkey"
     }
 }
 

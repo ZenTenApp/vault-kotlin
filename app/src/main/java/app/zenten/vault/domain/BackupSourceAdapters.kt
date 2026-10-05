@@ -17,9 +17,9 @@ class DefaultBackupSourceFactory(
     private val relayGateway: NostrRelayGateway,
     private val backupService: BackupService,
 ) : BackupSourceFactory {
-    override fun createRunContext(master: Account): BackupSourceRunContext {
-        val passphrase = requireNotNull(master.zenTenPass) { "Master account passphrase is unavailable" }
-        val seed = SshKeyCodec.parse(master.zenTenKey, passphrase.toCharArray()).seed
+    override fun createRunContext(vaultKey: Account): BackupSourceRunContext {
+        val passphrase = requireNotNull(vaultKey.zenTenPass) { "VaultKey account passphrase is unavailable" }
+        val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
         // Fix the date-derived word for the whole run and avoid repeating expensive SSH
         // decryption for every Brave endpoint. This context is memory-only.
         return BraveBackupRunContext(Seedify.toBraveSyncCode(seed))
@@ -52,19 +52,19 @@ class NostrBackupSource(
     private val gateway: NostrRelayGateway,
     private val backupService: BackupService,
 ) : AccountBackupSource {
-    override suspend fun index(master: Account): Result<SourceIndex> = runCatching {
-        val nostr = master.nostr
+    override suspend fun index(vaultKey: Account): Result<SourceIndex> = runCatching {
+        val nostr = vaultKey.nostr
         val privateKey = nostr.privateKey()
-        val masterEvents = gateway.fetchAuthenticatedByRelay(
-            config.endpoint, nostr.pubkey, BackupService.MASTER_BACKUP_KIND, privateKey,
+        val vaultKeyEvents = gateway.fetchAuthenticatedByRelay(
+            config.endpoint, nostr.pubkey, BackupService.VAULT_KEY_BACKUP_KIND, privateKey,
         ).getOrThrow()
         val accountEvents = gateway.fetchAuthenticatedByRelay(
             config.endpoint, nostr.pubkey, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND, privateKey,
         ).getOrThrow()
         val candidates = mutableMapOf<BackupAccountId, MutableList<RemoteAccountCandidate>>()
         var invalid = 0
-        masterEvents.forEach { event ->
-            val id = event.canonicalId(BackupService.MASTER_BACKUP_KIND)
+        vaultKeyEvents.forEach { event ->
+            val id = event.canonicalId(BackupService.VAULT_KEY_BACKUP_KIND)
             if (id == null) invalid++ else candidates.getOrPut(id) { mutableListOf() } += NostrCandidate(id, event.createdAt, event)
         }
         accountEvents.forEach { event ->
@@ -78,14 +78,14 @@ class NostrBackupSource(
         )
     }
 
-    override suspend fun restoreCandidate(master: Account, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
+    override suspend fun restoreCandidate(vaultKey: Account, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
         val event = (candidate as NostrCandidate).event
-        val nostr = master.nostr
+        val nostr = vaultKey.nostr
         require(NostrEventCodec.isValid(event))
         require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
         val id = requireNotNull(candidate.id.createdAt)
         val decrypted = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
-        val passphrase = requireNotNull(master.zenTenPass)
+        val passphrase = requireNotNull(vaultKey.zenTenPass)
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(decrypted)
         val parsed = SshKeyCodec.parse(normalized, passphrase.toCharArray())
         Account(
@@ -99,20 +99,25 @@ class NostrBackupSource(
         )
     }
 
-    override suspend fun write(master: Account, accountId: BackupAccountId, account: Account): Result<Unit> {
-        val event = if (accountId.isMaster) {
-            backupService.buildBackupEvent(master, master, BackupService.MASTER_D_TAG, BackupService.MASTER_BACKUP_KIND)
+    override suspend fun write(vaultKey: Account, accountId: BackupAccountId, account: Account): Result<Unit> {
+        val event = if (accountId.isVaultKey) {
+            backupService.buildBackupEvent(
+                vaultKey,
+                vaultKey,
+                BackupService.VAULT_KEY_D_TAG,
+                BackupService.VAULT_KEY_BACKUP_KIND,
+            )
         } else {
-            backupService.buildBackupEvent(master, account, accountId.value, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
+            backupService.buildBackupEvent(vaultKey, account, accountId.value, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
         }
-        return gateway.publishAuthenticatedToRelay(config.endpoint, event, master.nostr.privateKey())
+        return gateway.publishAuthenticatedToRelay(config.endpoint, event, vaultKey.nostr.privateKey())
     }
 
     private fun NostrEvent.canonicalId(expectedKind: Int): BackupAccountId? {
         if (kind != expectedKind) return null
         val tag = tags.singleOrNull { it.firstOrNull() == "d" }?.getOrNull(1) ?: return null
         val id = BackupAccountId.parse(tag) ?: return null
-        return id.takeIf { (expectedKind == BackupService.MASTER_BACKUP_KIND) == it.isMaster }
+        return id.takeIf { (expectedKind == BackupService.VAULT_KEY_BACKUP_KIND) == it.isVaultKey }
     }
 }
 
@@ -126,7 +131,7 @@ class BraveBackupSource(
     override val config: BackupSourceConfig,
     private val service: BraveSyncBackupService,
 ) : AccountBackupSource {
-    override suspend fun index(master: Account): Result<SourceIndex> = service.listRecords(master).map { result ->
+    override suspend fun index(vaultKey: Account): Result<SourceIndex> = service.listRecords(vaultKey).map { result ->
         val candidates = mutableMapOf<BackupAccountId, MutableList<RemoteAccountCandidate>>()
         var invalid = result.decryptionFailures
         result.passwords.forEach { entry ->
@@ -140,12 +145,12 @@ class BraveBackupSource(
         )
     }
 
-    override suspend fun restoreCandidate(master: Account, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
-        requireNotNull(service.decodeAssociatedAccount(master, (candidate as BraveCandidate).entry)) {
+    override suspend fun restoreCandidate(vaultKey: Account, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
+        requireNotNull(service.decodeAssociatedAccount(vaultKey, (candidate as BraveCandidate).entry)) {
             "Invalid Brave Sync backup record"
         }
     }
 
-    override suspend fun write(master: Account, accountId: BackupAccountId, account: Account): Result<Unit> =
-        if (accountId.isMaster) service.backupMaster(master) else service.backupAssociatedAccount(master, account)
+    override suspend fun write(vaultKey: Account, accountId: BackupAccountId, account: Account): Result<Unit> =
+        if (accountId.isVaultKey) service.backupVaultKey(vaultKey) else service.backupAssociatedAccount(vaultKey, account)
 }

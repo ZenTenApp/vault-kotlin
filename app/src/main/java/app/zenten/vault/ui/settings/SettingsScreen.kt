@@ -69,7 +69,7 @@ fun SettingsScreen(navController: NavHostController) {
                 style = MaterialTheme.typography.labelLarge,
             )
             OutlinedButton(
-                onClick = { navController.navigate(VaultDestinations.MASTER_ACCOUNT) },
+                onClick = { navController.navigate(VaultDestinations.VAULT_KEY) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -83,7 +83,7 @@ fun SettingsScreen(navController: NavHostController) {
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
                     Text(
-                        text = "Master account",
+                        text = "VaultKey account",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )

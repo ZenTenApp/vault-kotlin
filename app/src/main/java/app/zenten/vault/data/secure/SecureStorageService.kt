@@ -22,10 +22,10 @@ class SecureStorageService(context: Context, private val json: Json = Json) {
     private val _accounts = MutableStateFlow(readAccounts())
     val accountUpdates: StateFlow<List<Account>> = _accounts.asStateFlow()
 
-    fun addMasterAccount(account: Account) = write(MASTER_ACCOUNT, account)
-    fun updateMasterAccount(account: Account) = write(MASTER_ACCOUNT, account)
-    fun getMasterAccount(): Account? = read(MASTER_ACCOUNT)
-    fun removeMasterAccount() = preferences.edit().remove(MASTER_ACCOUNT).apply()
+    fun addVaultKey(account: Account) = write(VAULT_KEY, account)
+    fun updateVaultKey(account: Account) = write(VAULT_KEY, account)
+    fun getVaultKey(): Account? = read(VAULT_KEY)
+    fun removeVaultKey() = preferences.edit().remove(VAULT_KEY).apply()
 
     /** Adds/replaces an account and appends its ID only once, preserving registry order. */
     fun addAccount(account: Account) {
@@ -82,7 +82,7 @@ class SecureStorageService(context: Context, private val json: Json = Json) {
 
     private companion object {
         const val FILE_NAME = "vault_secure_accounts"
-        const val MASTER_ACCOUNT = "master_account"
+        const val VAULT_KEY = "vault_key"
         const val ACCOUNTS_REGISTRY = "accounts_registry"
     }
 }

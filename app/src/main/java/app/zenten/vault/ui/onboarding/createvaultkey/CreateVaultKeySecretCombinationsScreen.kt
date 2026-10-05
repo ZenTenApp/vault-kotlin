@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -54,9 +54,9 @@ import app.zenten.vault.ui.components.VaultPillButton
 
 /** Step 6: let the user transcribe the Brave recovery words as BIP-39 positions. */
 @Composable
-fun CreateMasterKeySecretCombinationsScreen(
+fun CreateVaultKeySecretCombinationsScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
+    viewModel: CreateVaultKeyViewModel = rememberCreateVaultKeyViewModel(navController),
 ) {
     val state by viewModel.state.collectAsState()
     val indices = state.secretCombinationIndices
@@ -86,7 +86,7 @@ fun CreateMasterKeySecretCombinationsScreen(
         ) {
             Spacer(Modifier.height(32.dp))
             Text(
-                text = stringResource(R.string.create_master_key_secret_combinations_title),
+                text = stringResource(R.string.create_vault_key_secret_combinations_title),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
@@ -106,7 +106,7 @@ fun CreateMasterKeySecretCombinationsScreen(
                     CircularProgressIndicator()
                 } else if (indices == null || indices.size != 24) {
                     Text(
-                        text = stringResource(R.string.create_master_key_secret_combinations_unavailable),
+                        text = stringResource(R.string.create_vault_key_secret_combinations_unavailable),
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center,
                     )
@@ -119,7 +119,7 @@ fun CreateMasterKeySecretCombinationsScreen(
 
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            text = stringResource(R.string.create_master_key_secret_combinations_instruction),
+                            text = stringResource(R.string.create_vault_key_secret_combinations_instruction),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -139,7 +139,7 @@ fun CreateMasterKeySecretCombinationsScreen(
                     enabled = !state.secretCombinationsLoading && indices?.size == 24,
                 )
                 Text(
-                    text = stringResource(R.string.create_master_key_secret_combinations_consent),
+                    text = stringResource(R.string.create_vault_key_secret_combinations_consent),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 8.dp),
@@ -147,9 +147,9 @@ fun CreateMasterKeySecretCombinationsScreen(
             }
             Spacer(Modifier.height(12.dp))
             VaultPillButton(
-                label = stringResource(R.string.create_master_key_secret_combinations_confirm),
+                label = stringResource(R.string.create_vault_key_secret_combinations_confirm),
                 onClick = {
-                    navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS)
+                    navController.navigate(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS)
                 },
                 enabled = backedUp && !state.secretCombinationsLoading && indices?.size == 24,
                 modifier = Modifier.padding(horizontal = 36.dp),
@@ -179,14 +179,14 @@ private fun SecretCombinationsWarning() {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.create_master_key_secret_combinations_warning_title),
+                text = stringResource(R.string.create_vault_key_secret_combinations_warning_title),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.create_master_key_secret_combinations_warning_body),
+                text = stringResource(R.string.create_vault_key_secret_combinations_warning_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )

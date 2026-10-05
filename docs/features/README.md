@@ -4,7 +4,7 @@ This directory describes each feature currently available in the ZenTen Vault An
 
 ## Features
 
-1. [Master account setup](master-account-setup.md)
+1. [Vault Key setup](vault-key-setup.md)
 2. [Associated account management](associated-account-management.md)
 3. [Sensitive key access](sensitive-key-access.md)
 4. [Encrypted backup](encrypted-backup.md) — detailed write contract, target behavior, and retries.
