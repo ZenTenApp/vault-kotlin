@@ -5,17 +5,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.domain.BackupAccountId
@@ -65,23 +75,51 @@ data class VaultKeyDetailState(
     val sources: List<BackupSourceRow> = emptyList(),
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VaultKeyDetailScreen(viewModel: VaultKeyDetailViewModel = hiltViewModel()) {
+fun VaultKeyDetailScreen(
+    navController: NavHostController,
+    viewModel: VaultKeyDetailViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsState()
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text("VaultKey Account", style = MaterialTheme.typography.headlineMedium)
-        Text("Backup Status", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-        state.sources.forEach { SourceStatusRow(it) }
-        if (state.setupComplete) {
-            Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                Text("Consolidate VaultKey backup")
-            }
-        } else {
-            Button(onClick = viewModel::retryVaultKey, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                Text("Retry vaultKey setup")
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = "VaultKey Account",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = navController::navigateUp) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to settings",
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text("Backup Status", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+            state.sources.forEach { SourceStatusRow(it) }
+            if (state.setupComplete) {
+                Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Text("Consolidate VaultKey backup")
+                }
+            } else {
+                Button(onClick = viewModel::retryVaultKey, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Text("Retry vaultKey setup")
+                }
             }
         }
     }

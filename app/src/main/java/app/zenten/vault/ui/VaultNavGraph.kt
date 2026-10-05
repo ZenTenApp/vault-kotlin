@@ -118,7 +118,7 @@ fun VaultNavGraph(
         }
 
         composable(VaultDestinations.VAULT_KEY) {
-            VaultKeyDetailScreen()
+            VaultKeyDetailScreen(navController)
         }
 
         composable(VaultDestinations.SETTINGS) {
