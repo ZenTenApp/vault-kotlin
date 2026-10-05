@@ -58,6 +58,9 @@ object SshKeyCodec {
         return Base64.getEncoder().encodeToString(container.bytes)
     }
 
+    /** Reads the bcrypt work factor stored in the unencrypted OpenSSH container metadata. */
+    fun bcryptKdfRounds(input: String): Int = readEncryptedContainer(input).rounds
+
     /** Formats a stored canonical key for OpenSSH-compatible export. */
     fun formatAsPem(input: String): String = pemEncode(decodePem(input))
 
@@ -72,6 +75,18 @@ object SshKeyCodec {
         require(publicKey.size == 32) { "Ed25519 public key must be 32 bytes" }
         val wire = sshString(Ed25519.toByteArray(StandardCharsets.US_ASCII)) + sshString(publicKey)
         return "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256").digest(wire))
+    }
+
+    /** Calculates a fingerprint from a stored OpenSSH public-key line without decrypting private material. */
+    fun fingerprintFromPublicKeyLine(publicKeyLine: String): String {
+        val fields = publicKeyLine.trim().split(Regex("\\s+"), limit = 3)
+        require(fields.size >= 2 && fields[0] == Ed25519) { "Only ssh-ed25519 public keys are supported" }
+        val wire = try {
+            Base64.getDecoder().decode(fields[1])
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("Invalid OpenSSH public-key encoding", e)
+        }
+        return fingerprint(readPublicBlob(wire))
     }
 
     /** Generates an OpenSSH-v1 Ed25519 key encrypted with aes256-ctr and bcrypt_pbkdf. */
