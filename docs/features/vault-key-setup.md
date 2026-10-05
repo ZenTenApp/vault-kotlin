@@ -26,6 +26,7 @@ The **Creating VaultKey** status is presented as a terminal-style transcript. Th
 - The private key is never rendered during import. It remains in memory only while the passphrase step is active and is discarded if the user returns to the paste step.
 - Clipboard clearing is best-effort: Vault clears Android's current clipboard entry before proceeding, but the operating system, a keyboard, or another clipboard-history provider may retain an earlier copy outside Vault's control. If Vault cannot read or clear the clipboard, it does not proceed.
 - The setup screen is protected from screenshots on supported Android devices.
+- Every passphrase field requests password input semantics from the keyboard, including when the passphrase is temporarily visible. This disables IME autocorrection and suggestions so punctuation such as `.` is entered literally without an automatically inserted space.
 - The primary setup action is unavailable while processing is in progress.
 - The Vault Key is not shown as a normal associated-account item; its per-source state is available from the dedicated **Vault Key** screen.
 - Quorum failure messages identify whether relay or Brave Sync coverage is missing without exposing source credentials or secret material.
