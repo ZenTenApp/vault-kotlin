@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudOff
@@ -22,10 +23,15 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +57,7 @@ import app.zenten.vault.ui.components.VaultCard
 import app.zenten.vault.ui.theme.LocalExtendedColors
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewModel: AccountDetailViewModel = hiltViewModel()) {
     LaunchedEffect(accountId) { viewModel.load(accountId) }
@@ -63,32 +70,57 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
         }
         return
     }
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text("Account details", style = MaterialTheme.typography.headlineMedium)
-        AccountCard(
-            account = account,
-            displayName = state.profile?.displayName,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        NostrIdentityCard(npub = formatNpub(account.nostr.pubkey))
-        SshKeyCard(
-            fingerprint = formatSshFingerprint(account.pubkey),
-            kdfRounds = formatKdfRounds(account.zenTenKey),
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Backup status",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        state.sources.forEach { SourceStatusRow(it) }
-        Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth()) { Text("Consolidate backup") }
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = "Account details",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = navController::navigateUp) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to accounts",
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        },
+    ) { innerPadding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            AccountCard(
+                account = account,
+                displayName = state.profile?.displayName,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            NostrIdentityCard(npub = formatNpub(account.nostr.pubkey))
+            SshKeyCard(
+                fingerprint = formatSshFingerprint(account.pubkey),
+                kdfRounds = formatKdfRounds(account.zenTenKey),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Backup status",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            state.sources.forEach { SourceStatusRow(it) }
+            Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth()) { Text("Consolidate backup") }
+        }
     }
 }
 

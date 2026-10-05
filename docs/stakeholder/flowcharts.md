@@ -64,7 +64,7 @@ flowchart TD
     Accounts --> Detail["Account details"]
     Accounts --> Settings["Settings"]
     Settings --> Vault Key["Vault Key"]
-    Detail --> Accounts
+    Detail -->|"Back"| Accounts
     Vault Key -->|"Back"| Settings
 ```
 
