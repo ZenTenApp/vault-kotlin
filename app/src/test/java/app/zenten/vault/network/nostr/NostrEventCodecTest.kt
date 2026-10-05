@@ -17,7 +17,7 @@ class NostrEventCodecTest {
             privateKey = keys.privateKey,
             publicKey = keys.publicKey,
             kind = 37_801,
-            tags = listOf(listOf("d", "masterKey"), listOf("t", "ssh-key-backup")),
+            tags = listOf(listOf("d", "vaultKey"), listOf("t", "ssh-key-backup")),
             content = "encrypted-content",
             createdAtSeconds = 1_700_000_000L,
         )

@@ -16,48 +16,48 @@ object VaultDestinations {
     const val GET_STARTED_SSH = "get-started/ssh"
 
     /**
-     * Nested navigation graph that holds every MasterKey generation screen.
+     * Nested navigation graph that holds every VaultKey generation screen.
      *
      * Exists so the wizard's screens can share one ViewModel scoped to the
      * graph: the chosen passphrase must survive navigation between steps, but
      * must be discarded as soon as the whole wizard leaves the back stack.
      */
-    const val CREATE_MASTER_KEY_GRAPH = "get-started/create-master-key"
+    const val CREATE_VAULT_KEY_GRAPH = "get-started/create-vault-key"
 
     /**
-     * First screen of the in-app MasterKey generation flow.
+     * First screen of the in-app VaultKey generation flow.
      *
      * This is a multi-screen wizard; more routes will be added under the
-     * `get-started/create-master-key/` prefix as each subsequent screen is
+     * the Vault Key route prefix as each subsequent screen is
      * implemented.
      */
-    const val CREATE_MASTER_KEY_INTRO = "get-started/create-master-key/intro"
+    const val CREATE_VAULT_KEY_INTRO = "get-started/create-vault-key/intro"
 
-    /** Second screen: choose the passphrase that will protect the new MasterKey. */
-    const val CREATE_MASTER_KEY_PASSPHRASE = "get-started/create-master-key/passphrase"
+    /** Second screen: choose the passphrase that will protect the new VaultKey. */
+    const val CREATE_VAULT_KEY_PASSPHRASE = "get-started/create-vault-key/passphrase"
 
     /** Third screen: re-enter the chosen passphrase to catch typos. */
-    const val CREATE_MASTER_KEY_CONFIRM_PASSPHRASE = "get-started/create-master-key/confirm-passphrase"
+    const val CREATE_VAULT_KEY_CONFIRM_PASSPHRASE = "get-started/create-vault-key/confirm-passphrase"
 
     /** Irreversible creation and per-source synchronization progress. */
-    const val CREATE_MASTER_KEY_CREATING = "get-started/create-master-key/creating"
+    const val CREATE_VAULT_KEY_CREATING = "get-started/create-vault-key/creating"
 
     /** Fourth screen: explain and export the first Vault Backup. */
-    const val CREATE_MASTER_KEY_BACKUP_INTRO = "get-started/create-master-key/backup-intro"
+    const val CREATE_VAULT_KEY_BACKUP_INTRO = "get-started/create-vault-key/backup-intro"
 
-    /** Fifth screen: paste the exported MasterKey to confirm the backup is usable. */
-    const val CREATE_MASTER_KEY_CONFIRM_BACKUP = "get-started/create-master-key/confirm-backup"
+    /** Fifth screen: paste the exported VaultKey to confirm the backup is usable. */
+    const val CREATE_VAULT_KEY_CONFIRM_BACKUP = "get-started/create-vault-key/confirm-backup"
 
     /** Sixth screen: back up the Brave mnemonic as grouped BIP-39 word positions. */
-    const val CREATE_MASTER_KEY_SECRET_COMBINATIONS = "get-started/create-master-key/secret-combinations"
+    const val CREATE_VAULT_KEY_SECRET_COMBINATIONS = "get-started/create-vault-key/secret-combinations"
 
     /** Seventh screen: sequentially re-enter every grouped word position. */
-    const val CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS =
-        "get-started/create-master-key/confirm-secret-combinations"
+    const val CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS =
+        "get-started/create-vault-key/confirm-secret-combinations"
 
-    /** Final screen: celebrate successful MasterKey creation and backup verification. */
-    const val CREATE_MASTER_KEY_CONGRATULATIONS =
-        "get-started/create-master-key/congratulations"
+    /** Final screen: celebrate successful VaultKey creation and backup verification. */
+    const val CREATE_VAULT_KEY_CONGRATULATIONS =
+        "get-started/create-vault-key/congratulations"
 
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
@@ -71,8 +71,8 @@ object VaultDestinations {
     /** Mandatory local-backup step immediately after account creation. */
     const val LOCAL_ACCOUNT_BACKUP_EXPORT = "accounts/{id}/local-backup/export"
 
-    /** Master account and its per-source backup coverage. */
-    const val MASTER_ACCOUNT = "master-account"
+    /** VaultKey account and its per-source backup coverage. */
+    const val VAULT_KEY = "vaultKey-account"
 
     /** App settings and vault management entry points. */
     const val SETTINGS = "settings"

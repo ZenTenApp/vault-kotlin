@@ -43,7 +43,7 @@ class OnboardingViewModel @Inject constructor(
                     pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
                     nostr = nostr.toPersistedKeyPair(),
                 )
-                _state.value = _state.value.copy(stage = "Backing up master account…")
+                _state.value = _state.value.copy(stage = "Backing up vaultKey account…")
                 setupService.performSetup(account).getOrThrow()
             }.onSuccess {
                 _state.value = OnboardingState(completed = true, stage = "Setup complete")
@@ -53,13 +53,13 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun retryStoredMaster() {
+    fun retryStoredVaultKey() {
         if (_state.value.inProgress) return
-        _state.value = OnboardingState(inProgress = true, stage = "Retrying master backup…")
+        _state.value = OnboardingState(inProgress = true, stage = "Retrying vaultKey backup…")
         viewModelScope.launch {
-            setupService.retryMasterBackup()
+            setupService.retryVaultKeyBackup()
                 .onSuccess { _state.value = OnboardingState(completed = true, stage = "Setup complete") }
-                .onFailure { error -> _state.value = OnboardingState(error = error.message ?: "Backup quorum is unavailable.", canRetryStoredMaster = true) }
+                .onFailure { error -> _state.value = OnboardingState(error = error.message ?: "Backup quorum is unavailable.", canRetryStoredVaultKey = true) }
         }
     }
 
@@ -71,5 +71,5 @@ data class OnboardingState(
     val completed: Boolean = false,
     val stage: String? = null,
     val error: String? = null,
-    val canRetryStoredMaster: Boolean = false,
+    val canRetryStoredVaultKey: Boolean = false,
 )

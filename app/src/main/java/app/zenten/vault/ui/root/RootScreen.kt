@@ -9,7 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AppStorageService
-import app.zenten.vault.data.kv.CreateMasterKeyStep
+import app.zenten.vault.data.kv.CreateVaultKeyStep
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PlaceholderScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,15 +36,15 @@ class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewMod
     val destination = combine(
         appStorage.setupComplete,
         appStorage.pendingLocalBackupAccountIds,
-        appStorage.createMasterKeyStep,
+        appStorage.createVaultKeyStep,
     ) { complete, pending, createStep ->
         when {
             complete && pending.isNotEmpty() -> VaultDestinations.localAccountBackupExport(pending.first().toLong())
             complete -> VaultDestinations.ACCOUNTS
-            createStep == CreateMasterKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO
-            createStep == CreateMasterKeyStep.CONFIRM_BACKUP -> VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP
-            createStep == CreateMasterKeyStep.SECRET_COMBINATIONS -> VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS
-            createStep == CreateMasterKeyStep.CONGRATULATIONS -> VaultDestinations.CREATE_MASTER_KEY_CONGRATULATIONS
+            createStep == CreateVaultKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO
+            createStep == CreateVaultKeyStep.CONFIRM_BACKUP -> VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP
+            createStep == CreateVaultKeyStep.SECRET_COMBINATIONS -> VaultDestinations.CREATE_VAULT_KEY_SECRET_COMBINATIONS
+            createStep == CreateVaultKeyStep.CONGRATULATIONS -> VaultDestinations.CREATE_VAULT_KEY_CONGRATULATIONS
             else -> VaultDestinations.GET_STARTED
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

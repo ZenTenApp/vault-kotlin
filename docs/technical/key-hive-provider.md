@@ -1,6 +1,6 @@
 # KeyHive Associated-Account Provider
 
-Vault exposes a signature-protected Android `ContentProvider` for trusted sibling applications. It returns only associated accounts, never the master account.
+Vault exposes a signature-protected Android `ContentProvider` for trusted sibling applications. It returns only associated accounts, never the Vault Key.
 
 ## Contract
 
@@ -13,7 +13,7 @@ Vault exposes a signature-protected Android `ContentProvider` for trusted siblin
 
 The list data is a JSON array of canonical associated-account ID strings. An item is `{"createdAt":"1720000000000123","zentenKey":"..."}`.
 
-The provider is read-only and runs in Vault's default process. It reads `SecureStorageService.getAccounts()`, whose registry contains associated accounts only. It never reads the master account.
+The provider is read-only and runs in Vault's default process. It reads `SecureStorageService.getAccounts()`, whose registry contains associated accounts only. It never reads the Vault Key.
 
 ## Security
 

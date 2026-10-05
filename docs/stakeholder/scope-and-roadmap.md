@@ -11,9 +11,9 @@
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| Android first-run entry and master-account setup screen | Implemented (PoC) | Supports pasted master account private-key material and passphrase entry. |
+| Android first-run entry and vault-key setup screen | Implemented (PoC) | Supports pasted Vault Key private-key material and passphrase entry. |
 | Custom backup-source management | Deferred | The current app exposes no management UI. Domain persistence and source processing remain available for a future implementation. |
-| Master-account validation and deterministic vault identity | Implemented (PoC) | Technical behavior is covered by automated tests; requires production security review. |
+| Vault Key-account validation and deterministic vault identity | Implemented (PoC) | Technical behavior is covered by automated tests; requires production security review. |
 | Generate associated Ed25519 SSH accounts | Implemented (PoC) | Created accounts appear in the account list using creation IDs. |
 | View public key and fingerprint | Implemented (PoC) | Available on associated-account detail. |
 | Confirm before showing/copying private key | Implemented (PoC) | Sensitive-view safeguards are present; expiry/export polish is still needed. |
@@ -26,7 +26,7 @@
 | Rename or rotate associated accounts | Out of scope | Creation ID is currently the stable account label. |
 | Delete an associated account or reset the vault | Not available | The current app provides neither action. |
 | SSH agent, terminal, or Git client | Out of scope | ZenTen Vault manages credentials; it does not use them to log into servers. |
-| Recover a lost master account private key or passphrase | Out of scope | User-held master account material is required. |
+| Recover a lost Vault Key private key or passphrase | Out of scope | User-held Vault Key material is required. |
 
 ## Release gates before production use
 
@@ -36,7 +36,7 @@ The following are required before positioning the app as a production credential
 2. End-to-end interoperability testing with real supported backup destinations.
 3. Approved setup, recovery, error, and offline UX—including accessible content.
 4. Release signing, update, telemetry, privacy, support, and incident-response processes.
-5. Clear user documentation and tested support procedures for lost master-account recovery material.
+5. Clear user documentation and tested support procedures for lost vault-key recovery material.
 
 ## Roadmap governance
 

@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import android.widget.ImageView
 import androidx.compose.foundation.layout.Row
@@ -32,10 +32,10 @@ internal fun BackupExportTargetDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.create_master_key_backup_target_title)) },
+        title = { Text(stringResource(R.string.create_vault_key_backup_target_title)) },
         text = {
             if (targets.isEmpty()) {
-                Text(stringResource(R.string.create_master_key_backup_no_targets))
+                Text(stringResource(R.string.create_vault_key_backup_no_targets))
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
                     items(targets, key = { "${it.packageName}/${it.activityName}" }) { target ->
@@ -64,7 +64,7 @@ internal fun BackupExportTargetDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.create_master_key_backup_target_cancel))
+                Text(stringResource(R.string.create_vault_key_backup_target_cancel))
             }
         },
     )

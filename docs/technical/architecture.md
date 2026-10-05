@@ -6,7 +6,7 @@ The Compose theme and the Android launch-window theme are fixed to the app's dar
 
 `ui/theme/Color.kt` is the design team's Material Theme Builder export (generated with `material-color-utilities` from seed `#D9D9D9` Monochrome, error palette `#F36262`, success `#62F3B6`). It holds every color value for the six generated schemes: light and dark, each in standard, medium, and high contrast. Design also applies the ZenTen brand overrides inside this file, on the standard dark scheme only, and marks each one `// ZenTen brand`; the medium- and high-contrast schemes keep Material's generated values so their contrast guarantees hold. Treat the file as a design-owned drop-in and re-import it wholesale rather than editing individual values.
 
-`ui/theme/Theme.kt` maps those palette values onto Material color-scheme roles and owns the app-specific theme decisions: `ZenTenVaultTheme` defaults `darkTheme` to `true` instead of reading the system setting, never wires up Android 12+ dynamic (wallpaper) color so branding stays identical on every device, keeps system bar icon appearance in sync with the active scheme, and takes a `contrast` parameter that selects the medium/high schemes a stock export leaves unused. `LocalExtendedColors` supplies the roles Material lacks: `success` from the generated palette, and the master-key flow's iOS-style `link` blue, which is defined in `Theme.kt` because it is not part of any tonal palette.
+`ui/theme/Theme.kt` maps those palette values onto Material color-scheme roles and owns the app-specific theme decisions: `ZenTenVaultTheme` defaults `darkTheme` to `true` instead of reading the system setting, never wires up Android 12+ dynamic (wallpaper) color so branding stays identical on every device, keeps system bar icon appearance in sync with the active scheme, and takes a `contrast` parameter that selects the medium/high schemes a stock export leaves unused. `LocalExtendedColors` supplies the roles Material lacks: `success` from the generated palette, and the vault-key flow's iOS-style `link` blue, which is defined in `Theme.kt` because it is not part of any tonal palette.
 
 The dark palette sets `surface` equal to `background` (`#121212`), so `surface` no longer distinguishes a raised plate from the screen behind it. Raised elements use a `surfaceContainer*` role instead: `ui/components/VaultCard.kt` relies on Compose's `Card` default of `surfaceContainerHighest`, which the palette pins to the approved card color `#232323`, and the Get started brand badge uses `surfaceContainer`. Highest-emphasis text uses `onSurface`, which the palette sets to `#FFFFFF`.
 
@@ -49,15 +49,15 @@ The current app has no custom-source management UI. The repository API is retain
 
 ## Serialization boundary
 
-`AccountConsolidationEngine` owns one coroutine `Mutex` around master backup, account backup, pending retry, and consolidation. Within each operation it uses ordered loops and suspend calls without `async`, ensuring no intentional network concurrency across sources or accounts.
+`AccountConsolidationEngine` owns one coroutine `Mutex` around Vault Key backup, account backup, pending retry, and consolidation. Within each operation it uses ordered loops and suspend calls without `async`, ensuring no intentional network concurrency across sources or accounts.
 
 ## Core lifecycle
 
-1. **Master setup:** persist master locally, inspect/write all sources sequentially, and complete setup only with one eligible Nostr plus one eligible Brave success. Retain the local master on quorum failure.
+1. **Vault Key setup:** persist Vault Key locally, inspect/write all sources sequentially, and complete setup only with one eligible Nostr plus one eligible Brave success. Retain the local Vault Key on quorum failure.
 2. **Associated creation:** generate and save locally, then enqueue background backup; failed sources are persisted as pending IDs.
 3. **Consolidation restore:** index every source and restore missing valid associated accounts from trusted sources.
 4. **Consolidation backup:** use retained phase-1 indexes to fill gaps, then perform one final read-back per successfully indexed source.
-5. **Status:** persist per-account/per-source state and coarse errors. UI observes this state in account and master details.
+5. **Status:** persist per-account/per-source state and coarse errors. UI observes this state in account and Vault Key details.
 
 ## App-entry safety gate
 
@@ -80,7 +80,7 @@ The current app has no custom-source management UI. The repository API is retain
 
 - Secrets are stored only through `SecureStorageService` or transiently in crypto/network operations.
 - `AppStorageService`, WorkManager input, checkpoints, status, and diagnostics contain no keys, passphrases, encrypted backup payloads, sync codes, tokens, or NIP-42 challenges.
-- Relay authentication signs kind `22242` on the challenged connection using the master-derived Nostr identity and does not persist the challenge.
+- Relay authentication signs kind `22242` on the challenged connection using the Vault Key-derived Nostr identity and does not persist the challenge.
 - Remote payloads are decrypted only to restore an account missing locally.
 
 ## Key references

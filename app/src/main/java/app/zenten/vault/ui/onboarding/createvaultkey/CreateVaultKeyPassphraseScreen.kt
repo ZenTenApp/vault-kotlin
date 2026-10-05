@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -44,8 +44,8 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
 import kotlinx.coroutines.delay
 
 /**
- * Step 2 of the in-app **Create MasterKey** flow: choose the passphrase that
- * will protect the generated MasterKey.
+ * Step 2 of the in-app **Create VaultKey** flow: choose the passphrase that
+ * will protect the generated VaultKey.
  *
  * Requirements are shown below the unlabelled input. A completed rule shows
  * success feedback for two seconds before leaving the grid, keeping attention
@@ -53,18 +53,18 @@ import kotlinx.coroutines.delay
  * retaining the secret.
  */
 @Composable
-fun CreateMasterKeyPassphraseScreen(navController: NavHostController) {
+fun CreateVaultKeyPassphraseScreen(navController: NavHostController) {
     var passphrase by remember { mutableStateOf("") }
-    val viewModel = rememberCreateMasterKeyViewModel(navController)
-    val requirements = MasterKeyPassphrasePolicy.evaluate(passphrase)
+    val viewModel = rememberCreateVaultKeyViewModel(navController)
+    val requirements = VaultKeyPassphrasePolicy.evaluate(passphrase)
 
     // Passphrase input is on screen here, so block screenshots and recordings.
     ScreenshotProtection()
 
-    CreateMasterKeyScaffold(
-        title = stringResource(R.string.create_master_key_passphrase_title),
+    CreateVaultKeyScaffold(
+        title = stringResource(R.string.create_vault_key_passphrase_title),
         heroIcon = R.drawable.hero_icon_passphrase,
-        heroIconDescription = stringResource(R.string.create_master_key_passphrase_icon_description),
+        heroIconDescription = stringResource(R.string.create_vault_key_passphrase_icon_description),
         onBack = navController::popBackStack,
         content = {
             Spacer(Modifier.height(28.dp))
@@ -87,11 +87,11 @@ fun CreateMasterKeyPassphraseScreen(navController: NavHostController) {
                 exit = fadeOut() + shrinkVertically(),
             ) {
                 VaultPillButton(
-                    label = stringResource(R.string.create_master_key_passphrase_confirm),
+                    label = stringResource(R.string.create_vault_key_passphrase_confirm),
                     onClick = {
                         // Recheck in the ViewModel so policy enforcement does not depend on UI state.
                         if (viewModel.choosePassphrase(passphrase)) {
-                            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE)
+                            navController.navigate(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_PASSPHRASE)
                         }
                     },
                 )
@@ -103,15 +103,15 @@ fun CreateMasterKeyPassphraseScreen(navController: NavHostController) {
 /** A compact two-column checklist that makes passphrase progress visible at a glance. */
 @Composable
 private fun PassphraseRequirementsGrid(
-    requirements: MasterKeyPassphraseRequirements,
+    requirements: VaultKeyPassphraseRequirements,
     modifier: Modifier = Modifier,
 ) {
     val rules = listOf(
-        stringResource(R.string.create_master_key_passphrase_rule_length) to requirements.hasMinimumLength,
-        stringResource(R.string.create_master_key_passphrase_rule_uppercase) to requirements.hasUppercase,
-        stringResource(R.string.create_master_key_passphrase_rule_lowercase) to requirements.hasLowercase,
-        stringResource(R.string.create_master_key_passphrase_rule_number) to requirements.hasNumber,
-        stringResource(R.string.create_master_key_passphrase_rule_special) to requirements.hasSpecialCharacter,
+        stringResource(R.string.create_vault_key_passphrase_rule_length) to requirements.hasMinimumLength,
+        stringResource(R.string.create_vault_key_passphrase_rule_uppercase) to requirements.hasUppercase,
+        stringResource(R.string.create_vault_key_passphrase_rule_lowercase) to requirements.hasLowercase,
+        stringResource(R.string.create_vault_key_passphrase_rule_number) to requirements.hasNumber,
+        stringResource(R.string.create_vault_key_passphrase_rule_special) to requirements.hasSpecialCharacter,
     )
     val ruleVisibility = remember { mutableStateMapOf<Int, Boolean>() }
 
@@ -155,8 +155,8 @@ private const val RULE_SUCCESS_DISPLAY_MILLIS = 2_000L
 private fun PassphraseRule(label: String, satisfied: Boolean, modifier: Modifier = Modifier) {
     val success = LocalExtendedColors.current.success
     val stateDescription = stringResource(
-        if (satisfied) R.string.create_master_key_passphrase_rule_satisfied
-        else R.string.create_master_key_passphrase_rule_pending,
+        if (satisfied) R.string.create_vault_key_passphrase_rule_satisfied
+        else R.string.create_vault_key_passphrase_rule_pending,
         label,
     )
 

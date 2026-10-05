@@ -52,8 +52,8 @@ private val ProviderIconSize = 20.dp
 /**
  * First-run entry screen.
  *
- * Only the master-key import path is implemented today, so it is wired to
- * **Login with MasterKey** (the user already holds a key and brings it in).
+ * Only the vault-key import path is implemented today, so it is wired to
+ * **Login with VaultKey** (the user already holds a key and brings it in).
  * In-app key generation and federated sign-in exist in the approved design but
  * have no implementation yet, so those actions surface a "coming soon"
  * snackbar rather than silently doing nothing.
@@ -64,8 +64,8 @@ fun GetStartedScreen(navController: NavHostController) {
     val scope = rememberCoroutineScope()
 
     val comingSoonTemplate = stringResource(R.string.get_started_coming_soon)
-    val createLabel = stringResource(R.string.get_started_create_master_key)
-    val loginLabel = stringResource(R.string.get_started_login_master_key)
+    val createLabel = stringResource(R.string.get_started_create_vault_key)
+    val loginLabel = stringResource(R.string.get_started_login_vault_key)
     val googleLabel = stringResource(R.string.get_started_provider_google)
     val appleLabel = stringResource(R.string.get_started_provider_apple)
     val microsoftLabel = stringResource(R.string.get_started_provider_microsoft)
@@ -122,7 +122,7 @@ fun GetStartedScreen(navController: NavHostController) {
             // Generated-key setup continues through local backup confirmation.
             VaultPillButton(
                 label = createLabel,
-                onClick = { navController.navigate(VaultDestinations.CREATE_MASTER_KEY_INTRO) },
+                onClick = { navController.navigate(VaultDestinations.CREATE_VAULT_KEY_INTRO) },
             )
 
             Spacer(Modifier.height(ButtonSpacing))
@@ -131,7 +131,7 @@ fun GetStartedScreen(navController: NavHostController) {
             VaultPillButton(
                 label = loginLabel,
                 // A neutral raised surface distinguishes this alternate path
-                // from the Create MasterKey primary action above it.
+                // from the Create VaultKey primary action above it.
                 style = VaultPillButtonStyle.Secondary,
                 onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
             )

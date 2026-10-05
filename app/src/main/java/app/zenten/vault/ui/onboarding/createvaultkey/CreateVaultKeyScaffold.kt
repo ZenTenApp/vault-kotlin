@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import android.app.Activity
 import android.view.WindowManager
@@ -49,7 +49,7 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
 internal val HeroIconSize = 132.dp
 
 /**
- * Shared page frame for every **Create MasterKey** wizard screen.
+ * Shared page frame for every **Create VaultKey** wizard screen.
  *
  * All wizard steps use the same skeleton: a top-left "< Back" link, a hero
  * illustration, a centered title, then step-specific content, and finally a
@@ -75,7 +75,7 @@ internal val HeroIconSize = 132.dp
  * @param actions bottom-anchored buttons and any copy that must sit with them.
  */
 @Composable
-internal fun CreateMasterKeyScaffold(
+internal fun CreateVaultKeyScaffold(
     title: String,
     @DrawableRes heroIcon: Int,
     heroIconDescription: String,
@@ -140,13 +140,13 @@ internal fun CreateMasterKeyScaffold(
 /**
  * Centered supporting copy for a wizard step.
  *
- * Lives here rather than in [CreateMasterKeyScaffold] so each step decides
+ * Lives here rather than in [CreateVaultKeyScaffold] so each step decides
  * whether it has a description at all and how many paragraphs it needs, while
  * still sharing one text style. It stretches to the full width because the
  * scaffold's content slot is not itself center-aligned.
  */
 @Composable
-internal fun CreateMasterKeyDescription(text: String, modifier: Modifier = Modifier) {
+internal fun CreateVaultKeyDescription(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyLarge,
@@ -166,7 +166,7 @@ internal fun CreateMasterKeyDescription(text: String, modifier: Modifier = Modif
  *   the backup steps; the intro step keeps them left-aligned with its body copy.
  */
 @Composable
-internal fun CreateMasterKeyWarningRow(centered: Boolean = false) {
+internal fun CreateVaultKeyWarningRow(centered: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (centered) Arrangement.Center else Arrangement.Start,
@@ -180,7 +180,7 @@ internal fun CreateMasterKeyWarningRow(centered: Boolean = false) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.create_master_key_intro_warning),
+            text = stringResource(R.string.create_vault_key_intro_warning),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
@@ -207,7 +207,7 @@ private fun BackLink(onClick: () -> Unit) {
             )
             Spacer(Modifier.width(4.dp))
             Text(
-                text = stringResource(R.string.create_master_key_back),
+                text = stringResource(R.string.create_vault_key_back),
                 color = LocalExtendedColors.current.link,
                 style = MaterialTheme.typography.titleMedium,
             )

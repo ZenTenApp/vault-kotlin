@@ -11,50 +11,50 @@ class VaultDestinationsTest {
     }
 
     @Test
-    fun createMasterKeyIntro_hasStableRoute() {
-        assertEquals("get-started/create-master-key/intro", VaultDestinations.CREATE_MASTER_KEY_INTRO)
+    fun createVaultKeyIntro_hasStableRoute() {
+        assertEquals("get-started/create-vault-key/intro", VaultDestinations.CREATE_VAULT_KEY_INTRO)
     }
 
     @Test
-    fun createMasterKeyPassphraseSteps_haveStableRoutes() {
-        assertEquals("get-started/create-master-key/passphrase", VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE)
+    fun createVaultKeyPassphraseSteps_haveStableRoutes() {
+        assertEquals("get-started/create-vault-key/passphrase", VaultDestinations.CREATE_VAULT_KEY_PASSPHRASE)
         assertEquals(
-            "get-started/create-master-key/confirm-passphrase",
-            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE,
+            "get-started/create-vault-key/confirm-passphrase",
+            VaultDestinations.CREATE_VAULT_KEY_CONFIRM_PASSPHRASE,
         )
-        assertEquals("get-started/create-master-key/creating", VaultDestinations.CREATE_MASTER_KEY_CREATING)
+        assertEquals("get-started/create-vault-key/creating", VaultDestinations.CREATE_VAULT_KEY_CREATING)
     }
 
     @Test
-    fun createMasterKeyBackupSteps_haveStableRoutes() {
-        assertEquals("get-started/create-master-key/backup-intro", VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO)
-        assertEquals("get-started/create-master-key/confirm-backup", VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP)
+    fun createVaultKeyBackupSteps_haveStableRoutes() {
+        assertEquals("get-started/create-vault-key/backup-intro", VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO)
+        assertEquals("get-started/create-vault-key/confirm-backup", VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP)
         assertEquals(
-            "get-started/create-master-key/secret-combinations",
-            VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS,
+            "get-started/create-vault-key/secret-combinations",
+            VaultDestinations.CREATE_VAULT_KEY_SECRET_COMBINATIONS,
         )
         assertEquals(
-            "get-started/create-master-key/confirm-secret-combinations",
-            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS,
+            "get-started/create-vault-key/confirm-secret-combinations",
+            VaultDestinations.CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS,
         )
     }
 
     @Test
-    fun createMasterKeyGraph_isThePrefixOfItsSteps() {
+    fun createVaultKeyGraph_isThePrefixOfItsSteps() {
         // The nested graph route must stay a prefix of every step route so the
         // wizard's shared, graph-scoped ViewModel resolves for all of them.
-        assertEquals("get-started/create-master-key", VaultDestinations.CREATE_MASTER_KEY_GRAPH)
+        assertEquals("get-started/create-vault-key", VaultDestinations.CREATE_VAULT_KEY_GRAPH)
         listOf(
-            VaultDestinations.CREATE_MASTER_KEY_INTRO,
-            VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE,
-            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE,
-            VaultDestinations.CREATE_MASTER_KEY_CREATING,
-            VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO,
-            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP,
-            VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS,
-            VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS,
+            VaultDestinations.CREATE_VAULT_KEY_INTRO,
+            VaultDestinations.CREATE_VAULT_KEY_PASSPHRASE,
+            VaultDestinations.CREATE_VAULT_KEY_CONFIRM_PASSPHRASE,
+            VaultDestinations.CREATE_VAULT_KEY_CREATING,
+            VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO,
+            VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP,
+            VaultDestinations.CREATE_VAULT_KEY_SECRET_COMBINATIONS,
+            VaultDestinations.CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS,
         ).forEach { route ->
-            assertEquals(true, route.startsWith(VaultDestinations.CREATE_MASTER_KEY_GRAPH + "/"), route)
+            assertEquals(true, route.startsWith(VaultDestinations.CREATE_VAULT_KEY_GRAPH + "/"), route)
         }
     }
 

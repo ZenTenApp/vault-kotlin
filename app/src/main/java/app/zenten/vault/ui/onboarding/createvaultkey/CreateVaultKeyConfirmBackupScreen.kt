@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -23,11 +23,11 @@ import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
 
-/** Step 5: paste and validate the exported MasterKey before continuing later. */
+/** Step 5: paste and validate the exported VaultKey before continuing later. */
 @Composable
-fun CreateMasterKeyConfirmBackupScreen(
+fun CreateVaultKeyConfirmBackupScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
+    viewModel: CreateVaultKeyViewModel = rememberCreateVaultKeyViewModel(navController),
 ) {
     val context = LocalContext.current
     val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
@@ -38,9 +38,9 @@ fun CreateMasterKeyConfirmBackupScreen(
     // A process restart restores this screen directly, so Create Backup may not
     // exist in the new back stack. Pop when possible and rebuild that step when needed.
     val returnToCreateBackup = {
-        if (!navController.popBackStack(VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO, false)) {
-            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO) {
-                popUpTo(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP) { inclusive = true }
+        if (!navController.popBackStack(VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO, false)) {
+            navController.navigate(VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO) {
+                popUpTo(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP) { inclusive = true }
                 launchSingleTop = true
             }
         }
@@ -48,14 +48,14 @@ fun CreateMasterKeyConfirmBackupScreen(
     }
     BackHandler(onBack = returnToCreateBackup)
 
-    CreateMasterKeyScaffold(
-        title = stringResource(R.string.create_master_key_confirm_backup_title),
+    CreateVaultKeyScaffold(
+        title = stringResource(R.string.create_vault_key_confirm_backup_title),
         heroIcon = R.drawable.hero_icon_confirm_backup,
-        heroIconDescription = stringResource(R.string.create_master_key_confirm_backup_icon_description),
+        heroIconDescription = stringResource(R.string.create_vault_key_confirm_backup_icon_description),
         onBack = returnToCreateBackup,
         content = {
             Spacer(Modifier.height(12.dp))
-            CreateMasterKeyDescription(stringResource(R.string.create_master_key_confirm_backup_body))
+            CreateVaultKeyDescription(stringResource(R.string.create_vault_key_confirm_backup_body))
             error?.let {
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -67,7 +67,7 @@ fun CreateMasterKeyConfirmBackupScreen(
         },
         actions = {
             VaultPillButton(
-                label = stringResource(R.string.create_master_key_confirm_backup_action),
+                label = stringResource(R.string.create_vault_key_confirm_backup_action),
                 onClick = {
                     error = null
                     val pastedKey = runCatching {
@@ -78,7 +78,7 @@ fun CreateMasterKeyConfirmBackupScreen(
                             ?.toString()
                             .orEmpty()
                     }.getOrElse {
-                        error = R.string.create_master_key_confirm_backup_read_error
+                        error = R.string.create_vault_key_confirm_backup_read_error
                         return@VaultPillButton
                     }
                     val clipboardCleared = runCatching {
@@ -89,27 +89,27 @@ fun CreateMasterKeyConfirmBackupScreen(
                         }
                     }.isSuccess
                     if (!clipboardCleared) {
-                        error = R.string.create_master_key_confirm_backup_clear_error
+                        error = R.string.create_vault_key_confirm_backup_clear_error
                         return@VaultPillButton
                     }
                     if (pastedKey.isBlank()) {
-                        error = R.string.create_master_key_confirm_backup_empty_error
+                        error = R.string.create_vault_key_confirm_backup_empty_error
                         return@VaultPillButton
                     }
-                    error = when (viewModel.confirmPastedMasterKey(pastedKey)) {
+                    error = when (viewModel.confirmPastedVaultKey(pastedKey)) {
                         BackupConfirmationResult.MATCHED -> {
                             // Usually already available from generation; after process restoration
                             // this starts the one-time background KDF fallback.
                             viewModel.loadSecretCombinationIndices()
                             viewModel.recordSecretCombinationsShown()
-                            navController.navigate(VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS) {
+                            navController.navigate(VaultDestinations.CREATE_VAULT_KEY_SECRET_COMBINATIONS) {
                                 launchSingleTop = true
                             }
                             null
                         }
-                        BackupConfirmationResult.INVALID -> R.string.create_master_key_confirm_backup_invalid_error
-                        BackupConfirmationResult.MISMATCHED -> R.string.create_master_key_confirm_backup_mismatch_error
-                        BackupConfirmationResult.UNAVAILABLE -> R.string.create_master_key_backup_unavailable
+                        BackupConfirmationResult.INVALID -> R.string.create_vault_key_confirm_backup_invalid_error
+                        BackupConfirmationResult.MISMATCHED -> R.string.create_vault_key_confirm_backup_mismatch_error
+                        BackupConfirmationResult.UNAVAILABLE -> R.string.create_vault_key_backup_unavailable
                     }
                 },
             )

@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -37,7 +37,7 @@ private val PassphraseFieldCornerRadius = 12.dp
 private val PassphraseFieldHeight = 72.dp
 
 /**
- * Obscured passphrase input used by the **Create MasterKey** wizard.
+ * Obscured passphrase input used by the **Create VaultKey** wizard.
  *
  * Optionally renders a caption above a rounded outlined field with a trailing
  * eye toggle. Visibility state is owned here and defaults to hidden, so the
@@ -93,9 +93,9 @@ internal fun PassphraseField(
                         imageVector = if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                         contentDescription = stringResource(
                             if (visible) {
-                                R.string.create_master_key_passphrase_hide
+                                R.string.create_vault_key_passphrase_hide
                             } else {
-                                R.string.create_master_key_passphrase_show
+                                R.string.create_vault_key_passphrase_show
                             },
                         ),
                         modifier = Modifier.size(24.dp),

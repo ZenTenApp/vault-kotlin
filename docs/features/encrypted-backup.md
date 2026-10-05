@@ -2,19 +2,19 @@
 
 ## Purpose and scope
 
-Vault writes the master and associated accounts independently to Nostr relay and Brave Sync sources. Remote formats remain compatible with the earlier implementation. Backup does not replace the user's obligation to retain the master private key and passphrase.
+Vault writes the Vault Key and associated accounts independently to Nostr relay and Brave Sync sources. Remote formats remain compatible with the earlier implementation. Backup does not replace the user's obligation to retain the Vault Key private key and passphrase.
 
 The default source list and consolidation behavior are documented in [Backup status and consolidation](backup-status-and-reconciliation.md).
 
 ## Local-first lifecycle
 
-### Master setup
+### Vault Key setup
 
-1. Setup validates and derives the master account.
+1. Setup validates and derives the Vault Key.
 2. `SetupService` stores it using `SecureStorageService`.
-3. `AccountConsolidationEngine.backupMaster` checks and, where absent, writes every enabled source sequentially.
-4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the master.
-5. If quorum fails, the master remains securely stored, setup remains incomplete, and retry does not require reimport.
+3. `AccountConsolidationEngine.backupVaultKey` checks and, where absent, writes every enabled source sequentially.
+4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the Vault Key.
+5. If quorum fails, the Vault Key remains securely stored, setup remains incomplete, and retry does not require reimport.
 
 ### Associated-account creation
 
@@ -25,7 +25,7 @@ The default source list and consolidation behavior are documented in [Backup sta
 
 ## Canonical identifiers
 
-- Master: `masterkey`
+- Vault Key: `vaultkey`
 - Associated account: decimal `createdAt`
 
 Presence is determined by identifier only. Consolidation does not decrypt an already-present payload to compare it with local material. Payload decryption and OpenSSH validation happen only when a missing local associated account must be restored.
@@ -34,17 +34,17 @@ Presence is determined by identifier only. Consolidation does not decrypt an alr
 
 | Backup | Kind | `d` tag | Plaintext before NIP-44 |
 | --- | ---: | --- | --- |
-| Master | `37801` | `masterkey` | normalized master OpenSSH private key |
+| Vault Key | `37801` | `vaultkey` | normalized Vault Key OpenSSH private key |
 | Associated | `37802` | decimal `createdAt` | normalized encrypted OpenSSH private key |
 
-Normally, the event author/signature identity is derived from the original master seed. The initial remote backup performed specifically by the **Create MasterKey** wizard is the exception: it derives a NIP-06 identity from the 24-word mnemonic of Seedify's deterministic `brave` associated account and uses that identity for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication. The backed-up plaintext is still the original MasterKey's canonical single-line Base64 OpenSSH private key. Imported-master setup, later retries, associated-account backup, and consolidation continue to use the stored original-seed master Nostr identity; later consolidation may consequently add a duplicate relay master backup under that identity.
+Normally, the event author/signature identity is derived from the original Vault Key seed. The initial remote backup performed specifically by the **Create VaultKey** wizard is the exception: it derives a NIP-06 identity from the 24-word mnemonic of Seedify's deterministic `brave` associated account and uses that identity for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication. The backed-up plaintext is still the original VaultKey's canonical single-line Base64 OpenSSH private key. Imported-Vault Key setup, later retries, associated-account backup, and consolidation continue to use the stored original-seed Vault Key Nostr identity; later consolidation may consequently add a duplicate relay Vault Key backup under that identity.
 
 ### NIP-42 lifecycle
 
 `NostrRelayService` creates an authenticated one-shot Quartz connection for source reads and writes:
 
 1. Install `RelayAuthenticator` before connecting.
-2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that operation (the Brave sub-account identity only during initial in-app creation; otherwise the stored master identity).
+2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that operation (the Brave sub-account identity only during initial in-app creation; otherwise the stored Vault Key identity).
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
 4. Pin the challenged relay in Quartz's connection pool for the full operation timeout while waiting for a definitive AUTH acknowledgement. `fetchAll` removes its subscription after `CLOSED`, so an authenticated read maintains a temporary keep-alive subscription until the handshake and retry finish. If the initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
 5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.
@@ -56,11 +56,11 @@ NIP-42 auth events use the device wall clock and relays may reject events outsid
 
 ## Brave Sync format
 
-The sync code is derived from the parsed master seed by `Seedify.toBraveSyncCode`. Consolidation derives it once per in-memory run, fixing the date-derived word for that run, and reuses it across Brave endpoints without persisting or logging it. Each independently configured server still receives its own transport, cached in-memory session, Nigori settings, and operation. Because the engine writes only after a successful source index proves a record absent, that write reuses the indexed result instead of listing records again; the later consolidation read-back remains the authoritative verification.
+The sync code is derived from the parsed Vault Key seed by `Seedify.toBraveSyncCode`. Consolidation derives it once per in-memory run, fixing the date-derived word for that run, and reuses it across Brave endpoints without persisting or logging it. Each independently configured server still receives its own transport, cached in-memory session, Nigori settings, and operation. Because the engine writes only after a successful source index proves a record absent, that write reuses the indexed result instead of listing records again; the later consolidation read-back remains the authoritative verification.
 
 | Backup | URL | Username | Password |
 | --- | --- | --- | --- |
-| Master | `https://masterkey.zenten/` | `masterkey` | normalized master private key |
+| Vault Key | `https://vaultkey.zenten/` | `vaultkey` | normalized Vault Key private key |
 | Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key |
 
 Records have no notes. Before writing, the service parses the key as Ed25519 OpenSSH. An identical matching record is success; a conflicting matching record fails and is not overwritten.
@@ -79,7 +79,7 @@ Errors, logs, analytics, WorkManager input, and UI status must follow the same r
 
 | Situation | Behavior |
 | --- | --- |
-| Master quorum unavailable | Retain local master, leave setup incomplete, allow retry. |
+| Vault Key quorum unavailable | Retain local Vault Key, leave setup incomplete, allow retry. |
 | Associated write fails everywhere | Preserve usable local account and pending source writes. |
 | Initial source index fails | Mark `UNKNOWN`; do not infer absence or write that source in the cycle. |
 | Existing Brave record conflicts | Fail that source; do not overwrite. |

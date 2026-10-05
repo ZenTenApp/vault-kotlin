@@ -10,19 +10,19 @@ import androidx.navigation.navArgument
 import app.zenten.vault.ui.accounts.AccountDetailScreen
 import app.zenten.vault.ui.accounts.AccountsListScreen
 import app.zenten.vault.ui.accounts.LocalAccountBackupExportScreen
-import app.zenten.vault.ui.master.MasterAccountDetailScreen
+import app.zenten.vault.ui.vaultKey.VaultKeyDetailScreen
 import app.zenten.vault.ui.newaccount.NewAccountScreen
 import app.zenten.vault.ui.onboarding.GetStartedScreen
 import app.zenten.vault.ui.onboarding.SshSetupScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyBackupIntroScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyConfirmBackupScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyConfirmPassphraseScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyCreatingScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyConfirmSecretCombinationsScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyCongratulationsScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyIntroScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeyPassphraseScreen
-import app.zenten.vault.ui.onboarding.createmasterkey.CreateMasterKeySecretCombinationsScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyBackupIntroScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyConfirmBackupScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyConfirmPassphraseScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyCreatingScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyConfirmSecretCombinationsScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyCongratulationsScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyIntroScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyPassphraseScreen
+import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeySecretCombinationsScreen
 import app.zenten.vault.ui.root.RootScreen
 import app.zenten.vault.ui.settings.SettingsScreen
 import androidx.compose.runtime.Composable
@@ -53,43 +53,43 @@ fun VaultNavGraph(
         // that carries the chosen passphrase between the steps without ever
         // placing it in a navigation argument.
         navigation(
-            route = VaultDestinations.CREATE_MASTER_KEY_GRAPH,
-            startDestination = VaultDestinations.CREATE_MASTER_KEY_INTRO,
+            route = VaultDestinations.CREATE_VAULT_KEY_GRAPH,
+            startDestination = VaultDestinations.CREATE_VAULT_KEY_INTRO,
         ) {
-            composable(VaultDestinations.CREATE_MASTER_KEY_INTRO) {
-                CreateMasterKeyIntroScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_INTRO) {
+                CreateVaultKeyIntroScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE) {
-                CreateMasterKeyPassphraseScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_PASSPHRASE) {
+                CreateVaultKeyPassphraseScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_PASSPHRASE) {
-                CreateMasterKeyConfirmPassphraseScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_PASSPHRASE) {
+                CreateVaultKeyConfirmPassphraseScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_CREATING) {
-                CreateMasterKeyCreatingScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_CREATING) {
+                CreateVaultKeyCreatingScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_BACKUP_INTRO) {
-                CreateMasterKeyBackupIntroScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO) {
+                CreateVaultKeyBackupIntroScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_BACKUP) {
-                CreateMasterKeyConfirmBackupScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP) {
+                CreateVaultKeyConfirmBackupScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_SECRET_COMBINATIONS) {
-                CreateMasterKeySecretCombinationsScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_SECRET_COMBINATIONS) {
+                CreateVaultKeySecretCombinationsScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS) {
-                CreateMasterKeyConfirmSecretCombinationsScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS) {
+                CreateVaultKeyConfirmSecretCombinationsScreen(navController)
             }
 
-            composable(VaultDestinations.CREATE_MASTER_KEY_CONGRATULATIONS) {
-                CreateMasterKeyCongratulationsScreen(navController)
+            composable(VaultDestinations.CREATE_VAULT_KEY_CONGRATULATIONS) {
+                CreateVaultKeyCongratulationsScreen(navController)
             }
         }
 
@@ -117,8 +117,8 @@ fun VaultNavGraph(
             LocalAccountBackupExportScreen(navController, id)
         }
 
-        composable(VaultDestinations.MASTER_ACCOUNT) {
-            MasterAccountDetailScreen()
+        composable(VaultDestinations.VAULT_KEY) {
+            VaultKeyDetailScreen()
         }
 
         composable(VaultDestinations.SETTINGS) {

@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -25,7 +25,7 @@ import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
 
 /**
- * Step 1 of the in-app **Create MasterKey** flow.
+ * Step 1 of the in-app **Create VaultKey** flow.
  *
  * Sets expectations before key generation begins: the user must be ready to
  * record recovery material offline, and explicitly acknowledges that losing
@@ -34,27 +34,27 @@ import app.zenten.vault.ui.components.VaultPillButton
  * then advances to the passphrase step.
  *
  * The page frame (back link, hero illustration, title, description, footer)
- * comes from [CreateMasterKeyScaffold] so every wizard step stays visually
+ * comes from [CreateVaultKeyScaffold] so every wizard step stays visually
  * identical.
  */
 @Composable
-fun CreateMasterKeyIntroScreen(navController: NavHostController) {
+fun CreateVaultKeyIntroScreen(navController: NavHostController) {
     var consentChecked by remember { mutableStateOf(false) }
 
-    CreateMasterKeyScaffold(
-        title = stringResource(R.string.create_master_key_intro_title),
+    CreateVaultKeyScaffold(
+        title = stringResource(R.string.create_vault_key_intro_title),
         heroIcon = R.drawable.hero_icon_getting_started,
-        heroIconDescription = stringResource(R.string.create_master_key_intro_icon_description),
+        heroIconDescription = stringResource(R.string.create_vault_key_intro_icon_description),
         onBack = navController::popBackStack,
         content = {
             Spacer(Modifier.height(12.dp))
 
             // This step is the only one with two-paragraph copy.
-            CreateMasterKeyDescription(stringResource(R.string.create_master_key_intro_body1))
+            CreateVaultKeyDescription(stringResource(R.string.create_vault_key_intro_body1))
 
             Spacer(Modifier.height(12.dp))
 
-            CreateMasterKeyDescription(stringResource(R.string.create_master_key_intro_body2))
+            CreateVaultKeyDescription(stringResource(R.string.create_vault_key_intro_body2))
         },
         actions = {
             Spacer(Modifier.height(16.dp))
@@ -69,9 +69,9 @@ fun CreateMasterKeyIntroScreen(navController: NavHostController) {
             // Gated on consent: the user must acknowledge unrecoverable loss
             // before the wizard collects a passphrase and generates a key.
             VaultPillButton(
-                label = stringResource(R.string.create_master_key_intro_confirm),
+                label = stringResource(R.string.create_vault_key_intro_confirm),
                 enabled = consentChecked,
-                onClick = { navController.navigate(VaultDestinations.CREATE_MASTER_KEY_PASSPHRASE) },
+                onClick = { navController.navigate(VaultDestinations.CREATE_VAULT_KEY_PASSPHRASE) },
             )
         },
     )
@@ -95,7 +95,7 @@ private fun ConsentRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             ),
         )
         Text(
-            text = stringResource(R.string.create_master_key_intro_consent),
+            text = stringResource(R.string.create_vault_key_intro_consent),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             // Aligns the first line of text with the checkbox's visual center.

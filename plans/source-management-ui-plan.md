@@ -2,7 +2,7 @@
 
 ## 1. Goal
 
-Add a minimal Material 3 source-management flow that is available only from the **Get started** screen before master-account setup.
+Add a minimal Material 3 source-management flow that is available only from the **Get started** screen before vault-key setup.
 
 The flow lets a user:
 
@@ -76,7 +76,7 @@ The separate domain flags remain intact. Combining them in the form avoids offer
 
 ```mermaid
 flowchart TD
-    G[Get started] -->|Import SSH Key| S[Set up master account]
+    G[Get started] -->|Import SSH Key| S[Set up Vault Key]
     G -->|Manage backup sources| L[Backup sources]
     L -->|Back| G
     L -->|Add Nostr relay| A[Add Nostr relay]
@@ -117,7 +117,7 @@ For custom rows, show policy summaries where useful:
 - **Setup quorum** when `countsTowardQuorum` is true;
 - **Account recovery** when both restore/trust flags are true.
 
-Do not show source status such as “Not checked,” because no master account exists yet.
+Do not show source status such as “Not checked,” because no Vault Key exists yet.
 
 The list observes `BackupSourceRepository.sources`, so it updates immediately after a successful addition and preserves repository processing order.
 
@@ -260,7 +260,7 @@ Register:
 - `BackupSourcesScreen` for `BACKUP_SOURCES`;
 - `AddBackupSourceScreen` for `ADD_BACKUP_SOURCE`.
 
-Only `GetStartedScreen` links to `BACKUP_SOURCES`. The list links to `ADD_BACKUP_SOURCE` only while under the configured limit. No accounts, master-account, or root screen link is added.
+Only `GetStartedScreen` links to `BACKUP_SOURCES`. The list links to `ADD_BACKUP_SOURCE` only while under the configured limit. No accounts, vault-key, or root screen link is added.
 
 ## 6. Expected file changes
 
@@ -414,7 +414,7 @@ Keep statements clear that domain support for custom Brave sources is not curren
 ## 11. Acceptance criteria
 
 1. A fresh, incomplete setup shows **Import SSH Key** as the primary action and **Manage backup sources** as an outlined secondary action.
-2. Selecting **Manage backup sources** opens **Backup sources** without requiring source review before master import.
+2. Selecting **Manage backup sources** opens **Backup sources** without requiring source review before Vault Key import.
 3. The screen lists the four built-ins first in fixed processing order with label, type, full endpoint, and built-in/managed text.
 4. Built-in rows have no edit, disable, remove, or reorder actions.
 5. A user can open a separate **Add Nostr relay** screen.

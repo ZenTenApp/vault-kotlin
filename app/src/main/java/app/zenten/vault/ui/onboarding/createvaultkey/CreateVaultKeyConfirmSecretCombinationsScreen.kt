@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -60,9 +60,9 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
 
 /** Step 7: sequentially verify every recovery-code segment before setup can continue. */
 @Composable
-fun CreateMasterKeyConfirmSecretCombinationsScreen(
+fun CreateVaultKeyConfirmSecretCombinationsScreen(
     navController: NavHostController,
-    viewModel: CreateMasterKeyViewModel = rememberCreateMasterKeyViewModel(navController),
+    viewModel: CreateVaultKeyViewModel = rememberCreateVaultKeyViewModel(navController),
     onCompleted: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
@@ -87,14 +87,14 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
             ConfirmCombinationsBackLink { navController.popBackStack() }
             Spacer(Modifier.height(28.dp))
             Text(
-                text = stringResource(R.string.create_master_key_confirm_secret_combinations_title),
+                text = stringResource(R.string.create_vault_key_confirm_secret_combinations_title),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(28.dp))
             Text(
-                text = stringResource(R.string.create_master_key_confirm_secret_combinations_body),
+                text = stringResource(R.string.create_vault_key_confirm_secret_combinations_body),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -106,7 +106,7 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
                 CircularProgressIndicator()
             } else if (expected == null || expected.size != 24) {
                 Text(
-                    text = stringResource(R.string.create_master_key_secret_combinations_unavailable),
+                    text = stringResource(R.string.create_vault_key_secret_combinations_unavailable),
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
                 )
@@ -122,8 +122,8 @@ fun CreateMasterKeyConfirmSecretCombinationsScreen(
                                 completed = true
                                 viewModel.recordSecretCombinationsVerified {
                                     onCompleted()
-                                    navController.navigate(VaultDestinations.CREATE_MASTER_KEY_CONGRATULATIONS) {
-                                        popUpTo(VaultDestinations.CREATE_MASTER_KEY_CONFIRM_SECRET_COMBINATIONS) {
+                                    navController.navigate(VaultDestinations.CREATE_VAULT_KEY_CONGRATULATIONS) {
+                                        popUpTo(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS) {
                                             inclusive = true
                                         }
                                     }
@@ -152,7 +152,7 @@ private fun ConfirmCombinationsBackLink(onClick: () -> Unit) {
             )
             Spacer(Modifier.width(4.dp))
             Text(
-                text = stringResource(R.string.create_master_key_back),
+                text = stringResource(R.string.create_vault_key_back),
                 color = LocalExtendedColors.current.link,
                 style = MaterialTheme.typography.titleLarge,
             )

@@ -115,7 +115,7 @@ class SshKeyCodecTest {
         }
 
         val createdAt = 1_700_000_000_123_456L
-        val passphrase = "master-passphrase".toCharArray()
+        val passphrase = "vaultKey-passphrase".toCharArray()
         val generated = SshKeyCodec.generateEncrypted(createdAt, passphrase)
         val parsed = SshKeyCodec.parse(generated.privateKeyPem, passphrase)
 

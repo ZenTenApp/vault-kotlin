@@ -4,9 +4,9 @@
 
 ## Protected assets
 
-- User-provided master account private key and its passphrase.
-- Derived recovery material and master-account Nostr identity.
-- Generated associated-account SSH private keys, encrypted in their OpenSSH containers with the master account passphrase.
+- User-provided Vault Key private key and its passphrase.
+- Derived recovery material and vault-key Nostr identity.
+- Generated associated-account SSH private keys, encrypted in their OpenSSH containers with the Vault Key passphrase.
 - Brave Sync recovery/access material.
 - Remote backup payloads and local backup-status metadata.
 
@@ -28,13 +28,13 @@
 - Private-key disclosure requires user confirmation and its dialog sets the secure-window flag.
 - Local private-key export keeps the secure-window flag, prioritizes installed supported note apps without excluding other compatible Sharesheet targets, and requires the user's explicit confirmation after export. That confirmation is an attestation, not verification that the receiving app retained the key.
 - OpenSSH parsing, Nostr derivation/encryption, and remote record codecs have automated tests; crypto test vectors are in `app/src/test/resources/golden/`.
-- Generated associated-account OpenSSH keys use `aes256-ctr` with `bcrypt_pbkdf` and the retained master-account passphrase; Nostr backups add NIP-44 encryption around that encrypted key payload.
+- Generated associated-account OpenSSH keys use `aes256-ctr` with `bcrypt_pbkdf` and the retained vault-key passphrase; Nostr backups add NIP-44 encryption around that encrypted key payload.
 - Local secure storage, source adapters, consolidation, and background scheduling have distinct implementation areas.
-- NIP-42 relay challenges are signed transiently with the operation's Nostr identity and are not persisted. The initial **Create MasterKey** relay backup uses the identity derived from the recoverable 24-word `brave` sub-account mnemonic; general backup and consolidation use the stored original-seed master identity.
+- NIP-42 relay challenges are signed transiently with the operation's Nostr identity and are not persisted. The initial **Create VaultKey** relay backup uses the identity derived from the recoverable 24-word `brave` sub-account mnemonic; general backup and consolidation use the stored original-seed Vault Key identity.
 - `RemoteOperationPrecondition` blocks both activity navigation and WorkManager consolidation before timestamped remote authentication unless Android reports a system-validated internet connection and the clock is within two minutes of a HTTPS response's server time. It uses the first HTTP `Date` header returned by Google or Cloudflare and compensates for half the observed request round-trip time. Background work retries without producing Nostr or Brave timestamped authentication when connectivity is not validated or skew is known bad. If neither source responds, the app allows access/work because it cannot establish that the device clock is wrong. The block screen identifies each proven unmet prerequisite without exposing vault data. TLS protects the response in transit, but this is not independent proof that either endpoint's clock or the network is trustworthy.
 - Backup status, pending writes, and checkpoints persist only canonical account/source IDs, coarse state/error categories, counters, and timestamps—not keys, passphrases, payloads, sync codes, auth tokens, or challenges.
 - Presence comparisons are identifier-only. A remote private-key payload is decrypted only when its associated account is absent locally and restoration is required.
-- The KeyHive provider exposes only associated-account `createdAt` and `zentenKey` fields as `json_v1` through a signature-protected ContentProvider. The signature permission is the IPC confidentiality boundary; certificate-derived application encryption is not used because the certificate is public. Master material, passphrases, mnemonics, SSH public keys, and Nostr identities are not exposed.
+- The KeyHive provider exposes only associated-account `createdAt` and `zentenKey` fields as `json_v1` through a signature-protected ContentProvider. The signature permission is the IPC confidentiality boundary; certificate-derived application encryption is not used because the certificate is public. Vault Key material, passphrases, mnemonics, SSH public keys, and Nostr identities are not exposed.
 
 ## Required production review topics
 
@@ -48,9 +48,9 @@
 
 ## Non-promises
 
-- A device-level PIN, biometric unlock, or operating-system protection does not replace the master account private key and passphrase for recovery.
-- Remote backup does not guarantee availability. Master setup requires one eligible Nostr and one eligible Brave source, not successful writes to every source. The current app has no account-deletion or vault-reset action.
-- The application cannot recover master account material that the user has lost.
+- A device-level PIN, biometric unlock, or operating-system protection does not replace the Vault Key private key and passphrase for recovery.
+- Remote backup does not guarantee availability. Vault Key setup requires one eligible Nostr and one eligible Brave source, not successful writes to every source. The current app has no account-deletion or vault-reset action.
+- The application cannot recover Vault Key material that the user has lost.
 - Every application signed with Vault's trusted release certificate can read each shared associated SSH private key. A compromised trusted sibling app or device is outside this protection boundary.
 
 ## Change control

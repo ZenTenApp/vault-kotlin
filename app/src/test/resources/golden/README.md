@@ -53,7 +53,7 @@ The **official NIP-44 v2 test vectors** (source:
 `encrypt_decrypt_long_msg`. Use these for full ChaCha20-Poly1305 + HKDF parity.
 
 The `nip44` block inside `crypto-vectors.json` is a small self-encryption
-smoke vector (sender == recipient == master). Its `sampleCiphertext` uses a
+smoke vector (sender == recipient == Vault Key). Its `sampleCiphertext` uses a
 **random nonce**, so assert `decrypt(ciphertext) == plaintext` and reproduce
 `conversationKey` exactly — do not assert the ciphertext bytes.
 

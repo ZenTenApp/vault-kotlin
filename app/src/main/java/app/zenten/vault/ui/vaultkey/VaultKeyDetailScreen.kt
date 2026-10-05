@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.master
+package app.zenten.vault.ui.vaultKey
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
@@ -32,17 +32,17 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class MasterAccountDetailViewModel @Inject constructor(
+class VaultKeyDetailViewModel @Inject constructor(
     sourceRepository: BackupSourceRepository,
     appStorage: AppStorageService,
     private val setupService: SetupService,
     private val scheduler: BackupWorkScheduler,
 ) : ViewModel() {
     val state = combine(sourceRepository.sources, appStorage.accountSourceStatuses, appStorage.setupComplete) { sources, statuses, complete ->
-        MasterAccountDetailState(
+        VaultKeyDetailState(
             setupComplete = complete,
             sources = sources.filter { it.enabled }.map { source ->
-                val status = statuses.firstOrNull { it.accountId == BackupAccountId.MASTER_VALUE && it.sourceId == source.id }
+                val status = statuses.firstOrNull { it.accountId == BackupAccountId.VAULT_KEY_VALUE && it.sourceId == source.id }
                 BackupSourceRow(
                     source.id, source.label, source.endpoint, source.type,
                     status?.state ?: AccountSourceBackupState.UNKNOWN,
@@ -52,25 +52,25 @@ class MasterAccountDetailViewModel @Inject constructor(
                 )
             },
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MasterAccountDetailState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VaultKeyDetailState())
 
-    fun retryMaster() { viewModelScope.launch { setupService.retryMasterBackup() } }
+    fun retryVaultKey() { viewModelScope.launch { setupService.retryVaultKeyBackup() } }
     fun consolidate() { scheduler.scheduleConsolidation() }
 }
 
-data class MasterAccountDetailState(
+data class VaultKeyDetailState(
     val setupComplete: Boolean = false,
     val sources: List<BackupSourceRow> = emptyList(),
 )
 
 @Composable
-fun MasterAccountDetailScreen(viewModel: MasterAccountDetailViewModel = hiltViewModel()) {
+fun VaultKeyDetailScreen(viewModel: VaultKeyDetailViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Master Account", style = MaterialTheme.typography.headlineMedium)
+        Text("VaultKey Account", style = MaterialTheme.typography.headlineMedium)
         Text("Backup Status", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
         state.sources.forEach { SourceStatusRow(it) }
         if (state.setupComplete) {
@@ -78,8 +78,8 @@ fun MasterAccountDetailScreen(viewModel: MasterAccountDetailViewModel = hiltView
                 Text("Consolidate backups")
             }
         } else {
-            Button(onClick = viewModel::retryMaster, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                Text("Retry master setup")
+            Button(onClick = viewModel::retryVaultKey, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                Text("Retry vaultKey setup")
             }
         }
     }

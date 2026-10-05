@@ -2,7 +2,7 @@
 
 ## What backup means
 
-ZenTen Vault stores protected copies of the master and generated associated accounts at five independent default sources: two Nostr relays and three Brave Sync-compatible servers. A newly generated associated account is always saved on the device first, so it remains visible and usable even if every remote write fails.
+ZenTen Vault stores protected copies of the Vault Key and generated associated accounts at five independent default sources: two Nostr relays and three Brave Sync-compatible servers. A newly generated associated account is always saved on the device first, so it remains visible and usable even if every remote write fails.
 
 Remote work is sequential rather than simultaneous. One unavailable service does not stop the app from trying later sources.
 
@@ -10,29 +10,29 @@ Remote work is sequential rather than simultaneous. One unavailable service does
 
 Recovery requires both:
 
-1. the master account private key used during setup; and
+1. the Vault Key private key used during setup; and
 2. its passphrase.
 
 The app cannot replace these with email, a device PIN, biometrics, or customer support. Losing either means this recovery method cannot recreate the vault.
 
 ## Setup protection level
 
-The app attempts all five sources. Initial setup completes when the master is confirmed on at least:
+The app attempts all five sources. Initial setup completes when the Vault Key is confirmed on at least:
 
 - one eligible Nostr relay; and
 - one eligible Brave Sync server.
 
-If that minimum is unavailable, the app keeps the validated master securely on the device and offers retry without making the user paste it again. It does not falsely mark setup complete.
+If that minimum is unavailable, the app keeps the validated Vault Key securely on the device and offers retry without making the user paste it again. It does not falsely mark setup complete.
 
 ## Recovery expectation
 
-On a new device, the user imports the same master key and passphrase. The app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
+On a new device, the user imports the same vault key and passphrase. The app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
 
 Recovery availability depends on network and service availability and whether at least one valid copy was previously created. It is not an unconditional guarantee.
 
 ## Understanding source status
 
-Status appears per source in associated-account details and on a dedicated Master Account screen. There is no global Backup Status screen.
+Status appears per source in associated-account details and on a dedicated Vault Key screen. There is no global Backup Status screen.
 
 | Status | Meaning | Suggested action |
 | --- | --- | --- |
@@ -53,4 +53,4 @@ Operational status records contain source/account identifiers, state, coarse err
 - Default sources cannot be removed or disabled.
 - The current app exposes no custom backup-source management UI. The underlying source configuration and processing capability is retained for future use.
 - The app does not currently provide account deletion or vault reset; remote deletion/retention is therefore not a user-facing flow.
-- Remote backup cannot recover lost master material.
+- Remote backup cannot recover lost Vault Key material.

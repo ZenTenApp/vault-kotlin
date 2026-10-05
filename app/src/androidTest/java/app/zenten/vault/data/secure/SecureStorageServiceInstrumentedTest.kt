@@ -21,16 +21,16 @@ class SecureStorageServiceInstrumentedTest {
 
     @Test
     fun encrypted_accounts_round_trip_across_service_recreation_and_registry_is_ordered() {
-        val master = account(1, passphrase = "secret", nostr = NostrKeyPair("pub", "priv"))
+        val vaultKey = account(1, passphrase = "secret", nostr = NostrKeyPair("pub", "priv"))
         val second = account(20)
         val first = account(10)
-        storage.addMasterAccount(master)
+        storage.addVaultKey(vaultKey)
         storage.addAccount(second)
         storage.addAccount(first)
         storage.addAccount(second) // idempotent registry insertion
 
         val reloaded = SecureStorageService(context)
-        assertEquals(master, reloaded.getMasterAccount())
+        assertEquals(vaultKey, reloaded.getVaultKey())
         assertEquals(listOf(20L, 10L), reloaded.getAccounts().map(Account::createdAt))
 
         reloaded.removeAccount(20)

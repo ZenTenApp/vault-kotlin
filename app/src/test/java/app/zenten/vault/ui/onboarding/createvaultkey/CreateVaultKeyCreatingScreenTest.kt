@@ -1,4 +1,4 @@
-package app.zenten.vault.ui.onboarding.createmasterkey
+package app.zenten.vault.ui.onboarding.createvaultkey
 
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.BackupSourceType
@@ -7,16 +7,16 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class CreateMasterKeyCreatingScreenTest {
+class CreateVaultKeyCreatingScreenTest {
     @Test
     fun `each derivation stage resolves only earlier operations`() {
-        val nostrLines = linesFor(MasterKeyCreationStage.DERIVING_NOSTR_KEY_PAIR)
-        val syncLines = linesFor(MasterKeyCreationStage.DERIVING_SYNC_CODE)
+        val nostrLines = linesFor(VaultKeyCreationStage.DERIVING_NOSTR_KEY_PAIR)
+        val syncLines = linesFor(VaultKeyCreationStage.DERIVING_SYNC_CODE)
 
-        assertEquals(listOf("master", "nostr"), nostrLines.map { it.text })
+        assertEquals(listOf("vaultKey", "nostr"), nostrLines.map { it.text })
         assertFalse(nostrLines.first().active)
         assertTrue(nostrLines.last().active)
-        assertEquals(listOf("master", "nostr", "sync code"), syncLines.map { it.text })
+        assertEquals(listOf("vaultKey", "nostr", "sync code"), syncLines.map { it.text })
         assertTrue(syncLines.last().active)
         assertTrue(syncLines.dropLast(1).none { it.active })
     }
@@ -24,10 +24,10 @@ class CreateMasterKeyCreatingScreenTest {
     @Test
     fun `backup transcript follows configured source order and type numbering`() {
         val progress = progress(activeSourceIndex = 2, completedSources = 2)
-        val lines = linesFor(MasterKeyCreationStage.SYNCING_BACKUPS, progress)
+        val lines = linesFor(VaultKeyCreationStage.SYNCING_BACKUPS, progress)
 
         assertEquals(
-            listOf("master", "nostr", "sync code", "relay 1", "relay 2", "sync server 1"),
+            listOf("vaultKey", "nostr", "sync code", "relay 1", "relay 2", "sync server 1"),
             lines.map { it.text },
         )
         assertTrue(lines.last().active)
@@ -37,11 +37,11 @@ class CreateMasterKeyCreatingScreenTest {
     @Test
     fun `complete stage resolves every backup line`() {
         val progress = progress(activeSourceIndex = 4, completedSources = 5)
-        val lines = linesFor(MasterKeyCreationStage.COMPLETE, progress)
+        val lines = linesFor(VaultKeyCreationStage.COMPLETE, progress)
 
         assertEquals(
             listOf(
-                "master",
+                "vaultKey",
                 "nostr",
                 "sync code",
                 "relay 1",
@@ -56,12 +56,12 @@ class CreateMasterKeyCreatingScreenTest {
     }
 
     private fun linesFor(
-        stage: MasterKeyCreationStage,
-        progress: AccountConsolidationEngine.MasterBackupProgress? = null,
-    ) = masterKeyCreationTerminalLines(
+        stage: VaultKeyCreationStage,
+        progress: AccountConsolidationEngine.VaultKeyBackupProgress? = null,
+    ) = vaultKeyCreationTerminalLines(
         stage = stage,
         progress = progress,
-        creatingText = "master",
+        creatingText = "vaultKey",
         nostrText = "nostr",
         syncCodeText = "sync code",
         relayTexts = listOf("relay 1", "relay 2"),
@@ -69,13 +69,13 @@ class CreateMasterKeyCreatingScreenTest {
     )
 
     private fun progress(activeSourceIndex: Int, completedSources: Int) =
-        AccountConsolidationEngine.MasterBackupProgress(
+        AccountConsolidationEngine.VaultKeyBackupProgress(
             sources = listOf(
-                AccountConsolidationEngine.MasterBackupSource("appdata1", BackupSourceType.NOSTR_RELAY),
-                AccountConsolidationEngine.MasterBackupSource("appdata2", BackupSourceType.NOSTR_RELAY),
-                AccountConsolidationEngine.MasterBackupSource("litesync1", BackupSourceType.BRAVE_SYNC),
-                AccountConsolidationEngine.MasterBackupSource("litesync2", BackupSourceType.BRAVE_SYNC),
-                AccountConsolidationEngine.MasterBackupSource("brave sync", BackupSourceType.BRAVE_SYNC),
+                AccountConsolidationEngine.VaultKeyBackupSource("appdata1", BackupSourceType.NOSTR_RELAY),
+                AccountConsolidationEngine.VaultKeyBackupSource("appdata2", BackupSourceType.NOSTR_RELAY),
+                AccountConsolidationEngine.VaultKeyBackupSource("litesync1", BackupSourceType.BRAVE_SYNC),
+                AccountConsolidationEngine.VaultKeyBackupSource("litesync2", BackupSourceType.BRAVE_SYNC),
+                AccountConsolidationEngine.VaultKeyBackupSource("brave sync", BackupSourceType.BRAVE_SYNC),
             ),
             activeSourceIndex = activeSourceIndex,
             completedSources = completedSources,

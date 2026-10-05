@@ -29,7 +29,7 @@ The Android version is configured in `app/build.gradle.kts`:
 
 ## Test coverage areas
 
-The current test suite includes SSH key-codec behavior, deterministic crypto parity/golden vectors, Nostr event encoding, Brave Sync encoding/crypto components, source/status persistence, fixed-source policy, master quorum, sequential two-phase consolidation, local-first account behavior, Create MasterKey passphrase verification and key generation, and navigation destinations. Real default-relay/server verification is an integration concern and should remain opt-in rather than making host unit tests depend on external services.
+The current test suite includes SSH key-codec behavior, deterministic crypto parity/golden vectors, Nostr event encoding, Brave Sync encoding/crypto components, source/status persistence, fixed-source policy, Vault Key quorum, sequential two-phase consolidation, local-first account behavior, Create VaultKey passphrase verification and key generation, and navigation destinations. Real default-relay/server verification is an integration concern and should remain opt-in rather than making host unit tests depend on external services.
 
 Host-side tests run on JDK 21 because the Quartz dependency ships JVM 21 bytecode. The Android app itself compiles with Java/Kotlin target 17; Gradle is configured to provision the host-test toolchain when necessary.
 

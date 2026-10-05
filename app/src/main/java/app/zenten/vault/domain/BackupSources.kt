@@ -94,15 +94,15 @@ object DefaultBackupSources {
 
 @Serializable
 data class BackupAccountId(val value: String) {
-    val isMaster: Boolean get() = value == MASTER_VALUE
-    val createdAt: Long? get() = value.takeUnless { isMaster }?.toLongOrNull()
+    val isVaultKey: Boolean get() = value == VAULT_KEY_VALUE
+    val createdAt: Long? get() = value.takeUnless { isVaultKey }?.toLongOrNull()
 
     companion object {
-        const val MASTER_VALUE = "masterkey"
-        val Master = BackupAccountId(MASTER_VALUE)
+        const val VAULT_KEY_VALUE = "vaultkey"
+        val VaultKey = BackupAccountId(VAULT_KEY_VALUE)
         fun associated(createdAt: Long) = BackupAccountId(createdAt.toString())
         fun parse(value: String): BackupAccountId? = when {
-            value == MASTER_VALUE -> Master
+            value == VAULT_KEY_VALUE -> VaultKey
             value.isNotEmpty() && value.all(Char::isDigit) && value.toLongOrNull() != null -> BackupAccountId(value)
             else -> null
         }
@@ -122,16 +122,16 @@ data class SourceIndex(
 
 interface AccountBackupSource {
     val config: BackupSourceConfig
-    suspend fun index(master: Account): Result<SourceIndex>
-    suspend fun restoreCandidate(master: Account, candidate: RemoteAccountCandidate): Result<Account>
-    suspend fun write(master: Account, accountId: BackupAccountId, account: Account): Result<Unit>
+    suspend fun index(vaultKey: Account): Result<SourceIndex>
+    suspend fun restoreCandidate(vaultKey: Account, candidate: RemoteAccountCandidate): Result<Account>
+    suspend fun write(vaultKey: Account, accountId: BackupAccountId, account: Account): Result<Unit>
 }
 
 interface BackupSourceRunContext
 
 interface BackupSourceFactory {
     /** Derives run-scoped credentials once; implementations must not persist this context. */
-    fun createRunContext(master: Account): BackupSourceRunContext? = null
+    fun createRunContext(vaultKey: Account): BackupSourceRunContext? = null
     fun create(config: BackupSourceConfig, context: BackupSourceRunContext? = null): AccountBackupSource
 }
 
