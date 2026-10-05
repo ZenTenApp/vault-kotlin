@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -138,6 +140,8 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("VaultKey Passphase") },
                     visualTransformation = PasswordVisualTransformation(),
+                    // Password input semantics stop IMEs from autocorrecting punctuation in the secret.
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     enabled = !state.inProgress,
                 )
             }
