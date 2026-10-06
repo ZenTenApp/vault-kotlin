@@ -50,13 +50,13 @@ flowchart LR
 **User goal:** Review an associated account's identity and backup coverage.
 
 1. The user opens an account from **Accounts**.
-2. The app shows the account ID, creation time, NIP-19 `npub` identity, SSH public-key fingerprint, and the bcrypt KDF round count stored in the encrypted SSH key. The user can copy either public identifier by tapping its text element, which includes an inline copy icon.
+2. The app shows the account ID, creation time, NIP-19 `npub` identity, SSH public-key line, SSH public-key fingerprint, and the bcrypt KDF round count stored in the encrypted SSH key. The user can copy any public identifier by tapping its text element, which includes an inline copy icon.
 3. The app lists each configured backup destination and its current status.
 4. The user can select **Consolidate backup** to reconcile that account.
 
-**Success:** The user can review account identity, its public SSH fingerprint, and backup coverage without SSH public-key or private-key material appearing on screen.
+**Success:** The user can review account identity, its public SSH key and fingerprint, and backup coverage without private-key material appearing on screen.
 
-**Safety expectation:** Account detail must not expose or copy SSH public-key lines or private keys. Its copy actions copy only the displayed public NIP-19 `npub` or SHA-256 SSH fingerprint.
+**Safety expectation:** Account detail must not expose or copy SSH private keys. Its copy actions copy only the displayed public NIP-19 `npub`, SSH public-key line, or SHA-256 SSH fingerprint.
 
 ## 4. Check and consolidate backup status
 

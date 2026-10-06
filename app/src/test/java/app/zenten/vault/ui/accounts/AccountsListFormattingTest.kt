@@ -52,6 +52,25 @@ class AccountsListFormattingTest {
     }
 
     @Test
+    fun `stored encrypted SSH key is formatted as a public key line with npub comment`() {
+        val pem = requireNotNull(javaClass.getResourceAsStream("/golden/crypto-vectors.json"))
+            .bufferedReader()
+            .use { it.readText() }
+        val encodedKey = Regex("\\\"encryptedEd25519Pem\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
+            .find(pem)!!
+            .groupValues[1]
+            .replace("\\n", "\n")
+
+        assertEquals(
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMlBKiSzOJLCh5/M3g7uPNG/q8mnI5b0KcZeCRSNVqMc " +
+                "npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w",
+            formatSshPublicKey(encodedKey, "npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w"),
+        )
+        assertEquals("Unavailable", formatSshPublicKey(null, "npub"))
+        assertEquals("Unavailable", formatSshPublicKey("invalid", "npub"))
+    }
+
+    @Test
     fun `stored encrypted SSH key is formatted as KDF rounds for account details`() {
         val pem = requireNotNull(javaClass.getResourceAsStream("/golden/crypto-vectors.json"))
             .bufferedReader()
