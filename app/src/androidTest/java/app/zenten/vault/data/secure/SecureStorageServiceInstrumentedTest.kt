@@ -39,11 +39,10 @@ class SecureStorageServiceInstrumentedTest {
         assertTrue(reloaded.getAccounts().none { it.createdAt == 20L })
     }
 
-    private fun account(id: Long, passphrase: String? = null, nostr: NostrKeyPair = NostrKeyPair("00".repeat(32), "01".repeat(32))) = Account(
+    private fun account(id: Long, passphrase: String = "pass", nostr: NostrKeyPair = NostrKeyPair("00".repeat(32), "01".repeat(32))) = Account(
         createdAt = id,
         zenTenKey = "private-key-$id",
         zenTenPass = passphrase,
-        pubkey = "ssh-public-$id",
         nostr = nostr,
     )
 }

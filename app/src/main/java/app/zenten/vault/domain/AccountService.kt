@@ -28,7 +28,7 @@ class AccountService(
 
     fun verifyVaultKeyPassphrase(vaultKeyPassphrase: String): Result<Unit> = runCatching {
         val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
-        val storedPassphrase = requireNotNull(vaultKey.zenTenPass) { "VaultKey account passphrase is unavailable" }
+        val storedPassphrase = vaultKey.zenTenPass
         require(vaultKeyPassphrase.isNotBlank()) { "VaultKey account passphrase is required to create an associated account" }
         require(vaultKeyPassphrase == storedPassphrase) { "The passphrase does not match the vaultKey account" }
     }
@@ -55,7 +55,6 @@ class AccountService(
             createdAt = createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
             zenTenPass = vaultKeyPassphrase,
-            pubkey = generated.publicKey,
             nostr = NostrKeyDerivation.derive(
                 Seedify.fromSshKey(generated.privateKeyPem, vaultKeyPassphrase.toCharArray()),
             ).toPersistedKeyPair(),

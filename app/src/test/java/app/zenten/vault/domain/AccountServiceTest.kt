@@ -37,7 +37,6 @@ class AccountServiceTest {
         assertTrue(SshKeyCodec.parse(created.zenTenKey, "vaultKey-passphrase".toCharArray()).encrypted)
         assertEquals("vaultKey-passphrase", created.zenTenPass)
         assertEquals("Work account", created.accountName)
-        assertTrue(created.pubkey!!.endsWith(" ${created.createdAt}"))
         assertEquals(
             NostrKeyDerivation.derive(
                 app.zenten.vault.crypto.Seedify.fromSshKey(created.zenTenKey, "vaultKey-passphrase".toCharArray()),
@@ -65,7 +64,7 @@ class AccountServiceTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()
         every { storage.getVaultKey() } returns Account(1, "vaultKey", zenTenPass = "vaultKey-passphrase", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
-        every { storage.getAccounts() } returns List(99) { Account(it + 1L, "account", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))) }
+        every { storage.getAccounts() } returns List(99) { Account(it + 1L, "account", "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))) }
 
         val result = AccountService(storage, setup, appStorage()).createAssociatedAccount("vaultKey-passphrase", "Work account")
 

@@ -134,7 +134,6 @@ class CreateVaultKeyViewModel @Inject constructor(
                         // or line breaks; store generated Vault Keys in that same format.
                         zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
                         zenTenPass = passphrase,
-                        pubkey = key.publicKey,
                         nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
                     )
                     val createFlowRelayIdentity = NostrKeyDerivation.derive(
@@ -268,7 +267,7 @@ class CreateVaultKeyViewModel @Inject constructor(
             val indices = withContext(Dispatchers.Default) {
                 secureStorage.getVaultKey()?.let { vaultKey ->
                     runCatching {
-                        val passphrase = requireNotNull(vaultKey.zenTenPass) { "VaultKey passphrase is unavailable" }
+                        val passphrase = vaultKey.zenTenPass
                         val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
                         Seedify.toBraveSyncWordIndices(seed)
                     }.getOrNull()

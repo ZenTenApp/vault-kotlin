@@ -32,7 +32,7 @@ class DefaultBackupSourceFactory(
      * word for the whole run, so a run that spans midnight cannot use two different sync codes.
      */
     override fun createRunContext(vaultKey: Account): BackupSourceRunContext {
-        val passphrase = requireNotNull(vaultKey.zenTenPass) { "VaultKey account passphrase is unavailable" }
+        val passphrase = vaultKey.zenTenPass
         val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
         val braveMnemonic = Seedify.toBraveAccountMnemonic(seed)
         return BraveRunContext(
@@ -136,7 +136,7 @@ class NostrBackupSource(
         // The NIP-44 plaintext is the passphrase-encrypted OpenSSH key, so the Vault Key
         // passphrase is still required to make the restored account usable.
         val decrypted = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
-        val passphrase = requireNotNull(vaultKey.zenTenPass)
+        val passphrase = vaultKey.zenTenPass
         accountFromSshKey(createdAt, decrypted, passphrase)
     }
 
@@ -240,16 +240,15 @@ private class SourceIndexBuilder(private var invalidRecordCount: Int = 0) {
  * Rebuilds an [Account] from a restored OpenSSH private key.
  *
  * The key is normalized to the canonical single-line Base64 form that every source stores, then
- * parsed with the Vault Key passphrase to confirm it is a usable Ed25519 key before it is saved.
+ * reparsed with the Vault Key passphrase (via Seedify) to both derive the Nostr identity and
+ * confirm it is a usable Ed25519 key before it is saved.
  */
 internal fun accountFromSshKey(createdAt: Long, sshPrivateKey: String, passphrase: String): Account {
     val normalized = SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey)
-    val parsed = SshKeyCodec.parse(normalized, passphrase.toCharArray())
     return Account(
         createdAt = createdAt,
         zenTenKey = normalized,
         zenTenPass = passphrase,
-        pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
         // The account's own Nostr identity is derived from its key, not stored in the backup.
         nostr = NostrKeyDerivation.derive(Seedify.fromSshKey(normalized, passphrase.toCharArray()))
             .toPersistedKeyPair(),
