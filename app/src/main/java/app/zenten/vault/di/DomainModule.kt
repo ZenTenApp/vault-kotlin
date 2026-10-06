@@ -60,6 +60,6 @@ object DomainModule {
     ) = SetupService(secureStorage, appStorage, engine, scheduler)
 
     @Provides @Singleton
-    fun accountService(secureStorage: SecureStorageService, setupService: SetupService) =
-        AccountService(secureStorage, setupService)
+    fun accountService(secureStorage: SecureStorageService, setupService: SetupService, appStorage: AppStorageService) =
+        AccountService(secureStorage, setupService, appStorage)
 }

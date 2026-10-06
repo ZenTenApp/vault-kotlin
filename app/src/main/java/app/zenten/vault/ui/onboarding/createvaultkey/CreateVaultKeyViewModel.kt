@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Clock
@@ -89,8 +90,8 @@ class CreateVaultKeyViewModel @Inject constructor(
      *
      * A mismatch is reported through [CreateVaultKeyState.mismatch] and nothing
      * is generated, so a typo in an unrecoverable secret cannot be baked into a
-     * key. Generation runs off the main thread because bcrypt_pbkdf with
-     * [SshKeyCodec.BCRYPT_PBKDF_ROUNDS] rounds is intentionally slow.
+     * key. Generation runs off the main thread because the configured bcrypt_pbkdf
+     * work factor can make key derivation intentionally slow.
      */
     fun verifyAndGenerate(reEnteredPassphrase: String) {
         if (_state.value.generating) return
@@ -111,12 +112,14 @@ class CreateVaultKeyViewModel @Inject constructor(
         )
         viewModelScope.launch {
             runCatching {
+                val rounds = appStorage.sshKdfRounds.first()
                 val key = withContext(Dispatchers.Default) {
                     SshKeyCodec.generateEncrypted(
                         // Microsecond-resolution id, matching the convention used
                         // for every other account created by the app.
                         createdAt = clock.millis() * 1_000L,
                         passphrase = passphrase.toCharArray(),
+                        rounds = rounds,
                     )
                 }
                 _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.DERIVING_NOSTR_KEY_PAIR)

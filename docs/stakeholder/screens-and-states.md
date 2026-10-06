@@ -14,7 +14,7 @@ The palette also includes light, medium-contrast, and high-contrast variants. Th
 | Get started | Introduce the vault and offer first-run entry paths | Login with VaultKey | New installation; unimplemented action tapped ("coming soon") |
 | Set up Vault Key | Import Vault Key private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | Accounts | List associated accounts and reach app settings | Create account; open account; open Settings | Loading, empty, recovering, populated |
-| Settings | Provide vault-management entry points | Open Vault Key | Ready |
+| Settings | Provide vault-management entry points and SSH key-generation controls | Open Vault Key; choose KDF rounds | Ready |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
 | Export account | Require a text export before account use | Choose an app to save key | In-app app picker open, no compatible apps, launch rejected |
 | Account detail | Inspect account identity and per-source backup state | Consolidate backup | Missing, source checking/writing/present/missing/failed/unknown |
@@ -96,6 +96,7 @@ flowchart TD
 
 - Settings uses a centered title and a Back action that returns to **Accounts**.
 - The current vault section contains one full-width **Vault Key** item with supporting text. It opens Vault Key source status and Vault Key consolidation controls.
+- **KDF rounds** is a dropdown for the bcrypt work factor used by newly generated Vault Keys and associated SSH accounts. It permits only `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`, defaults to `512`, and does not alter existing encrypted keys.
 
 ### Create associated account
 

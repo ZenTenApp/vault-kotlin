@@ -98,7 +98,7 @@ val seed = private.encoded
 val public = private.generatePublicKey().encoded
 ```
 
-It serializes the generated material into an OpenSSH-v1 container encrypted with the retained vault-key passphrase (`aes256-ctr` and `bcrypt_pbkdf`) using a work factor of 512 rounds. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding. The generated public-key line also uses `createdAt` as its comment. Parsing uses the round count stored in each container, so keys generated previously with a different work factor remain readable.
+It serializes the generated material into an OpenSSH-v1 container encrypted with the retained vault-key passphrase (`aes256-ctr` and `bcrypt_pbkdf`). The Settings screen stores a non-secret work factor selected from `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`; the default is 512. The selected value applies to newly generated Vault Keys and associated accounts only. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding. The generated public-key line also uses `createdAt` as its comment. Parsing uses the round count stored in each container, so existing keys remain readable regardless of the current setting.
 
 ### Important distinction
 

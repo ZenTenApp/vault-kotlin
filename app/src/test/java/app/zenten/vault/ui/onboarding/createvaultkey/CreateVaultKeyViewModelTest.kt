@@ -19,6 +19,7 @@ import app.zenten.vault.crypto.SshKeyCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -47,6 +48,7 @@ class CreateVaultKeyViewModelTest {
     ): CreateVaultKeyViewModel {
         val appStorage = mockk<AppStorageService>()
         every { secureStorage.addVaultKey(any()) } just runs
+        every { appStorage.sshKdfRounds } returns flowOf(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS)
         coJustRun { appStorage.clearSetupComplete() }
         coJustRun { appStorage.setCreateVaultKeyStep(any()) }
         coEvery { engine.backupVaultKey(any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(

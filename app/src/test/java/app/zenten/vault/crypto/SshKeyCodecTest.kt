@@ -143,10 +143,21 @@ class SshKeyCodecTest {
         assertTrue(parsed.encrypted)
         assertEquals(createdAt.toString(), parsed.comment)
         assertTrue(generated.publicKey.endsWith(" $createdAt"))
-        assertEquals(SshKeyCodec.BCRYPT_PBKDF_ROUNDS, SshKeyCodec.bcryptKdfRounds(generated.privateKeyPem))
+        assertEquals(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS, SshKeyCodec.bcryptKdfRounds(generated.privateKeyPem))
         assertArrayEquals(parsed.publicKey, SshKeyCodec.parse(generated.privateKeyPem, passphrase).publicKey)
         assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(generated.privateKeyPem, CharArray(0)) }
         assertThrows(IllegalArgumentException::class.java) { SshKeyCodec.parse(generated.privateKeyPem, "wrong".toCharArray()) }
+    }
+
+    @Test
+    fun generation_accepts_only_supported_kdf_rounds() {
+        val passphrase = "vaultKey-passphrase".toCharArray()
+        val generated = SshKeyCodec.generateEncrypted(123L, passphrase, rounds = 8)
+
+        assertEquals(8, SshKeyCodec.bcryptKdfRounds(generated.privateKeyPem))
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.generateEncrypted(124L, passphrase, rounds = 3)
+        }
     }
 
     @Test
