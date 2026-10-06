@@ -48,7 +48,7 @@ class BackupService(
     }
 
     private fun requireEncryptedAssociatedKey(account: Account) {
-        val passphrase = requireNotNull(account.zenTenPass) { "Associated-account passphrase is unavailable" }
+        val passphrase = account.zenTenPass
         require(passphrase.isNotBlank()) { "Associated-account passphrase is required" }
         require(app.zenten.vault.crypto.SshKeyCodec.parse(account.zenTenKey, passphrase.toCharArray()).encrypted) {
             "Associated-account SSH key must be passphrase-encrypted"

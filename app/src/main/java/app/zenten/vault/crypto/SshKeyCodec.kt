@@ -31,7 +31,6 @@ object SshKeyCodec {
 
     data class GeneratedKey(
         val privateKeyPem: String,
-        val publicKey: String,
         val createdAt: Long,
     )
 
@@ -78,17 +77,13 @@ object SshKeyCodec {
         return "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256").digest(wire))
     }
 
-    /** Calculates a fingerprint from a stored OpenSSH public-key line without decrypting private material. */
-    fun fingerprintFromPublicKeyLine(publicKeyLine: String): String {
-        val fields = publicKeyLine.trim().split(Regex("\\s+"), limit = 3)
-        require(fields.size >= 2 && fields[0] == Ed25519) { "Only ssh-ed25519 public keys are supported" }
-        val wire = try {
-            Base64.getDecoder().decode(fields[1])
-        } catch (e: IllegalArgumentException) {
-            throw IllegalArgumentException("Invalid OpenSSH public-key encoding", e)
-        }
-        return fingerprint(readPublicBlob(wire))
-    }
+    /** Extracts the Ed25519 public key from an encrypted OpenSSH-v1 key's unencrypted header. */
+    fun publicKeyFromEncryptedPrivateKey(input: String): ByteArray =
+        readEncryptedContainer(input).publicKey
+
+    /** Fingerprints an encrypted private key without requiring its passphrase. */
+    fun fingerprintFromEncryptedPrivateKey(input: String): String =
+        fingerprint(publicKeyFromEncryptedPrivateKey(input))
 
     /** Generates an OpenSSH-v1 Ed25519 key encrypted with aes256-ctr and bcrypt_pbkdf. */
     fun generateEncrypted(
@@ -118,7 +113,7 @@ object SshKeyCodec {
         )
         val container = magic + sshString(containerFields.cipherName) + sshString(containerFields.kdfName) + sshString(containerFields.kdfOptions) +
             uint(1) + sshString(publicBlob) + sshString(containerFields.privateSection)
-        return GeneratedKey(pemEncode(container), publicKeyLine(public, comment), createdAt)
+        return GeneratedKey(pemEncode(container), createdAt)
     }
 
     private data class OpenSshEncryption(

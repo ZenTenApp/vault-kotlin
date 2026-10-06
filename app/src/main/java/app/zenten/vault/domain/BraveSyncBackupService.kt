@@ -37,7 +37,7 @@ class BraveSyncBackupService(
         // The vaultkey record has no numeric ID, so it is rejected here: normal recovery
         // deliberately restores associated accounts only.
         val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
-        val passphrase = requireNotNull(vaultKey.zenTenPass)
+        val passphrase = vaultKey.zenTenPass
         accountFromSshKey(accountId, entry.password, passphrase)
     }.getOrNull()
 
@@ -46,9 +46,8 @@ class BraveSyncBackupService(
         runCatching {
             passwordService.list(syncCode(vaultKey)).passwords.any { entry ->
                 entry.username == VAULT_KEY_ID && entry.url == accountUrl(VAULT_KEY_ID) &&
-                    entry.notes.isEmpty() && vaultKey.zenTenPass?.let { passphrase ->
-                        runCatching { canonicalKey(entry.password, passphrase.toCharArray()) }.isSuccess
-                    } == true
+                    entry.notes.isEmpty() &&
+                    runCatching { canonicalKey(entry.password, vaultKey.zenTenPass.toCharArray()) }.isSuccess
             }
         }
     }
@@ -75,7 +74,7 @@ class BraveSyncBackupService(
             runCatching {
                 val syncCode = syncCode(vaultKey)
                 val url = accountUrl(accountId)
-                val passphrase = requireNotNull(account.zenTenPass) { "Account passphrase is unavailable" }
+                val passphrase = account.zenTenPass
                 val key = canonicalKey(account.zenTenKey, passphrase.toCharArray())
                 if (runSyncCode != null) {
                     // The engine invokes write only after this source's index proved the ID
@@ -99,7 +98,7 @@ class BraveSyncBackupService(
         // Consolidation supplies a run-scoped code so all endpoints reuse one SSH
         // decryption and one date-derived 25th word. Standalone callers still derive it.
         runSyncCode?.let { return it }
-        val passphrase = requireNotNull(vaultKey.zenTenPass) { "VaultKey account passphrase is unavailable" }
+        val passphrase = vaultKey.zenTenPass
         val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
         return Seedify.toBraveSyncCode(seed)
     }

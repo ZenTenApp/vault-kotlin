@@ -109,7 +109,7 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             )
             NostrIdentityCard(npub = formatNpub(account.nostr.pubkey))
             SshKeyCard(
-                fingerprint = formatSshFingerprint(account.pubkey),
+                fingerprint = formatSshFingerprint(account.zenTenKey),
                 kdfRounds = formatKdfRounds(account.zenTenKey),
             )
             Spacer(Modifier.height(8.dp))
@@ -280,8 +280,8 @@ private fun backupStatusStyle(state: AccountSourceBackupState): Pair<ImageVector
     AccountSourceBackupState.UNKNOWN -> Icons.AutoMirrored.Outlined.HelpOutline to MaterialTheme.colorScheme.onSurfaceVariant
 }
 
-internal fun formatSshFingerprint(publicKeyLine: String?): String =
-    publicKeyLine?.let { runCatching { SshKeyCodec.fingerprintFromPublicKeyLine(it) }.getOrNull() }
+internal fun formatSshFingerprint(privateKey: String?): String =
+    privateKey?.let { runCatching { SshKeyCodec.fingerprintFromEncryptedPrivateKey(it) }.getOrNull() }
         ?: "Unavailable"
 
 internal fun formatKdfRounds(privateKey: String?): String =

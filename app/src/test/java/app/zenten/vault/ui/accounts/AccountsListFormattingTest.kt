@@ -1,6 +1,5 @@
 package app.zenten.vault.ui.accounts
 
-import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -38,13 +37,16 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `stored SSH public key is formatted as a fingerprint for account details`() {
-        val publicKey = ByteArray(32) { it.toByte() }
+    fun `stored encrypted SSH key is formatted as a fingerprint for account details`() {
+        val pem = requireNotNull(javaClass.getResourceAsStream("/golden/crypto-vectors.json"))
+            .bufferedReader()
+            .use { it.readText() }
+        val encodedKey = Regex("\\\"encryptedEd25519Pem\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
+            .find(pem)!!
+            .groupValues[1]
+            .replace("\\n", "\n")
 
-        assertEquals(
-            SshKeyCodec.fingerprint(publicKey),
-            formatSshFingerprint(SshKeyCodec.publicKeyLine(publicKey, "account")),
-        )
+        assertEquals("SHA256:tX0ZrsNLIB/ZlRK3vy/HsWIIkyBNhYhCSGmtqtxJcWo", formatSshFingerprint(encodedKey))
         assertEquals("Unavailable", formatSshFingerprint(null))
         assertEquals("Unavailable", formatSshFingerprint("invalid"))
     }
@@ -87,8 +89,8 @@ class AccountsListFormattingTest {
     @Test
     fun `accounts created on different days in a month share a group`() {
         val accounts = listOf(
-            Account(createdAt = 1_700_444_800_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
-            Account(createdAt = 1_700_876_800_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_700_444_800_000_000L, zenTenKey = "older", zenTenPass = "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_700_876_800_000_000L, zenTenKey = "newer", zenTenPass = "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
         )
 
         val grouped = accountsByMonth(accounts)
@@ -103,8 +105,8 @@ class AccountsListFormattingTest {
     @Test
     fun `newest account is listed first`() {
         val accounts = listOf(
-            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
-            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older", zenTenPass = "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer", zenTenPass = "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
         )
 
         assertEquals(
@@ -116,6 +118,7 @@ class AccountsListFormattingTest {
     private fun account(accountName: String?) = Account(
         createdAt = 1L,
         zenTenKey = "key",
+        zenTenPass = "pass",
         nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         accountName = accountName,
     )

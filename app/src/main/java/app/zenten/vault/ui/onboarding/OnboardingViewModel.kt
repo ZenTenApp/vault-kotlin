@@ -40,7 +40,6 @@ class OnboardingViewModel @Inject constructor(
                     createdAt = createdAt,
                     zenTenKey = key,
                     zenTenPass = passphrase,
-                    pubkey = SshKeyCodec.publicKeyLine(parsed.publicKey, parsed.comment),
                     nostr = nostr.toPersistedKeyPair(),
                 )
                 _state.value = _state.value.copy(stage = "Backing up vaultKey account…")
