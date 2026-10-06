@@ -47,6 +47,7 @@ import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -107,7 +108,9 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                 displayName = state.profile?.displayName,
                 modifier = Modifier.fillMaxWidth(),
             )
-            NostrIdentityCard(npub = formatNpub(account.nostr.pubkey))
+            val npub = formatNpub(account.nostr.pubkey)
+            NostrIdentityCard(npub = npub)
+            SshPublicKeyCard(publicKey = formatSshPublicKey(account.zenTenKey, npub))
             SshKeyCard(
                 fingerprint = formatSshFingerprint(account.zenTenKey),
                 kdfRounds = formatKdfRounds(account.zenTenKey),
@@ -146,6 +149,28 @@ private fun NostrIdentityCard(npub: String) {
 }
 
 @Composable
+private fun SshPublicKeyCard(publicKey: String) {
+    VaultCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "SSH public key",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+            )
+            CopyableIdentityValue(
+                value = publicKey,
+                clipboardLabel = "SSH public key",
+                contentDescription = "Copy SSH public key",
+                breakAnywhere = true,
+            )
+        }
+    }
+}
+
+@Composable
 private fun SshKeyCard(fingerprint: String, kdfRounds: String) {
     VaultCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -176,6 +201,7 @@ private fun CopyableIdentityValue(
     value: String,
     clipboardLabel: String,
     contentDescription: String,
+    breakAnywhere: Boolean = false,
 ) {
     val clipboard = LocalClipboard.current
     val coroutineScope = rememberCoroutineScope()
@@ -189,7 +215,13 @@ private fun CopyableIdentityValue(
     val copyIconId = "copyIcon"
     Text(
         text = buildAnnotatedString {
-            append(value)
+            if (breakAnywhere) {
+                // Zero-width breaks after every character let the line breaker wrap at any
+                // character instead of only spaces/slashes, so lines fill evenly.
+                value.forEach { append(it.toString()); append('\u200B') }
+            } else {
+                append(value)
+            }
             append(" ")
             appendInlineContent(copyIconId, alternateText = "copy")
         },
@@ -200,7 +232,9 @@ private fun CopyableIdentityValue(
                 onClickLabel = contentDescription,
                 onClick = copyValue,
             ),
-        style = MaterialTheme.typography.bodyLarge,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            lineBreak = if (breakAnywhere) LineBreak.Simple else LineBreak.Unspecified,
+        ),
         inlineContent = mapOf(
             copyIconId to InlineTextContent(
                 placeholder = Placeholder(
@@ -279,6 +313,12 @@ private fun backupStatusStyle(state: AccountSourceBackupState): Pair<ImageVector
     -> Icons.Outlined.Sync to MaterialTheme.colorScheme.primary
     AccountSourceBackupState.UNKNOWN -> Icons.AutoMirrored.Outlined.HelpOutline to MaterialTheme.colorScheme.onSurfaceVariant
 }
+
+internal fun formatSshPublicKey(privateKey: String?, comment: String): String =
+    privateKey?.let {
+        runCatching { SshKeyCodec.publicKeyLine(SshKeyCodec.publicKeyFromEncryptedPrivateKey(it), comment) }
+            .getOrNull()
+    } ?: "Unavailable"
 
 internal fun formatSshFingerprint(privateKey: String?): String =
     privateKey?.let { runCatching { SshKeyCodec.fingerprintFromEncryptedPrivateKey(it) }.getOrNull() }
