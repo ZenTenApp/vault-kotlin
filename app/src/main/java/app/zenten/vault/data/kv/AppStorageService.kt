@@ -4,8 +4,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.domain.BackupSourceConfig
 import app.zenten.vault.domain.DefaultBackupSources
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +20,11 @@ import kotlinx.serialization.json.Json
 /** Non-secret app state. Sensitive accounts and encrypted remote payloads must never be placed here. */
 class AppStorageService(private val dataStore: DataStore<Preferences>, private val json: Json = Json) {
     val setupComplete: Flow<Boolean> = dataStore.data.map { it[SETUP_COMPLETE] ?: false }
+    val sshKdfRounds: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[SSH_KDF_ROUNDS]
+            ?.takeIf { it in SshKeyCodec.SUPPORTED_BCRYPT_PBKDF_ROUNDS }
+            ?: SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS
+    }
     val createVaultKeyStep: Flow<CreateVaultKeyStep?> = dataStore.data.map { preferences ->
         preferences[CREATE_VAULT_KEY_STEP]?.let { stored ->
             runCatching { CreateVaultKeyStep.valueOf(stored) }.getOrNull()
@@ -47,6 +54,11 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         it.remove(CREATE_VAULT_KEY_STEP)
     }
     suspend fun clearSetupComplete() = dataStore.edit { it.remove(SETUP_COMPLETE) }
+
+    suspend fun setSshKdfRounds(rounds: Int) {
+        require(rounds in SshKeyCodec.SUPPORTED_BCRYPT_PBKDF_ROUNDS) { "Unsupported bcrypt KDF round count: $rounds" }
+        dataStore.edit { it[SSH_KDF_ROUNDS] = rounds }
+    }
 
     /** Persists only wizard progress; generated key material remains in encrypted storage. */
     suspend fun setCreateVaultKeyStep(step: CreateVaultKeyStep) = dataStore.edit {
@@ -149,6 +161,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
 
     companion object {
         val SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
+        val SSH_KDF_ROUNDS = intPreferencesKey("ssh_kdf_rounds_v1")
         val CREATE_VAULT_KEY_STEP = stringPreferencesKey("create_vault_key_step_v1")
         val CUSTOM_BACKUP_SOURCES = stringPreferencesKey("custom_backup_sources_v2")
         val PENDING_SOURCE_WRITES = stringPreferencesKey("pending_source_writes_v2")

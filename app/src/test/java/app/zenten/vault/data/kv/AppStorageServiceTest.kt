@@ -26,6 +26,9 @@ class AppStorageServiceTest {
                 authentication = SourceAuthentication.NIP42_OPTIONAL,
             )
             assertFalse(service.setupComplete.first())
+            assertEquals(512, service.sshKdfRounds.first())
+            service.setSshKdfRounds(64)
+            assertEquals(64, service.sshKdfRounds.first())
             service.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
             assertEquals(CreateVaultKeyStep.BACKUP_INTRO, service.createVaultKeyStep.first())
             service.setCreateVaultKeyStep(CreateVaultKeyStep.CONFIRM_BACKUP)

@@ -4,18 +4,21 @@ import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.crypto.toPersistedKeyPair
+import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /** User-facing associated account lifecycle. The vaultKey remains an internal-only identity. */
 class AccountService(
     private val secureStorage: SecureStorageService,
     private val setupService: SetupService,
+    private val appStorage: AppStorageService,
 ) {
     private val lastCreatedAt = AtomicLong(0)
 
@@ -43,7 +46,11 @@ class AccountService(
             "You can create up to $MAX_ASSOCIATED_ACCOUNTS associated accounts"
         }
         val createdAt = nextCreatedAt()
-        val generated = SshKeyCodec.generateEncrypted(createdAt, vaultKeyPassphrase.toCharArray())
+        val generated = SshKeyCodec.generateEncrypted(
+            createdAt,
+            vaultKeyPassphrase.toCharArray(),
+            rounds = appStorage.sshKdfRounds.first(),
+        )
         val account = Account(
             createdAt = createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),

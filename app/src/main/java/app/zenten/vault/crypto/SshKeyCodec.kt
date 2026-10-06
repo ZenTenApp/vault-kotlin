@@ -18,8 +18,9 @@ object SshKeyCodec {
     private const val Aes256Ctr = "aes256-ctr"
     private const val Bcrypt = "bcrypt"
 
-    /** OpenSSH bcrypt_pbkdf work factor for generated private keys. */
-    const val BCRYPT_PBKDF_ROUNDS = 512
+    /** Allowed OpenSSH bcrypt_pbkdf work factors, intentionally limited to powers of two. */
+    val SUPPORTED_BCRYPT_PBKDF_ROUNDS: List<Int> = (0..13).map { 1 shl it }
+    const val DEFAULT_BCRYPT_PBKDF_ROUNDS = 512
 
     data class ParsedKey(
         val seed: ByteArray,
@@ -90,8 +91,14 @@ object SshKeyCodec {
     }
 
     /** Generates an OpenSSH-v1 Ed25519 key encrypted with aes256-ctr and bcrypt_pbkdf. */
-    fun generateEncrypted(createdAt: Long, passphrase: CharArray, random: SecureRandom = SecureRandom()): GeneratedKey {
+    fun generateEncrypted(
+        createdAt: Long,
+        passphrase: CharArray,
+        rounds: Int = DEFAULT_BCRYPT_PBKDF_ROUNDS,
+        random: SecureRandom = SecureRandom(),
+    ): GeneratedKey {
         require(passphrase.isNotEmpty()) { "A passphrase is required to encrypt an SSH key" }
+        require(rounds in SUPPORTED_BCRYPT_PBKDF_ROUNDS) { "Unsupported bcrypt KDF round count: $rounds" }
         val private = Ed25519PrivateKeyParameters(random)
         val seed = private.encoded
         val public = private.generatePublicKey().encoded
@@ -102,7 +109,6 @@ object SshKeyCodec {
             sshString(Ed25519.toByteArray(StandardCharsets.US_ASCII)) + sshString(public) + sshString(seed + public) +
             sshString(comment.toByteArray(StandardCharsets.UTF_8))
         val salt = ByteArray(16).also(random::nextBytes)
-        val rounds = BCRYPT_PBKDF_ROUNDS
         val options = sshString(salt) + uint(rounds)
         val containerFields = OpenSshEncryption(
             Aes256Ctr.toByteArray(),
