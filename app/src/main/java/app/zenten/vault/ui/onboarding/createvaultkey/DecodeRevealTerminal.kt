@@ -32,7 +32,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
 import kotlin.coroutines.coroutineContext
 
-private const val FrameIntervalNanos = 1_000_000_000L / 24
+// Use a round 20 fps target, approximately 25% slower than the original terminal churn.
+private const val FrameIntervalNanos = 1_000_000_000L / 20
 private const val NoiseGlyphs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]{}@#>~=*/%&"
 
 /** One truthful operation status rendered by [DecodeRevealTerminal]. */
