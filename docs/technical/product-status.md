@@ -4,6 +4,7 @@ This is a repository-oriented status view, not a production-readiness certificat
 
 | Area | Status | Repository evidence | Notes |
 | --- | --- | --- | --- |
+| Device authentication and foreground lock | Present in code | `ui/auth/`, `MainActivity.kt` | Strong biometric or device credential is mandatory; a memory-only 30-second background grace period applies, and the entire activity is screenshot protected. This is a UI gate rather than authentication-bound storage. |
 | Compose navigation and main screens | Present in code | `ui/`, `VaultNavGraph.kt` | Onboarding, pre-setup source list/add, account list/create/detail, and dedicated Vault Key details are implemented. |
 | Vault Key-account key intake | Present in code | `ui/onboarding/`, `domain/SetupService.kt` | Paste-oriented; retains validated Vault Key and supports retry when source quorum fails. |
 | In-app VaultKey generation wizard | Implemented | `ui/onboarding/createvaultkey/` | Consent, passphrase creation and verification, a non-dismissible creation screen with stage and per-source sync progress, generated-key persistence and remote backup attempts, local **Create Backup** export, pasted-key **Confirm Backup** verification, grouped BIP-39-index transcription, sequential re-entry verification, and setup completion are implemented. |

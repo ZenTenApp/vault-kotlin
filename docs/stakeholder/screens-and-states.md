@@ -10,6 +10,8 @@ The palette also includes light, medium-contrast, and high-contrast variants. Th
 
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
+| Vault locked | Require Android device authentication before any vault navigation | Unlock | Prompt active, cancelled, failed, or retry available |
+| Device lock required | Block use until a secure device lock is configured | Open security settings; check again | No accepted device credential configured |
 | App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Check again | No verified internet, device clock differs from HTTPS server time by over two minutes, or both |
 | Get started | Introduce the vault and offer first-run entry paths | Login with VaultKey | New installation; unimplemented action tapped ("coming soon") |
 | Set up Vault Key | Import Vault Key private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
@@ -22,6 +24,12 @@ The palette also includes light, medium-contrast, and high-contrast variants. Th
 
 The former global **Backup Status** screen and navigation destination have been removed. Backup information is attached to the account it describes.
 
+## Vault lock
+
+A cold start or process restart always requires Android's system authentication prompt. Strong biometrics and the device PIN, pattern, or password are accepted. Cancelling or failing leaves a stable locked screen with an **Unlock** action; navigation is never rendered behind it. An unlocked session has a 30-second background grace period, measured with monotonic elapsed time. Returning after that interval requires authentication again.
+
+If the device has no accepted secure lock, the app instead presents **Set up a device screen lock**, with actions to open Android security enrollment and check again. There is no skip path. The whole activity prevents screenshots, screen recording, and sensitive Recents previews where Android supports it.
+
 ## App unavailable
 
 The app does not expose vault navigation until it has a system-validated internet connection and its clock is within two minutes of HTTPS server time. A captive portal or a merely connected local network is not sufficient. The app makes `HEAD` requests to Google and Cloudflare in order, uses their HTTP `Date` response header, and offsets the server value by half the request round-trip time. The first usable response is compared with the device clock. If neither source can provide time, the app does not claim that the clock is wrong and allows navigation once internet is validated. The blocking screen lists every proven unmet prerequisite, explains that incorrect time can invalidate backup authentication, and provides a **Check again** action. It rechecks on launch, resume, network changes, and manually.
@@ -30,7 +38,13 @@ The app does not expose vault navigation until it has a system-validated interne
 
 ```mermaid
 flowchart TD
-    R[App launch] --> P{Verified internet and clock within 2 min of HTTPS server time?}
+    R[App launch] --> DL{Secure device lock configured?}
+    DL -- No --> LR[Device lock required]
+    LR --> DL
+    DL -- Yes --> AU{System authentication succeeds?}
+    AU -- No --> L[Vault locked]
+    L --> AU
+    AU -- Yes --> P{Verified internet and clock within 2 min of HTTPS server time?}
     P -- No --> U[App unavailable: show all errors/warnings]
     U --> P
     P -- Yes --> S{Setup complete?}

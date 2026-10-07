@@ -24,6 +24,8 @@
 
 ## Current safeguards visible in code
 
+- The interactive UI requires Android system authentication with a strong biometric or device PIN, pattern, or password. It always locks on cold/process start and relocks after 30 seconds in the background. Devices without an accepted secure lock are blocked until one is configured. Unlock state and monotonic grace timing are memory-only.
+- `MainActivity` applies `FLAG_SECURE` for its full lifetime, protecting screenshots, screen recording, and Recents previews where Android supports it.
 - Private-key/passphrase setup screen sets Android's secure-window flag.
 - Private-key disclosure requires user confirmation and its dialog sets the secure-window flag.
 - Local private-key export keeps the secure-window flag, prioritizes installed supported note apps without excluding other compatible Sharesheet targets, and requires the user's explicit confirmation after export. That confirmation is an attestation, not verification that the receiving app retained the key.
@@ -48,7 +50,7 @@
 
 ## Non-promises
 
-- A device-level PIN, biometric unlock, or operating-system protection does not replace the Vault Key private key and passphrase for recovery.
+- Device authentication is currently an interactive UI gate, not an authentication-required Keystore wrapper around stored vault data. It does not replace the Vault Key private key and passphrase for recovery, restrict background workers, or change signature-authorized KeyHive provider access.
 - Remote backup does not guarantee availability. Vault Key setup requires one eligible Nostr and one eligible Brave source, not successful writes to every source. The current app has no account-deletion or vault-reset action.
 - The application cannot recover Vault Key material that the user has lost.
 - Every application signed with Vault's trusted release certificate can read each shared associated SSH private key. A compromised trusted sibling app or device is outside this protection boundary.

@@ -26,7 +26,8 @@ app.zenten.vault
 
 ```mermaid
 flowchart TD
-    Guard[AppAccessGuard: validated network + HTTPS clock-skew check] --> UI[Compose UI]
+    Unlock[AppUnlockCoordinator: device-lock capability + system authentication] --> Guard[AppAccessGuard: validated network + HTTPS clock-skew check]
+    Guard --> UI[Compose UI]
     UI[Compose UI] --> VM[View models]
     VM --> Setup[SetupService / AccountService]
     Setup --> Engine[AccountConsolidationEngine]
@@ -60,6 +61,10 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 3. **Consolidation restore:** index every source and restore missing valid associated accounts from trusted sources.
 4. **Consolidation backup:** use retained phase-1 indexes to fill gaps, then perform one final read-back per successfully indexed source.
 5. **Status:** persist per-account/per-source state and coarse errors. UI observes this state in account and Vault Key details.
+
+## Device-authentication gate
+
+`MainActivity` applies `FLAG_SECURE` for its full lifetime and renders `AppUnlockCoordinator` as the outermost UI gate. The coordinator checks `BiometricManager` for `BIOMETRIC_STRONG | DEVICE_CREDENTIAL`, invokes AndroidX `BiometricPrompt`, and keeps successful unlock state only in memory. It records background time with `SystemClock.elapsedRealtime`; a return within 30 seconds retains the session, while the boundary or any later return relocks. Cold/process starts have no timestamp and therefore always authenticate. No configured lock fails closed into a setup screen that opens Android enrollment settings. This gate protects interactive UI only: background workers and the signature-protected KeyHive provider retain their existing contracts.
 
 ## App-entry safety gate
 

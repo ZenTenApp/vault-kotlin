@@ -1,7 +1,5 @@
 package app.zenten.vault.ui.onboarding.createvaultkey
 
-import android.app.Activity
-import android.view.WindowManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,13 +22,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -235,19 +231,6 @@ private fun HeroIcon(@DrawableRes resId: Int, contentDescription: String) {
     )
 }
 
-/**
- * Blocks screenshots and screen recording while the composable is active.
- *
- * Applied to every wizard step that holds passphrase input on screen, matching
- * the other secret-handling screens in the app. The flag is cleared on dispose
- * so unrelated screens keep normal behavior.
- */
+/** The activity protects every screen, so callers need no per-screen window mutation. */
 @Composable
-internal fun ScreenshotProtection() {
-    val view = LocalView.current
-    DisposableEffect(view) {
-        val window = (view.context as? Activity)?.window
-        window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-    }
-}
+internal fun ScreenshotProtection() = Unit

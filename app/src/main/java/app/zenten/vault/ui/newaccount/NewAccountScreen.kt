@@ -31,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -47,12 +46,6 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
     var accountName by remember { mutableStateOf("") }
     var passphraseVisible by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
-    val view = LocalView.current
-    androidx.compose.runtime.DisposableEffect(view) {
-        val window = (view.context as? android.app.Activity)?.window
-        window?.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) }
-    }
     LaunchedEffect(state.created) {
         state.created?.let { account ->
             navController.navigate(VaultDestinations.localAccountBackupExport(account.createdAt)) {

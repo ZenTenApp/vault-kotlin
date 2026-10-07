@@ -33,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -52,13 +51,6 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
-    val view = LocalView.current
-    // Prevent screenshots while the app holds a private key or passphrase.
-    androidx.compose.runtime.DisposableEffect(view) {
-        val window = (view.context as? android.app.Activity)?.window
-        window?.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) }
-    }
     LaunchedEffect(state.completed) {
         if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {
             popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }

@@ -6,7 +6,13 @@ These diagrams are a discussion aid for the currently implemented Android proof 
 
 ```mermaid
 flowchart TD
-    Launch["App launch"] --> Prerequisites{"Verified internet and device time within 2 min of HTTPS server time?"}
+    Launch["App launch"] --> DeviceLock{"Secure device lock configured?"}
+    DeviceLock -->|No| LockRequired["Block app: explain requirement and open Android security settings"]
+    LockRequired --> DeviceLock
+    DeviceLock -->|Yes| Authenticate["System prompt: strong biometric or device PIN / pattern / password"]
+    Authenticate -->|Cancelled / failed| Locked["Locked screen: retry or leave app"]
+    Locked --> Authenticate
+    Authenticate -->|Success| Prerequisites{"Verified internet and device time within 2 min of HTTPS server time?"}
     Prerequisites -->|No| Blocked["Unavailable screen: explain errors/warnings and offer a recheck"]
     Blocked --> Prerequisites
     Prerequisites -->|Yes| Root["Root checks persisted state"]
@@ -76,6 +82,8 @@ flowchart TD
     Detail -->|"Back"| Accounts
     Vault Key -->|"Back"| Settings
 ```
+
+The interactive app relocks on cold start, process restart, or after it has remained in the background for 30 seconds. Returning sooner keeps the in-memory session unlocked. Removing the device lock causes the next foreground check to show the mandatory setup warning. The whole activity blocks screenshots, screen recording, and sensitive Recents previews where Android supports it. This UI gate does not change trusted sibling-app access through the signature-protected KeyHive provider or background worker operation.
 
 After passphrase verification, the dedicated **Creating VaultKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. Vault Key backup and consolidation use the Nostr identity derived from the 24-word `brave` sub-account mnemonic for relay operations; Brave Sync uses those same 24 words plus its daily 25th word. General associated-account consolidation uses the Vault Key Nostr identity on relays and the Brave seed on Brave Sync. The two record classes remain separate, so account consolidation cannot create a duplicate Vault Key relay copy under the Vault Key identity. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-VaultKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, at **Save your Secret Combinations** after the pasted key matched, or at **Congratulations** after every combination was verified. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. The completion screen blocks Back, displays only a centered outlined check, then automatically marks setup complete after three seconds and replaces the wizard with the account list.
 
