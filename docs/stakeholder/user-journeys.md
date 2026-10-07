@@ -11,6 +11,18 @@ flowchart LR
     A --> F[Discover and automatically restore associated accounts]
 ```
 
+## 0. Enter the vault
+
+**User goal:** Open ZenTen Vault securely.
+
+1. The app verifies that the device has a secure PIN, pattern, password, or supported biometric lock.
+2. If no lock exists, the app blocks all use and links to Android security settings. It rechecks when the user returns.
+3. Otherwise Android asks for a strong biometric or the device PIN, pattern, or password.
+4. Successful authentication continues to the internet/time prerequisite check and then the appropriate vault screen. Cancellation or failure remains locked.
+5. The app requires authentication again after 30 seconds in the background. Cold starts and process restarts always require it.
+
+**Success:** No interactive vault content is available before device authentication.
+
 ## 1. First-time setup
 
 **User goal:** Start a vault using an existing Vault Key.

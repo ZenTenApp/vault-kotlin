@@ -29,7 +29,7 @@ The Android version is configured in `app/build.gradle.kts`:
 
 ## Test coverage areas
 
-The current test suite includes SSH key-codec behavior, deterministic crypto parity/golden vectors, Nostr event encoding, Brave Sync encoding/crypto components, source/status persistence, fixed-source policy, Vault Key quorum, sequential two-phase consolidation, local-first account behavior, Create VaultKey passphrase verification and key generation, and navigation destinations. Real default-relay/server verification is an integration concern and should remain opt-in rather than making host unit tests depend on external services.
+The current test suite includes device-lock capability and foreground grace-period policy, SSH key-codec behavior, deterministic crypto parity/golden vectors, Nostr event encoding, Brave Sync encoding/crypto components, source/status persistence, fixed-source policy, Vault Key quorum, sequential two-phase consolidation, local-first account behavior, Create VaultKey passphrase verification and key generation, and navigation destinations. Real default-relay/server verification is an integration concern and should remain opt-in rather than making host unit tests depend on external services.
 
 Host-side tests run on JDK 21 because the Quartz dependency ships JVM 21 bytecode. The Android app itself compiles with Java/Kotlin target 17; Gradle is configured to provision the host-test toolchain when necessary.
 
@@ -39,5 +39,5 @@ At minimum:
 
 1. Run `./gradlew :app:testDebugUnitTest`.
 2. Run `./gradlew :app:assembleDebug` if Android/UI/build configuration changed.
-3. Exercise affected sensitive screens manually on a device/emulator where feasible.
+3. Exercise affected sensitive screens manually on a device/emulator where feasible. Device-authentication changes should cover PIN-only, strong biometric plus credential, no-lock enrollment, cancellation, and background-grace behavior.
 4. Confirm no secrets, generated APKs, or local configuration files are included in the change.
