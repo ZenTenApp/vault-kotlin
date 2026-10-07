@@ -90,7 +90,10 @@ fun LocalAccountBackupExportScreen(
                 onTargetSelected = { target ->
                     try {
                         context.startActivity(
-                            LocalAccountBackupShare.targetedSendIntent(exportAccount.zenTenKey, target),
+                            LocalAccountBackupShare.targetedSendIntent(
+                                LocalAccountBackupShare.accountExportText(exportAccount),
+                                target,
+                            ),
                         )
                         targets = null
                         viewModel.recordExportStarted()

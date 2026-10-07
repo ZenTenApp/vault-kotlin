@@ -4,6 +4,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import app.zenten.vault.crypto.SshKeyCodec
+import app.zenten.vault.data.model.Account
 
 object LocalAccountBackupShare {
     private const val MIME_TYPE = "text/plain"
@@ -33,8 +35,24 @@ object LocalAccountBackupShare {
                 },
         )
 
-    fun targetedSendIntent(key: String, target: ShareTarget): Intent = sendIntent(key)
+    fun targetedSendIntent(text: String, target: ShareTarget): Intent = sendIntent(text)
         .setComponent(ComponentName(target.packageName, target.activityName))
+
+    /** Builds the self-describing text saved during mandatory associated-account export. */
+    internal fun accountExportText(account: Account): String {
+        val key = SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey)
+        val npub = formatNpub(account.nostr.pubkey)
+        val displayName = account.accountName?.trim().takeUnless { it.isNullOrEmpty() } ?: formatShortNpub(account.nostr.pubkey)
+        return listOf(
+            "-----BEGIN OPENSSH PRIVATE KEY-----",
+            key,
+            "-----END OPENSSH PRIVATE KEY-----",
+            npub,
+            account.createdAt.toString(),
+            displayName,
+            formatAccountCreatedAt(account.createdAt),
+        ).joinToString("\n")
+    }
 
     internal fun <T : Target> orderedTargets(availableTargets: List<T>): List<T> =
         availableTargets
