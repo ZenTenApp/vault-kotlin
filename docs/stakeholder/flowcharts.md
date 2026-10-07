@@ -18,6 +18,15 @@ flowchart TD
     GeneratedProgress -->|Secret Combinations pending| CreateSecrets
     GeneratedProgress -->|Congratulations pending| Congratulations
     Welcome -->|"Login with VaultKey"| VaultKeySetup["Set up Vault Key"]
+    Welcome -->|"Recover VaultKey"| RecoverSecrets["Enter 8 saved Secret Combinations"]
+    RecoverSecrets --> RecoverValid{"24 values in range with valid BIP-39 checksum?"}
+    RecoverValid -->|No| RecoverSecrets
+    RecoverValid -->|Yes| RecoverPassphrase["Enter VaultKey passphrase"]
+    RecoverPassphrase --> RecoverBrave["Query enabled Brave Sync sources for vaultkey entity"]
+    RecoverBrave -->|Missing / network / invalid passphrase| RecoverError["Show safe error and allow retry"]
+    RecoverError --> RecoverPassphrase
+    RecoverBrave -->|Recovered and decrypted| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
+    RecoverStore --> Accounts
     Welcome -->|"Create VaultKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
     CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["Create Passphrase: unmet rules disappear after 2-second success feedback"]

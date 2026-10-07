@@ -50,7 +50,8 @@ object Seedify {
         return sha256(associatedAccountHash + seed)
     }
 
-    private fun braveSync25thWord(now: Instant): String {
+    /** Date-derived final word shared by recovery, which already has the first 24 words. */
+    fun braveSync25thWord(now: Instant = Instant.now()): String {
         val elapsedMillis = now.toEpochMilli() - braveSyncEpoch.toEpochMilli()
         val dayIndex = Math.round(elapsedMillis.toDouble() / MILLIS_PER_DAY).toInt()
         require(dayIndex >= 0) { "Date is before the Brave Sync epoch" }

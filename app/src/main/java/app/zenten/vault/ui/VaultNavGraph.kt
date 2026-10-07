@@ -24,6 +24,8 @@ import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyIntroScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyPassphraseScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeySecretCombinationsScreen
 import app.zenten.vault.ui.root.RootScreen
+import app.zenten.vault.ui.onboarding.recovervaultkey.RecoverVaultKeyCombinationsScreen
+import app.zenten.vault.ui.onboarding.recovervaultkey.RecoverVaultKeyPassphraseScreen
 import app.zenten.vault.ui.settings.SettingsScreen
 import androidx.compose.runtime.Composable
 
@@ -47,6 +49,18 @@ fun VaultNavGraph(
 
         composable(VaultDestinations.GET_STARTED_SSH) {
             SshSetupScreen(navController)
+        }
+
+        navigation(
+            route = VaultDestinations.RECOVER_VAULT_KEY_GRAPH,
+            startDestination = VaultDestinations.RECOVER_VAULT_KEY_COMBINATIONS,
+        ) {
+            composable(VaultDestinations.RECOVER_VAULT_KEY_COMBINATIONS) {
+                RecoverVaultKeyCombinationsScreen(navController)
+            }
+            composable(VaultDestinations.RECOVER_VAULT_KEY_PASSPHRASE) {
+                RecoverVaultKeyPassphraseScreen(navController)
+            }
         }
 
         // Nested graph so all wizard steps can share one graph-scoped ViewModel

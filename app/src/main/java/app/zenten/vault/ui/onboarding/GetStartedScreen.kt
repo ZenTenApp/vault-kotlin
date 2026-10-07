@@ -65,6 +65,7 @@ fun GetStartedScreen(navController: NavHostController) {
 
     val comingSoonTemplate = stringResource(R.string.get_started_coming_soon)
     val createLabel = stringResource(R.string.get_started_create_vault_key)
+    val recoverLabel = stringResource(R.string.get_started_recover_vault_key)
     val loginLabel = stringResource(R.string.get_started_login_vault_key)
     val googleLabel = stringResource(R.string.get_started_provider_google)
     val appleLabel = stringResource(R.string.get_started_provider_apple)
@@ -122,7 +123,16 @@ fun GetStartedScreen(navController: NavHostController) {
             // Generated-key setup continues through local backup confirmation.
             VaultPillButton(
                 label = createLabel,
+                style = VaultPillButtonStyle.Secondary,
                 onClick = { navController.navigate(VaultDestinations.CREATE_VAULT_KEY_INTRO) },
+            )
+
+            Spacer(Modifier.height(ButtonSpacing))
+
+            VaultPillButton(
+                label = recoverLabel,
+                style = VaultPillButtonStyle.Secondary,
+                onClick = { navController.navigate(VaultDestinations.RECOVER_VAULT_KEY_COMBINATIONS) },
             )
 
             Spacer(Modifier.height(ButtonSpacing))
@@ -130,9 +140,6 @@ fun GetStartedScreen(navController: NavHostController) {
             // Existing-key setup remains available as the alternate path.
             VaultPillButton(
                 label = loginLabel,
-                // A neutral raised surface distinguishes this alternate path
-                // from the Create VaultKey primary action above it.
-                style = VaultPillButtonStyle.Secondary,
                 onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
             )
 
