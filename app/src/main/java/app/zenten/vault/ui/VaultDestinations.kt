@@ -15,6 +15,11 @@ object VaultDestinations {
     /** Secure SSH key paste + passphrase + setup progress. */
     const val GET_STARTED_SSH = "get-started/ssh"
 
+    /** Recovery graph keeps Secret Combinations in memory until passphrase submission. */
+    const val RECOVER_VAULT_KEY_GRAPH = "get-started/recover-vault-key"
+    const val RECOVER_VAULT_KEY_COMBINATIONS = "get-started/recover-vault-key/combinations"
+    const val RECOVER_VAULT_KEY_PASSPHRASE = "get-started/recover-vault-key/passphrase"
+
     /**
      * Nested navigation graph that holds every VaultKey generation screen.
      *

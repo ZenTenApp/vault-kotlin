@@ -13,6 +13,7 @@ import app.zenten.vault.domain.DefaultBackupSourceFactory
 import app.zenten.vault.domain.DefaultAccountProfileRepository
 import app.zenten.vault.domain.ProfileService
 import app.zenten.vault.domain.SetupService
+import app.zenten.vault.domain.VaultKeyRecoveryService
 import app.zenten.vault.network.nostr.NostrRelayGateway
 import dagger.Module
 import dagger.Provides
@@ -58,6 +59,15 @@ object DomainModule {
         engine: AccountConsolidationEngine,
         scheduler: BackupWorkScheduler,
     ) = SetupService(secureStorage, appStorage, engine, scheduler)
+
+    @Provides @Singleton
+    fun vaultKeyRecoveryService(
+        repository: BackupSourceRepository,
+        secureStorage: SecureStorageService,
+        appStorage: AppStorageService,
+        scheduler: BackupWorkScheduler,
+        clock: Clock,
+    ) = VaultKeyRecoveryService(repository, secureStorage, appStorage, scheduler, clock)
 
     @Provides @Singleton
     fun accountService(secureStorage: SecureStorageService, setupService: SetupService, appStorage: AppStorageService) =

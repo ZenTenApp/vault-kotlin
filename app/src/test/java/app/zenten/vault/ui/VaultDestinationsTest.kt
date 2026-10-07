@@ -11,6 +11,13 @@ class VaultDestinationsTest {
     }
 
     @Test
+    fun recoverVaultKeySteps_haveStableRoutes() {
+        assertEquals("get-started/recover-vault-key", VaultDestinations.RECOVER_VAULT_KEY_GRAPH)
+        assertEquals("get-started/recover-vault-key/combinations", VaultDestinations.RECOVER_VAULT_KEY_COMBINATIONS)
+        assertEquals("get-started/recover-vault-key/passphrase", VaultDestinations.RECOVER_VAULT_KEY_PASSPHRASE)
+    }
+
+    @Test
     fun createVaultKeyIntro_hasStableRoute() {
         assertEquals("get-started/create-vault-key/intro", VaultDestinations.CREATE_VAULT_KEY_INTRO)
     }
