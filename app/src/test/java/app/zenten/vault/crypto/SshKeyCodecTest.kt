@@ -96,6 +96,17 @@ class SshKeyCodecTest {
     }
 
     @Test
+    fun ignores_public_metadata_appended_to_a_pem_export() {
+        val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
+        val canonical = SshKeyCodec.normalizeToSingleLineBase64(pem)
+        val selfDescribing = "-----BEGIN OPENSSH PRIVATE KEY-----\n$canonical\n" +
+            "-----END OPENSSH PRIVATE KEY-----\nnpub1example\n1700000000000000\nVaultKey\nCreated on Wednesday, Nov 15, 2023 2:06 AM"
+
+        assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(selfDescribing))
+        assertEquals(canonical, SshKeyCodec.normalizeToSingleLineBase64(selfDescribing))
+    }
+
+    @Test
     fun reads_bcrypt_kdf_rounds_without_a_passphrase() {
         val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
 

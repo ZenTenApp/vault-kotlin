@@ -195,7 +195,13 @@ object SshKeyCodec {
             Regex("\\\"OPENSSH PRIVATE KEY\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(trimmed)?.groupValues?.get(1)
                 ?: throw IllegalArgumentException("Invalid OpenSSH key JSON")
         } else trimmed
-        val body = jsonValue.lineSequence().filterNot { it.startsWith("-----") }.joinToString("").trim()
+        // Self-describing exports wrap a one-line Base64 body in OpenSSH PEM markers and then
+        // append public metadata (npub, creation ID, display name, date) on later lines. When the
+        // markers are present, take only the text between them so that metadata is ignored on paste.
+        val markerBody = Regex(
+            "-----BEGIN OPENSSH PRIVATE KEY-----([\\s\\S]*?)-----END OPENSSH PRIVATE KEY-----",
+        ).find(jsonValue)?.groupValues?.get(1) ?: jsonValue
+        val body = markerBody.lineSequence().filterNot { it.startsWith("-----") }.joinToString("").trim()
         require(body.isNotEmpty()) { "Empty OpenSSH private key" }
         return try { Base64.getDecoder().decode(body) } catch (e: IllegalArgumentException) { throw IllegalArgumentException("Invalid OpenSSH PEM encoding", e) }
     }
