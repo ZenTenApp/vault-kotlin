@@ -1,6 +1,6 @@
 package app.zenten.vault.ui.auth
 
-import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -9,21 +9,12 @@ import org.junit.jupiter.api.Test
 class DeviceLockPolicyTest {
     @Test
     fun `available device authentication starts locked`() {
-        assertEquals(
-            AppUnlockState.Locked,
-            DeviceLockPolicy.stateFor(BiometricManager.BIOMETRIC_SUCCESS),
-        )
+        assertEquals(AppUnlockState.Locked, DeviceLockPolicy.stateFor(canAuthenticate = true))
     }
 
     @Test
-    fun `missing or unavailable authentication fails closed`() {
-        listOf(
-            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED,
-            BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
-            BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE,
-        ).forEach { result ->
-            assertEquals(AppUnlockState.DeviceLockRequired, DeviceLockPolicy.stateFor(result))
-        }
+    fun `missing device authentication fails closed`() {
+        assertEquals(AppUnlockState.DeviceLockRequired, DeviceLockPolicy.stateFor(canAuthenticate = false))
     }
 
     @Test
@@ -40,5 +31,52 @@ class DeviceLockPolicyTest {
     fun `cold or previously locked session always authenticates`() {
         assertTrue(DeviceLockPolicy.requiresAuthentication(false, backgroundAt = 1_000L, now = 1_001L))
         assertTrue(DeviceLockPolicy.requiresAuthentication(true, backgroundAt = null, now = 1_001L))
+    }
+
+    @Test
+    fun `cancellation stays on the retryable locked screen`() {
+        assertEquals(
+            AppUnlockState.Locked,
+            AuthErrorPolicy.stateFor(BiometricPrompt.ERROR_USER_CANCELED, canAuthenticate = true),
+        )
+        assertEquals(
+            AppUnlockState.Locked,
+            AuthErrorPolicy.stateFor(BiometricPrompt.ERROR_NEGATIVE_BUTTON, canAuthenticate = true),
+        )
+    }
+
+    @Test
+    fun `lockout remains retryable while capability is intact`() {
+        assertEquals(
+            AppUnlockState.Locked,
+            AuthErrorPolicy.stateFor(BiometricPrompt.ERROR_LOCKOUT, canAuthenticate = true),
+        )
+        assertEquals(
+            AppUnlockState.Locked,
+            AuthErrorPolicy.stateFor(BiometricPrompt.ERROR_LOCKOUT_PERMANENT, canAuthenticate = true),
+        )
+    }
+
+    @Test
+    fun `capability errors route to enrollment`() {
+        listOf(
+            BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL,
+            BiometricPrompt.ERROR_NO_BIOMETRICS,
+            BiometricPrompt.ERROR_HW_NOT_PRESENT,
+        ).forEach { errorCode ->
+            assertEquals(
+                AppUnlockState.DeviceLockRequired,
+                AuthErrorPolicy.stateFor(errorCode, canAuthenticate = true),
+                "errorCode=$errorCode",
+            )
+        }
+    }
+
+    @Test
+    fun `any error falls back to enrollment when capability is gone`() {
+        assertEquals(
+            AppUnlockState.DeviceLockRequired,
+            AuthErrorPolicy.stateFor(BiometricPrompt.ERROR_CANCELED, canAuthenticate = false),
+        )
     }
 }

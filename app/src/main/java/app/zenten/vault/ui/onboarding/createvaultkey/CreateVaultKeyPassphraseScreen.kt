@@ -58,9 +58,6 @@ fun CreateVaultKeyPassphraseScreen(navController: NavHostController) {
     val viewModel = rememberCreateVaultKeyViewModel(navController)
     val requirements = VaultKeyPassphrasePolicy.evaluate(passphrase)
 
-    // Passphrase input is on screen here, so block screenshots and recordings.
-    ScreenshotProtection()
-
     CreateVaultKeyScaffold(
         title = stringResource(R.string.create_vault_key_passphrase_title),
         heroIcon = R.drawable.hero_icon_passphrase,

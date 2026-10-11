@@ -45,9 +45,6 @@ fun CreateVaultKeyConfirmPassphraseScreen(navController: NavHostController) {
     val viewModel = rememberCreateVaultKeyViewModel(navController)
     val state by viewModel.state.collectAsState()
 
-    // Passphrase input is on screen here, so block screenshots and recordings.
-    ScreenshotProtection()
-
     // Passphrase verification is synchronous. Once it succeeds, leave secret input
     // behind immediately and let the dedicated screen display creation and sync progress.
     LaunchedEffect(state.generating) {

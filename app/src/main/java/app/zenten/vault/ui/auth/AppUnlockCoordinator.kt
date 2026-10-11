@@ -1,5 +1,7 @@
 package app.zenten.vault.ui.auth
 
+import android.app.KeyguardManager
+import android.os.Build
 import android.os.SystemClock
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -8,6 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.Executor
 
+/**
+ * Strong biometrics plus the device PIN/pattern/password. Weak (Class 2) biometrics are not
+ * sufficient for vault access.
+ */
 internal const val VAULT_AUTHENTICATORS =
     BiometricManager.Authenticators.BIOMETRIC_STRONG or
         BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -20,12 +26,10 @@ sealed interface AppUnlockState {
     data object Unlocked : AppUnlockState
 }
 
-/** Maps Android's capability result to the fail-closed state used by the app gate. */
+/** Pure mapping from capability/error outcomes to the fail-closed state used by the gate. */
 internal object DeviceLockPolicy {
-    fun stateFor(authenticationResult: Int): AppUnlockState = when (authenticationResult) {
-        BiometricManager.BIOMETRIC_SUCCESS -> AppUnlockState.Locked
-        else -> AppUnlockState.DeviceLockRequired
-    }
+    fun stateFor(canAuthenticate: Boolean): AppUnlockState =
+        if (canAuthenticate) AppUnlockState.Locked else AppUnlockState.DeviceLockRequired
 
     fun requiresAuthentication(wasUnlocked: Boolean, backgroundAt: Long?, now: Long): Boolean {
         if (!wasUnlocked || backgroundAt == null) return true
@@ -33,6 +37,24 @@ internal object DeviceLockPolicy {
     }
 
     const val GRACE_PERIOD_MILLIS = 30_000L
+}
+
+/**
+ * Classifies prompt errors. Errors that mean the device cannot satisfy the policy route to the
+ * enrollment screen; everything else stays on the retryable locked screen.
+ */
+internal object AuthErrorPolicy {
+    private val ENROLLMENT_ERRORS = setOf(
+        BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL,
+        BiometricPrompt.ERROR_NO_BIOMETRICS,
+        BiometricPrompt.ERROR_HW_NOT_PRESENT,
+    )
+
+    fun stateFor(errorCode: Int, canAuthenticate: Boolean): AppUnlockState = when {
+        errorCode in ENROLLMENT_ERRORS -> AppUnlockState.DeviceLockRequired
+        !canAuthenticate -> AppUnlockState.DeviceLockRequired
+        else -> AppUnlockState.Locked
+    }
 }
 
 /**
@@ -45,6 +67,7 @@ class AppUnlockCoordinator(
     private val elapsedRealtime: () -> Long = SystemClock::elapsedRealtime,
 ) {
     private val biometricManager = BiometricManager.from(activity)
+    private val keyguardManager = activity.getSystemService(KeyguardManager::class.java)
     private val _state = MutableStateFlow<AppUnlockState>(AppUnlockState.Checking)
     val state: StateFlow<AppUnlockState> = _state
 
@@ -65,12 +88,9 @@ class AppUnlockCoordinator(
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 promptRequested = false
-                _state.value = if (canAuthenticate()) {
-                    AppUnlockState.Locked
-                } else {
-                    wasUnlocked = false
-                    AppUnlockState.DeviceLockRequired
-                }
+                val next = AuthErrorPolicy.stateFor(errorCode, canAuthenticate())
+                if (next == AppUnlockState.DeviceLockRequired) wasUnlocked = false
+                _state.value = next
             }
         },
     )
@@ -103,19 +123,14 @@ class AppUnlockCoordinator(
     }
 
     fun authenticate() {
-        if (promptRequested || !canAuthenticate()) {
-            if (!canAuthenticate()) _state.value = AppUnlockState.DeviceLockRequired
+        if (!canAuthenticate()) {
+            _state.value = AppUnlockState.DeviceLockRequired
             return
         }
+        if (promptRequested) return
         promptRequested = true
         _state.value = AppUnlockState.Authenticating
-        prompt.authenticate(
-            BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock ZenTen Vault")
-                .setSubtitle("Confirm your identity to continue")
-                .setAllowedAuthenticators(VAULT_AUTHENTICATORS)
-                .build(),
-        )
+        prompt.authenticate(buildPromptInfo())
     }
 
     fun recheckDeviceLock() {
@@ -124,6 +139,30 @@ class AppUnlockCoordinator(
         onForeground()
     }
 
-    private fun canAuthenticate(): Boolean =
-        biometricManager.canAuthenticate(VAULT_AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS
+    /**
+     * `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` is unsupported by `canAuthenticate` before API 30,
+     * so older devices fall back to the keyguard's own "device is secure" signal. A secure
+     * keyguard is a prerequisite for biometric enrollment, so it covers both authenticators.
+     */
+    private fun canAuthenticate(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return biometricManager.canAuthenticate(VAULT_AUTHENTICATORS) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+        }
+        return keyguardManager?.isDeviceSecure == true
+    }
+
+    /** Matches the prompt policy to the running API level so `build()` never throws. */
+    private fun buildPromptInfo(): BiometricPrompt.PromptInfo {
+        val builder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Unlock ZenTen Vault")
+            .setSubtitle("Confirm your identity to continue")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            builder.setAllowedAuthenticators(VAULT_AUTHENTICATORS)
+        } else {
+            @Suppress("DEPRECATION")
+            builder.setDeviceCredentialAllowed(true)
+        }
+        return builder.build()
+    }
 }

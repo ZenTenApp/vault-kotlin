@@ -37,7 +37,6 @@ fun CreateVaultKeyBackupIntroScreen(
 
     // Generation is irreversible; users may only go back after reaching confirmation.
     BackHandler(enabled = true) {}
-    ScreenshotProtection()
 
     LaunchedEffect(state.navigateToConfirmation) {
         if (state.navigateToConfirmation) {

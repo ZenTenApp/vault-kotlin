@@ -28,7 +28,7 @@ The former global **Backup Status** screen and navigation destination have been 
 
 A cold start or process restart always requires Android's system authentication prompt. Strong biometrics and the device PIN, pattern, or password are accepted. Cancelling or failing leaves a stable locked screen with an **Unlock** action; navigation is never rendered behind it. An unlocked session has a 30-second background grace period, measured with monotonic elapsed time. Returning after that interval requires authentication again.
 
-If the device has no accepted secure lock, the app instead presents **Set up a device screen lock**, with actions to open Android security enrollment and check again. There is no skip path. The whole activity prevents screenshots, screen recording, and sensitive Recents previews where Android supports it.
+If the device has no accepted secure lock, the app instead presents **Set up a device screen lock**, with actions to open Android security enrollment and check again. There is no skip path. Prompt errors that mean the device cannot satisfy the policy also route here, while cancellation and lockout remain on the locked screen. The whole activity prevents screenshots, screen recording, and sensitive Recents previews where Android supports it. This is an interactive lock screen only: it does not restrict background backup work or the signature-protected KeyHive provider.
 
 ## App unavailable
 

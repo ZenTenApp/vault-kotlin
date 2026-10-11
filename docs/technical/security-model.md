@@ -24,8 +24,9 @@
 
 ## Current safeguards visible in code
 
-- The interactive UI requires Android system authentication with a strong biometric or device PIN, pattern, or password. It always locks on cold/process start and relocks after 30 seconds in the background. Devices without an accepted secure lock are blocked until one is configured. Unlock state and monotonic grace timing are memory-only.
-- `MainActivity` applies `FLAG_SECURE` for its full lifetime, protecting screenshots, screen recording, and Recents previews where Android supports it.
+- The interactive UI requires Android system authentication with a strong biometric or device PIN, pattern, or password. It always locks on cold/process start and relocks after 30 seconds in the background. Devices without an accepted secure lock are blocked until one is configured. Unlock state and monotonic grace timing are memory-only. Prompt errors that mean the device cannot satisfy the policy route to mandatory enrollment; cancellation and retryable errors stay locked.
+- `MainActivity` applies `FLAG_SECURE` for its full lifetime, protecting screenshots, screen recording, and Recents previews where Android supports it. Sensitive screens no longer clear the flag on exit.
+- The device-authentication gate is an interactive UI control only. The `EncryptedSharedPreferences` store is deliberately not bound to user authentication because unattended background backup and signature-authorized KeyHive provider access are approved requirements. Root, forensic, compromised-process, and trusted-sibling-app access are outside this gate.
 - Private-key/passphrase setup screen sets Android's secure-window flag.
 - Private-key disclosure requires user confirmation and its dialog sets the secure-window flag.
 - Local private-key export keeps the secure-window flag, prioritizes installed supported note apps without excluding other compatible Sharesheet targets, and requires the user's explicit confirmation after export. That confirmation is an attestation, not verification that the receiving app retained the key.
@@ -47,6 +48,7 @@
 5. Network timeouts, retries, offline state, remote-service compromise/outage, and status accuracy.
 6. Secret handling in logs, telemetry, analytics, crash reporting, CI, support, and release builds.
 7. Independent cryptography and protocol review before production use.
+8. Whether interactive private-key disclosure should use a separate authentication-bound encryption domain, given that background backup and KeyHive provider access must remain unattended.
 
 ## Non-promises
 

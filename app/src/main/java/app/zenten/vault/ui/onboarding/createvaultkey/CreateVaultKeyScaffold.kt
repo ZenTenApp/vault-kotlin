@@ -230,7 +230,3 @@ private fun HeroIcon(@DrawableRes resId: Int, contentDescription: String) {
         modifier = Modifier.size(HeroIconSize),
     )
 }
-
-/** The activity protects every screen, so callers need no per-screen window mutation. */
-@Composable
-internal fun ScreenshotProtection() = Unit

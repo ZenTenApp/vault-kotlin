@@ -33,8 +33,6 @@ fun CreateVaultKeyConfirmBackupScreen(
     val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
     var error by remember { mutableStateOf<Int?>(null) }
 
-    ScreenshotProtection()
-
     // A process restart restores this screen directly, so Create Backup may not
     // exist in the new back stack. Pop when possible and rebuild that step when needed.
     val returnToCreateBackup = {

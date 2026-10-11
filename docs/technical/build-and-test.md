@@ -39,5 +39,5 @@ At minimum:
 
 1. Run `./gradlew :app:testDebugUnitTest`.
 2. Run `./gradlew :app:assembleDebug` if Android/UI/build configuration changed.
-3. Exercise affected sensitive screens manually on a device/emulator where feasible. Device-authentication changes should cover PIN-only, strong biometric plus credential, no-lock enrollment, cancellation, and background-grace behavior.
+3. Exercise affected sensitive screens manually on a device/emulator where feasible. Device-authentication changes should cover PIN-only, strong biometric plus credential, no-lock enrollment, cancellation, biometric lockout, and background-grace behavior, including pre-Android 11 (API 26–29) capability handling.
 4. Confirm no secrets, generated APKs, or local configuration files are included in the change.
