@@ -64,6 +64,39 @@ class LocalAccountBackupShareTest {
         assertEquals(7, lines.size)
     }
 
+    @Test
+    fun vault_key_export_uses_fixed_display_name_and_same_line_order() {
+        val encodedKey = goldenEncryptedKey()
+        val account = Account(
+            createdAt = 1_700_000_000_000_000L,
+            zenTenKey = encodedKey,
+            zenTenPass = "pass",
+            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
+        )
+
+        val lines = LocalAccountBackupShare.vaultKeyExportText(account).lines()
+
+        assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----", lines[0])
+        assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
+        assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
+        assertEquals(formatNpub(account.nostr.pubkey), lines[3])
+        assertEquals(account.createdAt.toString(), lines[4])
+        assertEquals("VaultKey", lines[5])
+        assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[6])
+        assertEquals(7, lines.size)
+    }
+
+    private fun goldenEncryptedKey(): String =
+        requireNotNull(javaClass.getResourceAsStream("/golden/crypto-vectors.json"))
+            .bufferedReader()
+            .use { it.readText() }
+            .let { json ->
+                Regex("\\\"encryptedEd25519Pem\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
+                    .find(json)!!
+                    .groupValues[1]
+                    .replace("\\n", "\n")
+            }
+
     private fun target(label: String, packageName: String, activityName: String) = TestTarget(
         label = label,
         packageName = packageName,

@@ -40,9 +40,19 @@ object LocalAccountBackupShare {
 
     /** Builds the self-describing text saved during mandatory associated-account export. */
     internal fun accountExportText(account: Account): String {
+        val displayName = account.accountName?.trim().takeUnless { it.isNullOrEmpty() } ?: formatShortNpub(account.nostr.pubkey)
+        return selfDescribingExportText(account, displayName)
+    }
+
+    /**
+     * Builds the same self-describing export for the Vault Key. The Vault Key has no
+     * user-set display name, so the fixed label "VaultKey" is written instead.
+     */
+    internal fun vaultKeyExportText(account: Account): String = selfDescribingExportText(account, "VaultKey")
+
+    private fun selfDescribingExportText(account: Account, displayName: String): String {
         val key = SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey)
         val npub = formatNpub(account.nostr.pubkey)
-        val displayName = account.accountName?.trim().takeUnless { it.isNullOrEmpty() } ?: formatShortNpub(account.nostr.pubkey)
         return listOf(
             "-----BEGIN OPENSSH PRIVATE KEY-----",
             key,
@@ -50,7 +60,7 @@ object LocalAccountBackupShare {
             npub,
             account.createdAt.toString(),
             displayName,
-            formatAccountCreatedAt(account.createdAt),
+            "Created on ${formatAccountCreatedAt(account.createdAt)}",
         ).joinToString("\n")
     }
 

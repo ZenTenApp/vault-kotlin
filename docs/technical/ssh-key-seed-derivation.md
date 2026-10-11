@@ -32,7 +32,7 @@ The mnemonic exists only as a temporary onboarding value used for Nostr derivati
 
 ### Accepted input and OpenSSH-v1 parsing
 
-`crypto/SshKeyCodec.kt` accepts a PEM-wrapped key, raw Base64, or the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper. It Base64-decodes the input and verifies the OpenSSH-v1 magic prefix:
+`crypto/SshKeyCodec.kt` accepts a PEM-wrapped key, raw Base64, or the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper. When OpenSSH `BEGIN`/`END` markers are present, only the text between them is decoded, so the public metadata lines appended by self-describing exports (`npub`, creation ID, display name, `Created on ...` date) are ignored on paste. It Base64-decodes the extracted body and verifies the OpenSSH-v1 magic prefix:
 
 ```text
 openssh-key-v1\0
@@ -120,7 +120,7 @@ A mnemonic is an intermediate representation of an account's SSH seed, not a per
 
 - extracts the expected seed, public key, fingerprint, and 24-word mnemonic from a known OpenSSH fixture;
 - decrypts the supported bcrypt/AES-CTR fixture and rejects missing or incorrect passphrases;
-- normalizes PEM, raw Base64, and supported JSON-wrapped input consistently; and
+- normalizes PEM, raw Base64, and supported JSON-wrapped input consistently, and ignores public metadata appended after a PEM export; and
 - rejects unencrypted OpenSSH private keys and creates a passphrase-encrypted associated key whose comment is the allocated creation ID.
 
 Compatibility vectors are in `app/src/test/resources/golden/crypto-vectors.json`; their chain is documented in `app/src/test/resources/golden/README.md`.

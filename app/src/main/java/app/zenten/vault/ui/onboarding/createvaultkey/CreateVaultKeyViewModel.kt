@@ -16,6 +16,7 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
+import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -204,9 +205,13 @@ class CreateVaultKeyViewModel @Inject constructor(
         }
     }
 
-    /** Matches associated-account local backup: raw single-line base64, never PEM text. */
-    fun vaultKeyForExport(): String? = secureStorage.getVaultKey()?.zenTenKey?.let { stored ->
-        runCatching { SshKeyCodec.normalizeToSingleLineBase64(stored) }.getOrNull()
+    /**
+     * Builds the Vault Key's self-describing export text. It shares the associated-account
+     * local-backup format so exported copies read the same way, but uses the fixed "VaultKey"
+     * display name because the Vault Key has none.
+     */
+    fun vaultKeyForExport(): String? = secureStorage.getVaultKey()?.let { vaultKey ->
+        runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey) }.getOrNull()
     }
 
     /** Marks confirmation as resumable only after Android accepted the targeted export intent. */
