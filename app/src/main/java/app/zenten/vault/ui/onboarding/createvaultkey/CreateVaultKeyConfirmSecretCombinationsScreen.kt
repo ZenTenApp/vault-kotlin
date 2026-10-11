@@ -71,7 +71,6 @@ fun CreateVaultKeyConfirmSecretCombinationsScreen(
     val activeSegment = viewModel.activeSecretCombinationSegment
     var completed by remember { mutableStateOf(false) }
 
-    ScreenshotProtection()
     LaunchedEffect(Unit) { viewModel.loadSecretCombinationIndices() }
     BackHandler { navController.popBackStack() }
 

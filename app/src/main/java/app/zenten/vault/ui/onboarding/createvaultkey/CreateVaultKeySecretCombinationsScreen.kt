@@ -63,7 +63,6 @@ fun CreateVaultKeySecretCombinationsScreen(
     var codesVisible by remember { mutableStateOf(true) }
     var backedUp by remember { mutableStateOf(false) }
 
-    ScreenshotProtection()
     // Start the expensive derivation only when these values are needed. The graph-scoped
     // ViewModel keeps the result available when the verification screen opens.
     LaunchedEffect(Unit) {

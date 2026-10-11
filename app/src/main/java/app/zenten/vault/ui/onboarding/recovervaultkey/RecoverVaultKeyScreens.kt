@@ -66,7 +66,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
-import app.zenten.vault.ui.onboarding.createvaultkey.ScreenshotProtection
 import app.zenten.vault.ui.onboarding.createvaultkey.sanitizeCombinationSegment
 import app.zenten.vault.ui.theme.LocalExtendedColors
 
@@ -83,7 +82,6 @@ fun RecoverVaultKeyCombinationsScreen(
     var focusedSegment by remember { mutableStateOf<Int?>(null) }
     val focusRequesters = remember { List(24) { FocusRequester() } }
     val focusManager = LocalFocusManager.current
-    ScreenshotProtection()
     BackHandler { navController.popBackStack() }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
@@ -299,7 +297,6 @@ fun RecoverVaultKeyPassphraseScreen(
 ) {
     var passphrase by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
-    ScreenshotProtection()
     LaunchedEffect(state.completed) {
         if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {
             popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }

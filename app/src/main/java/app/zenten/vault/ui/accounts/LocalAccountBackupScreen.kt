@@ -50,7 +50,6 @@ fun LocalAccountBackupExportScreen(
     var targets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var shareError by remember { mutableStateOf<String?>(null) }
     BackHandler { }
-    SecureWindow()
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Export account", style = MaterialTheme.typography.headlineMedium)
         Text("Export this account's encrypted OpenSSH private key to a trusted notes app or another app. This is required before continuing.")
@@ -150,6 +149,3 @@ private fun ExportTargetDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
-
-@Composable
-private fun SecureWindow() = Unit

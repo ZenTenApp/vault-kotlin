@@ -41,7 +41,6 @@ fun CreateVaultKeyCreatingScreen(navController: NavHostController) {
 
     // Leaving midway could expose an earlier wizard step after the account was committed.
     BackHandler(enabled = true) {}
-    ScreenshotProtection()
 
     LaunchedEffect(state.navigateToBackup, state.generationFailed) {
         when {
