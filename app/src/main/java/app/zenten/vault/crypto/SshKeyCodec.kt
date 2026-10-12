@@ -20,7 +20,7 @@ object SshKeyCodec {
 
     /** Allowed OpenSSH bcrypt_pbkdf work factors, intentionally limited to powers of two. */
     val SUPPORTED_BCRYPT_PBKDF_ROUNDS: List<Int> = (0..13).map { 1 shl it }
-    const val DEFAULT_BCRYPT_PBKDF_ROUNDS = 512
+    const val DEFAULT_BCRYPT_PBKDF_ROUNDS = 128
 
     data class ParsedKey(
         val seed: ByteArray,

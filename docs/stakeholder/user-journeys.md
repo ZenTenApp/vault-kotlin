@@ -52,8 +52,8 @@ flowchart LR
 5. The app confirms that Vault Key backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
 6. The app saves the new associated account and its name on the device first.
 7. The app starts background consolidation, checking each destination before writing only confirmed gaps.
-8. The user exports the encrypted OpenSSH private key through the device Sharesheet to Notes, Messages, or another available app. The account name is later published publicly as its Nostr profile `display_name`.
-9. The user returns to the account list and can check backup status.
+8. The user exports the encrypted OpenSSH private key to Notes, Messages, or another available app, then copies the saved key back and pastes it into the export screen. The account name is later published publicly as its Nostr profile `display_name`.
+9. The app confirms the pasted key matches the account and clears the clipboard before the user returns to the account list and can check backup status.
 
 **Success:** The new associated account is available locally after the required local-backup step completes, even if remote consolidation must run again later.
 
