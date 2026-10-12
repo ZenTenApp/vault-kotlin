@@ -34,6 +34,15 @@ class SshKeyCodecTest {
     }
 
     @Test
+    fun rejects_oversized_key_input_before_decoding() {
+        val oversized = "A".repeat(SshKeyCodec.MAX_SERIALIZED_KEY_CHARS + 1)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(oversized)
+        }
+    }
+
+    @Test
     fun derives_public_key_and_fingerprint_from_encrypted_key_without_passphrase() {
         val vector = vector("unencrypted-ed25519")
         val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content

@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import java.time.Clock
 import javax.inject.Inject
 
@@ -293,7 +294,12 @@ class CreateVaultKeyViewModel @Inject constructor(
         val stored = secureStorage.getVaultKey()?.zenTenKey
             ?.let { runCatching { SshKeyCodec.normalizeToSingleLineBase64(it) }.getOrNull() }
             ?: return BackupConfirmationResult.UNAVAILABLE
-        return if (normalized == stored) BackupConfirmationResult.MATCHED else BackupConfirmationResult.MISMATCHED
+        // Constant-time equality keeps this key-material comparison consistent with MAC checks.
+        return if (MessageDigest.isEqual(normalized.toByteArray(), stored.toByteArray())) {
+            BackupConfirmationResult.MATCHED
+        } else {
+            BackupConfirmationResult.MISMATCHED
+        }
     }
 
 }

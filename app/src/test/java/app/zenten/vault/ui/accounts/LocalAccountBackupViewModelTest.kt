@@ -43,6 +43,16 @@ class LocalAccountBackupViewModelTest {
         assertEquals(AccountBackupConfirmationResult.INVALID, result)
     }
 
+    @Test
+    fun rejects_oversized_clipboard_paste_without_decoding() = runTest {
+        val viewModel = viewModelFor(accountWith("pass"))
+        val oversized = "A".repeat(SshKeyCodec.MAX_SERIALIZED_KEY_CHARS + 1)
+
+        val result = viewModel.confirmPastedAccountKey(oversized)
+
+        assertEquals(AccountBackupConfirmationResult.INVALID, result)
+    }
+
     private fun accountWith(passphrase: String): Account {
         val generated = SshKeyCodec.generateEncrypted(1_700_000_000_000_000L, passphrase.toCharArray(), rounds = 16)
         return Account(
