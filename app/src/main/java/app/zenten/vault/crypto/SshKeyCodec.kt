@@ -22,6 +22,14 @@ object SshKeyCodec {
     val SUPPORTED_BCRYPT_PBKDF_ROUNDS: List<Int> = (0..13).map { 1 shl it }
     const val DEFAULT_BCRYPT_PBKDF_ROUNDS = 128
 
+    /**
+     * Upper bound on accepted serialized-key text. A real encrypted OpenSSH key and the
+     * self-describing export that wraps it span only a few kilobytes, so rejecting oversized
+     * input keeps clipboard- or file-sourced strings from driving unbounded regex/Base64 work
+     * (and the stack/heat it causes) before the format is even checked.
+     */
+    const val MAX_SERIALIZED_KEY_CHARS = 16 * 1024
+
     data class ParsedKey(
         val seed: ByteArray,
         val publicKey: ByteArray,
@@ -190,6 +198,7 @@ object SshKeyCodec {
     }
 
     private fun decodePem(input: String): ByteArray {
+        require(input.length <= MAX_SERIALIZED_KEY_CHARS) { "OpenSSH key input exceeds the supported size" }
         val trimmed = input.trim()
         val jsonValue = if (trimmed.startsWith("{")) {
             Regex("\\\"OPENSSH PRIVATE KEY\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(trimmed)?.groupValues?.get(1)

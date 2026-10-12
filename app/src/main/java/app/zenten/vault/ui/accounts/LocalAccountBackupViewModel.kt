@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 import javax.inject.Inject
 
 @HiltViewModel
@@ -56,7 +57,9 @@ class LocalAccountBackupViewModel @Inject constructor(
         val stored = runCatching {
             SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey)
         }.getOrNull() ?: return AccountBackupConfirmationResult.UNAVAILABLE
-        return if (normalized == stored) {
+        // Compare with a constant-time equality check: both sides are key material, and the
+        // same pattern is used for MAC verification elsewhere in the vault.
+        return if (MessageDigest.isEqual(normalized.toByteArray(), stored.toByteArray())) {
             AccountBackupConfirmationResult.MATCHED
         } else {
             AccountBackupConfirmationResult.MISMATCHED
