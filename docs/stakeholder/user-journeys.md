@@ -47,7 +47,7 @@ flowchart LR
 
 1. The user selects **Create New Account** from the bottom center of **Accounts**.
 2. The app asks for the **VaultKey Passphrase**, which the user can show or hide, and verifies it before continuing.
-3. The app asks for a mandatory **Account Name** containing 8 to 128 characters.
+3. The app asks for a mandatory **Account Name** containing 3 to 128 characters.
 4. The user selects **Create Account**, or selects **Cancel** to return without creating one.
 5. The app confirms that Vault Key backup quorum is satisfied and that fewer than 99 associated accounts already exist; otherwise creation stops without saving an account. (The 99-account ceiling does not limit accounts restored from backup.)
 6. The app saves the new associated account and its name on the device first.

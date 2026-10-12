@@ -77,7 +77,7 @@ class AccountService(
     companion object {
         /** Maximum number of user-creatable associated accounts; the vaultKey is tracked separately. */
         const val MAX_ASSOCIATED_ACCOUNTS = 99
-        const val MIN_ACCOUNT_NAME_LENGTH = 8
+        const val MIN_ACCOUNT_NAME_LENGTH = 3
         const val MAX_ACCOUNT_NAME_LENGTH = 128
     }
 }

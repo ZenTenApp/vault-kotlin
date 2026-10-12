@@ -119,7 +119,7 @@ flowchart TD
     Add["Select Create New Account"] --> EnterPassphrase["Enter Vault Key passphrase"]
     EnterPassphrase --> Verify{"Passphrase valid?"}
     Verify -->|No| Rejected["Show error and do not create account"]
-    Verify -->|Yes| EnterName["Enter mandatory account name, 8-128 characters"]
+    Verify -->|Yes| EnterName["Enter mandatory account name, 3-128 characters"]
     EnterName --> Check{"Name valid, Vault Key quorum complete, and fewer than 99 associated accounts?"}
     Check -->|No| Rejected
     Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH account"]

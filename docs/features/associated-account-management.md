@@ -28,7 +28,7 @@ Associated accounts use neutral cards and are listed newest first by their creat
 - A user can create at most 99 associated accounts. The 100th creation attempt is rejected with a clear message before any key material is generated or persisted. This ceiling applies only to user-initiated creation; accounts restored by consolidation or recovery are not counted against or blocked by it.
 - Once Vault Key quorum is satisfied, a newly created associated account remains locally available even when remote consolidation must run again later.
 - Creation requires the user to re-enter the vault-key passphrase. The app compares it with the securely retained Vault Key passphrase before persistence, and encrypts the generated OpenSSH private key with that same passphrase.
-- Creation requires an account name whose trimmed length is between 8 and 128 characters. The same validated value is persisted and published publicly as the Nostr `display_name`.
+- Creation requires an account name whose trimmed length is between 3 and 128 characters. The same validated value is persisted and published publicly as the Nostr `display_name`.
 - Creation errors are shown without disclosing secret key material.
 - Every persisted associated account includes its derived Nostr key pair. The account signs its own kind `0` profile, and its private key is not sent to relays.
 - Profile presentation data is public and cached separately from encrypted account secrets. Cards retain the locally derived shortened `npub` as a reliable fallback when relay retrieval fails or `display_name` is missing.

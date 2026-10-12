@@ -82,7 +82,7 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
                 onValueChange = { accountName = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Account Name") },
-                supportingText = { Text("8-128 characters") },
+                supportingText = { Text("3-128 characters") },
                 isError = accountName.isNotEmpty() && accountName.trim().length !in
                     AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH,
                 enabled = !state.creating,

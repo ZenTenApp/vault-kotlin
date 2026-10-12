@@ -74,15 +74,15 @@ class AccountServiceTest {
     }
 
     @Test
-    fun create_associated_account_requires_an_8_to_128_character_trimmed_name() = runTest {
+    fun create_associated_account_requires_a_3_to_128_character_trimmed_name() = runTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()
         every { storage.getVaultKey() } returns Account(1, "vaultKey", zenTenPass = "vaultKey-passphrase", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
-        val result = AccountService(storage, setup, appStorage()).createAssociatedAccount("vaultKey-passphrase", " short ")
+        val result = AccountService(storage, setup, appStorage()).createAssociatedAccount("vaultKey-passphrase", " ab ")
 
         assertFalse(result.isSuccess)
-        assertEquals("Account name must be between 8 and 128 characters", result.exceptionOrNull()?.message)
+        assertEquals("Account name must be between 3 and 128 characters", result.exceptionOrNull()?.message)
         coVerify(exactly = 0) { setup.addAccount(any(), any()) }
     }
 
