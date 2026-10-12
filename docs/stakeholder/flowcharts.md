@@ -127,15 +127,16 @@ flowchart TD
     Save --> Queue["Queue targeted background consolidation"]
     Queue --> Export["Open required Export account screen"]
     Export --> Choose["Choose a trusted text-capable app from the in-app picker"]
-    Choose --> Confirm{"User confirms the encrypted key was saved?"}
-    Confirm -->|No| Export
+    Choose --> Paste["Copy the saved key back and paste it in"]
+    Paste --> Confirm{"Clipboard read/cleared and pasted key matches stored account?"}
+    Confirm -->|No| Paste
     Confirm -->|Yes| Clear["Clear pending export"]
     Clear --> QueueProfile["Queue durable kind 0 profile and kind 10050 DM relay list"]
     QueueProfile --> Accounts["Open Accounts without waiting"]
     QueueProfile --> ProfileWorker["Background publish both events to all profile relays with retry"]
 ```
 
-Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. The exported text uses OpenSSH PEM markers around a single-line Base64 body, then adds the account `npub`, raw creation ID/timestamp, display name, and the account card's human-readable `Created on ...` date on separate lines. Back navigation is blocked on the export screen until the user confirms the export. Confirmation removes the completed export screen from navigation history, so Back from **My Accounts** cannot reopen it. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **My Accounts**.
+Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key; the paste-back check only proves the user kept a readable copy, not that it stays durable or private. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. The exported text uses OpenSSH PEM markers around a single-line Base64 body, then adds the account `npub`, raw creation ID/timestamp, display name, and the account card's human-readable `Created on ...` date on separate lines. Back navigation is blocked on the export screen until the pasted key matches the stored account, which clears the current clipboard entry as part of the check. Confirmation removes the completed export screen from navigation history, so Back from **My Accounts** cannot reopen it. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **My Accounts**.
 
 ## Associated-account consolidation and automatic recovery
 

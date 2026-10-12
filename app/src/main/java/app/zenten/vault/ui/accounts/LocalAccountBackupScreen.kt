@@ -1,6 +1,9 @@
 package app.zenten.vault.ui.accounts
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.os.Build
 import android.widget.ImageView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +52,8 @@ fun LocalAccountBackupExportScreen(
     val context = LocalContext.current
     var targets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var shareError by remember { mutableStateOf<String?>(null) }
+    var confirmError by remember { mutableStateOf<String?>(null) }
+    val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
     BackHandler { }
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Export account", style = MaterialTheme.typography.headlineMedium)
@@ -63,12 +68,51 @@ fun LocalAccountBackupExportScreen(
         ) { Text("Choose an app to save key") }
         shareError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (state.exportStarted) {
-            Text("After saving the key, confirm below. Android cannot verify that the receiving app retained it.")
+            Text("Copy the saved key back from the app you sent it to, then paste it below so Vault can confirm you kept it.")
             Button(
-                onClick = viewModel::complete,
+                onClick = {
+                    confirmError = null
+                    val pastedKey = runCatching {
+                        clipboard.primaryClip
+                            ?.takeIf { it.itemCount > 0 }
+                            ?.getItemAt(0)
+                            ?.coerceToText(context)
+                            ?.toString()
+                            .orEmpty()
+                    }.getOrElse {
+                        confirmError = "Vault could not read the clipboard. Copy the saved key and try again."
+                        return@Button
+                    }
+                    // Clear the clipboard immediately so the sensitive export is not left behind.
+                    val clipboardCleared = runCatching {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            clipboard.clearPrimaryClip()
+                        } else {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+                        }
+                    }.isSuccess
+                    if (!clipboardCleared) {
+                        confirmError = "Vault could not clear the clipboard. Clear it manually, then try again."
+                        return@Button
+                    }
+                    if (pastedKey.isBlank()) {
+                        confirmError = "The clipboard does not contain the saved account key. Copy it and try again."
+                        return@Button
+                    }
+                    when (viewModel.confirmPastedAccountKey(pastedKey)) {
+                        AccountBackupConfirmationResult.MATCHED -> viewModel.complete()
+                        AccountBackupConfirmationResult.INVALID ->
+                            confirmError = "The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key."
+                        AccountBackupConfirmationResult.MISMATCHED ->
+                            confirmError = "That key does not match this account. Paste the key you saved during this step."
+                        AccountBackupConfirmationResult.UNAVAILABLE ->
+                            confirmError = "Vault cannot verify the saved key right now. Try again."
+                    }
+                },
                 enabled = !state.completing,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (state.completing) "Confirming..." else "I saved my encrypted private key") }
+            ) { Text(if (state.completing) "Confirming..." else "Paste saved key to confirm") }
+            confirmError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
     LaunchedEffect(state.completed) {

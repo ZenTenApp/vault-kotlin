@@ -2,6 +2,7 @@ package app.zenten.vault.ui.accounts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.domain.AccountService
@@ -41,6 +42,34 @@ class LocalAccountBackupViewModel @Inject constructor(
     fun recordExportStarted() {
         _state.value = _state.value.copy(exportStarted = true)
     }
+
+    /**
+     * Validates the pasted export and compares its normalized key material with the stored
+     * account. This proves the user kept a readable copy before the mandatory export step
+     * can complete, mirroring the VaultKey Confirm Backup check.
+     */
+    fun confirmPastedAccountKey(pastedKey: String): AccountBackupConfirmationResult {
+        val account = _state.value.account ?: return AccountBackupConfirmationResult.UNAVAILABLE
+        val normalized = runCatching {
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pastedKey)
+        }.getOrElse { return AccountBackupConfirmationResult.INVALID }
+        val stored = runCatching {
+            SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey)
+        }.getOrNull() ?: return AccountBackupConfirmationResult.UNAVAILABLE
+        return if (normalized == stored) {
+            AccountBackupConfirmationResult.MATCHED
+        } else {
+            AccountBackupConfirmationResult.MISMATCHED
+        }
+    }
+}
+
+/** Outcome of comparing a pasted account export against the stored encrypted key. */
+enum class AccountBackupConfirmationResult {
+    MATCHED,
+    INVALID,
+    MISMATCHED,
+    UNAVAILABLE,
 }
 
 data class LocalAccountBackupState(

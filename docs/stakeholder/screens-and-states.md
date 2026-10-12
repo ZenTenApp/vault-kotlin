@@ -18,7 +18,7 @@ The palette also includes light, medium-contrast, and high-contrast variants. Th
 | Accounts | List associated accounts and reach app settings | Create account; open account; open Settings | Loading, empty, recovering, populated |
 | Settings | Provide vault-management entry points and SSH key-generation controls | Open Vault Key; choose KDF rounds | Ready |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
-| Export account | Require a text export before account use | Choose an app to save key | In-app app picker open, no compatible apps, launch rejected |
+| Export account | Require a verified text export before account use | Choose an app to save key; paste saved key to confirm | In-app app picker open, no compatible apps, launch rejected, paste malformed/mismatched/unreadable/empty |
 | Account detail | Inspect account identity and per-source backup state | Consolidate backup | Missing, source checking/writing/present/missing/failed/unknown |
 | Vault Key | Inspect Vault Key and per-source backup state | Retry/consolidate as available | Quorum/status rows, checking, partial, failure |
 
@@ -111,7 +111,7 @@ flowchart TD
 
 - Settings uses a centered title and a Back action that returns to **Accounts**.
 - The current vault section contains one full-width **Vault Key** item with supporting text. It opens Vault Key source status and Vault Key consolidation controls.
-- **KDF rounds** is a dropdown for the bcrypt work factor used by newly generated Vault Keys and associated SSH accounts. It permits only `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`, defaults to `512`, and does not alter existing encrypted keys.
+- **KDF rounds** is a dropdown for the bcrypt work factor used by newly generated Vault Keys and associated SSH accounts. It permits only `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`, defaults to `128`, and does not alter existing encrypted keys.
 
 ### Create associated account
 
@@ -123,7 +123,7 @@ flowchart TD
 ### Local account backup
 
 - Back navigation is blocked until the required backup route completes.
-- The export screen sends the encrypted OpenSSH private key as plain text through the Android Sharesheet, allowing targets such as Keep, Messages, or email. The app considers this step complete after the chooser opens and the user confirms that the encrypted key was saved.
+- The export screen sends the encrypted OpenSSH private key as plain text to a chosen app, allowing targets such as Keep, Messages, or email. After the target opens, the screen asks the user to copy the saved key back and paste it in. The app reads the clipboard, clears the current clipboard entry, and checks that the pasted encrypted key matches the account; only a match completes the step. Malformed, mismatched, unreadable, or empty pastes show a safe error and keep the screen active, and the app cannot verify that the receiving app actually retained a durable copy.
 - This is sensitive shared-media/share-target output, despite OpenSSH passphrase encryption. The screen is protected from screenshots where Android supports it.
 
 ### Account detail and Vault Key
