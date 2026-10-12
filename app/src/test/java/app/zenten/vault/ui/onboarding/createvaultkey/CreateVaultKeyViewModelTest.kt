@@ -35,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -45,17 +46,21 @@ class CreateVaultKeyViewModelTest {
     private fun viewModel(
         secureStorage: SecureStorageService = mockk(),
         engine: AccountConsolidationEngine = mockk(),
+        clockOverride: Clock = clock,
     ): CreateVaultKeyViewModel {
         val appStorage = mockk<AppStorageService>()
         every { secureStorage.addVaultKey(any()) } just runs
         every { appStorage.sshKdfRounds } returns flowOf(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS)
+        every { appStorage.vaultKeyPasteAttempts } returns flowOf(0)
+        every { appStorage.vaultKeyPasteBlockedUntilMillis } returns flowOf(null)
         coJustRun { appStorage.clearSetupComplete() }
         coJustRun { appStorage.setCreateVaultKeyStep(any()) }
+        coJustRun { appStorage.setVaultKeyPasteGuard(any(), any()) }
         coEvery { engine.backupVaultKey(any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
         )
         return CreateVaultKeyViewModel(
-            clock,
+            clockOverride,
             SetupService(secureStorage, appStorage, engine),
             secureStorage,
             appStorage,
@@ -255,5 +260,68 @@ class CreateVaultKeyViewModelTest {
         viewModel.clearVerificationMessage()
 
         assertFalse(viewModel.state.value.mismatch)
+    }
+
+    @Test
+    fun first_invalid_paste_blocks_the_wizard_for_one_minute() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val failure = viewModel.registerFailedVaultKeyPaste()
+
+        assertEquals(VaultKeyPasteFailure.Blocked(clock.millis() + 60_000L), failure)
+        assertEquals(1, viewModel.pasteGuard.value.attempts)
+        assertEquals(clock.millis() + 60_000L, viewModel.pasteGuard.value.blockedUntilMillis)
+    }
+
+    @Test
+    fun successive_invalid_pastes_extend_the_block_by_one_minute_each() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(
+            clock.millis() + 60_000L,
+            (viewModel.registerFailedVaultKeyPaste() as VaultKeyPasteFailure.Blocked).untilMillis,
+        )
+        assertEquals(
+            clock.millis() + 120_000L,
+            (viewModel.registerFailedVaultKeyPaste() as VaultKeyPasteFailure.Blocked).untilMillis,
+        )
+        assertEquals(
+            clock.millis() + 180_000L,
+            (viewModel.registerFailedVaultKeyPaste() as VaultKeyPasteFailure.Blocked).untilMillis,
+        )
+    }
+
+    @Test
+    fun fourth_invalid_paste_returns_to_export_and_resets_the_guard() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        repeat(3) { viewModel.registerFailedVaultKeyPaste() }
+
+        val fourth = viewModel.registerFailedVaultKeyPaste()
+
+        assertEquals(VaultKeyPasteFailure.ReturnToExport, fourth)
+        assertEquals(VaultKeyPasteGuard(), viewModel.pasteGuard.value)
+    }
+
+    @Test
+    fun expired_block_is_lifted_while_the_failure_count_is_kept() = runTest(dispatcher) {
+        var now = Instant.parse("2026-02-01T00:00:00Z")
+        val mutableClock = object : Clock() {
+            override fun getZone(): ZoneId = ZoneOffset.UTC
+            override fun withZone(zone: ZoneId?): Clock = this
+            override fun instant(): Instant = now
+        }
+        val viewModel = viewModel(clockOverride = mutableClock)
+        advanceUntilIdle()
+        viewModel.registerFailedVaultKeyPaste()
+        assertNotNull(viewModel.pasteGuard.value.blockedUntilMillis)
+
+        now = now.plusSeconds(61)
+        viewModel.onPasteLockoutExpired()
+
+        assertEquals(1, viewModel.pasteGuard.value.attempts)
+        assertNull(viewModel.pasteGuard.value.blockedUntilMillis)
     }
 }

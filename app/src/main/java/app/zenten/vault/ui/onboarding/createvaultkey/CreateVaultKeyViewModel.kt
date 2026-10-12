@@ -68,6 +68,28 @@ class CreateVaultKeyViewModel @Inject constructor(
     private val _state = MutableStateFlow(CreateVaultKeyState())
     val state: StateFlow<CreateVaultKeyState> = _state.asStateFlow()
 
+    private val _pasteGuard = MutableStateFlow(VaultKeyPasteGuard())
+
+    /**
+     * Failed-paste counter and active block for **Confirm Backup**.
+     *
+     * Held separately from [state] because [choosePassphrase] resets [state] to a
+     * fresh value when the user returns to an earlier step, which must not wipe an
+     * in-progress lockout. Mirrors the values persisted in [AppStorageService] so a
+     * process restart cannot shake off the wait.
+     */
+    val pasteGuard: StateFlow<VaultKeyPasteGuard> = _pasteGuard.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val attempts = appStorage.vaultKeyPasteAttempts.first()
+            val blockedUntil = appStorage.vaultKeyPasteBlockedUntilMillis.first()
+                // A deadline that already passed keeps the attempt count but no longer blocks.
+                ?.takeIf { it > clock.millis() }
+            _pasteGuard.value = VaultKeyPasteGuard(attempts, blockedUntil)
+        }
+    }
+
     /**
      * Records the passphrase chosen on step 2.
      *
@@ -296,12 +318,76 @@ class CreateVaultKeyViewModel @Inject constructor(
             ?: return BackupConfirmationResult.UNAVAILABLE
         // Constant-time equality keeps this key-material comparison consistent with MAC checks.
         return if (MessageDigest.isEqual(normalized.toByteArray(), stored.toByteArray())) {
+            // A correct confirmation ends the escalation; a later re-entry starts fresh.
+            resetVaultKeyPasteGuard()
             BackupConfirmationResult.MATCHED
         } else {
             BackupConfirmationResult.MISMATCHED
         }
     }
 
+    /**
+     * Records an unsupported or non-matching **Confirm Backup** paste.
+     *
+     * The first three failures block the wizard for 1, 2, then 3 minutes. The
+     * fourth returns [VaultKeyPasteFailure.ReturnToExport] so the caller can send
+     * the user back to **Create Backup** to export again, and resets the counter
+     * because a fresh export begins a new cycle. Only validation and match
+     * failures count; a clipboard or storage problem is not a wrong-key attempt.
+     */
+    fun registerFailedVaultKeyPaste(): VaultKeyPasteFailure {
+        val attempts = _pasteGuard.value.attempts + 1
+        if (attempts >= MAX_VAULT_KEY_PASTE_ATTEMPTS) {
+            resetVaultKeyPasteGuard()
+            return VaultKeyPasteFailure.ReturnToExport
+        }
+        // Escalate the wait with each failed attempt: 1 minute, then 2, then 3.
+        val blockedUntil = clock.millis() + attempts * VAULT_KEY_PASTE_LOCKOUT_STEP_MILLIS
+        _pasteGuard.value = VaultKeyPasteGuard(attempts, blockedUntil)
+        viewModelScope.launch { appStorage.setVaultKeyPasteGuard(attempts, blockedUntil) }
+        return VaultKeyPasteFailure.Blocked(blockedUntil)
+    }
+
+    /**
+     * Drops an expired block once the countdown reaches zero while keeping the
+     * failed-attempt count, so the next failure escalates instead of restarting.
+     */
+    fun onPasteLockoutExpired() {
+        val guard = _pasteGuard.value
+        val until = guard.blockedUntilMillis ?: return
+        if (until > clock.millis()) return
+        _pasteGuard.value = guard.copy(blockedUntilMillis = null)
+        viewModelScope.launch { appStorage.setVaultKeyPasteGuard(guard.attempts, null) }
+    }
+
+    /** Clears the failed-paste counter and any active block. */
+    fun resetVaultKeyPasteGuard() {
+        if (_pasteGuard.value == VaultKeyPasteGuard()) return
+        _pasteGuard.value = VaultKeyPasteGuard()
+        viewModelScope.launch { appStorage.setVaultKeyPasteGuard(0, null) }
+    }
+
+    companion object {
+        /** Failed Confirm Backup pastes before the wizard returns to **Create Backup**. */
+        const val MAX_VAULT_KEY_PASTE_ATTEMPTS = 4
+        /** Each failed paste extends the lockout by one more minute. */
+        const val VAULT_KEY_PASTE_LOCKOUT_STEP_MILLIS = 60_000L
+    }
+
+}
+
+/** Persisted failed-paste counter and block deadline for **Confirm Backup**. */
+data class VaultKeyPasteGuard(
+    val attempts: Int = 0,
+    val blockedUntilMillis: Long? = null,
+)
+
+/** What the caller should do after a failed **Confirm Backup** paste. */
+sealed interface VaultKeyPasteFailure {
+    /** The wizard is blocked until this wall-clock time. */
+    data class Blocked(val untilMillis: Long) : VaultKeyPasteFailure
+    /** Too many failures: return to **Create Backup** to export a fresh key. */
+    data object ReturnToExport : VaultKeyPasteFailure
 }
 
 /**

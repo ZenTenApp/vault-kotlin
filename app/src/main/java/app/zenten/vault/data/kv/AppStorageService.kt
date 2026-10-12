@@ -49,6 +49,15 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     }
     val cachedAccountProfiles: Flow<List<CachedAccountProfile>> = jsonFlow(CACHED_ACCOUNT_PROFILES)
 
+    /**
+     * Failed **Confirm Backup** pastes for the generated VaultKey. Persisted so a
+     * process restart cannot reset the escalating lockout, and kept in
+     * [AppStorageService] rather than the wizard because only the counter and the
+     * non-secret deadline are stored here — never the pasted or stored key.
+     */
+    val vaultKeyPasteAttempts: Flow<Int> = dataStore.data.map { it[VAULT_KEY_PASTE_ATTEMPTS] ?: 0 }
+    val vaultKeyPasteBlockedUntilMillis: Flow<Long?> = dataStore.data.map { it[VAULT_KEY_PASTE_BLOCKED_UNTIL] }
+
     suspend fun setSetupComplete() = dataStore.edit {
         it[SETUP_COMPLETE] = true
         it.remove(CREATE_VAULT_KEY_STEP)
@@ -63,6 +72,21 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     /** Persists only wizard progress; generated key material remains in encrypted storage. */
     suspend fun setCreateVaultKeyStep(step: CreateVaultKeyStep) = dataStore.edit {
         it[CREATE_VAULT_KEY_STEP] = step.name
+    }
+
+    /**
+     * Stores the Confirm Backup paste guard. A zero attempt count clears both
+     * keys; a null deadline keeps the count while removing an expired block.
+     */
+    suspend fun setVaultKeyPasteGuard(attempts: Int, blockedUntilMillis: Long?) = dataStore.edit { preferences ->
+        if (attempts <= 0) {
+            preferences.remove(VAULT_KEY_PASTE_ATTEMPTS)
+            preferences.remove(VAULT_KEY_PASTE_BLOCKED_UNTIL)
+        } else {
+            preferences[VAULT_KEY_PASTE_ATTEMPTS] = attempts
+            if (blockedUntilMillis == null) preferences.remove(VAULT_KEY_PASTE_BLOCKED_UNTIL)
+            else preferences[VAULT_KEY_PASTE_BLOCKED_UNTIL] = blockedUntilMillis
+        }
     }
 
     suspend fun setCustomBackupSources(sources: List<BackupSourceConfig>) = dataStore.edit {
@@ -172,6 +196,8 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val LOCALLY_BACKED_UP_ACCOUNT_IDS = stringPreferencesKey("locally_backed_up_account_ids_v1")
         val PENDING_LOCAL_BACKUP_ACCOUNT_IDS = stringPreferencesKey("pending_local_backup_account_ids_v1")
         val CACHED_ACCOUNT_PROFILES = stringPreferencesKey("cached_account_profiles_v1")
+        val VAULT_KEY_PASTE_ATTEMPTS = intPreferencesKey("vault_key_paste_attempts_v1")
+        val VAULT_KEY_PASTE_BLOCKED_UNTIL = longPreferencesKey("vault_key_paste_blocked_until_v1")
     }
 }
 
