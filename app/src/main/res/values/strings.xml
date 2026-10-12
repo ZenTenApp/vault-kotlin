@@ -90,6 +90,8 @@
     <string name="create_vault_key_confirm_backup_empty_error">The clipboard does not contain a private key. Copy the VaultKey and try again.</string>
     <string name="create_vault_key_confirm_backup_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
     <string name="create_vault_key_confirm_backup_mismatch_error">This VaultKey does not match the backup you just exported.</string>
+    <string name="create_vault_key_confirm_backup_locked_title">Vault temporarily blocked</string>
+    <string name="create_vault_key_confirm_backup_locked_body">You pasted invalid VaultKey. Try again in %1$s.</string>
 
     <!-- Create VaultKey flow: step 6, transcribe Brave recovery word positions -->
     <string name="create_vault_key_secret_combinations_title">Secret Combinations</string>
