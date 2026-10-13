@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.biometric.BiometricManager
@@ -52,7 +53,9 @@ class MainActivity : FragmentActivity() {
 private fun VaultApp() {
     ZenTenVaultTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            val activity = LocalContext.current as FragmentActivity
+            // LocalActivity is the Compose-safe way to obtain the host Activity;
+            // casting LocalContext can fail when the context is a wrapper.
+            val activity = LocalActivity.current as FragmentActivity
             val lifecycleOwner = LocalLifecycleOwner.current
             val unlockCoordinator = remember(activity) {
                 AppUnlockCoordinator(activity, ContextCompat.getMainExecutor(activity))

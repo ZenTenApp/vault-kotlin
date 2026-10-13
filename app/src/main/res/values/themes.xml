@@ -2,7 +2,9 @@
     <!-- Match the launch window to Compose's fixed dark color scheme. -->
     <style name="Theme.ZenTenVault" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <!-- windowLightNavigationBar only exists from API 27. It is intentionally
+             omitted here because the Material dark parent already defaults it to
+             false; declaring it below API 27 risks framework attribute-id conflicts. -->
         <!-- Matches backgroundDark in ui/theme/Color.kt so the launch window does
              not flash a different shade before Compose draws. -->
         <item name="android:windowBackground">#121212</item>

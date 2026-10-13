@@ -1,6 +1,7 @@
 package app.zenten.vault.data.kv
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.domain.BackupSourceConfig
 import app.zenten.vault.domain.BackupSourceType
 import app.zenten.vault.domain.SourceAuthentication
@@ -26,7 +27,9 @@ class AppStorageServiceTest {
                 authentication = SourceAuthentication.NIP42_OPTIONAL,
             )
             assertFalse(service.setupComplete.first())
-            assertEquals(512, service.sshKdfRounds.first())
+            // The default round count is owned by SshKeyCodec; reference it so this
+            // persistence test does not silently pin a stale value.
+            assertEquals(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS, service.sshKdfRounds.first())
             service.setSshKdfRounds(64)
             assertEquals(64, service.sshKdfRounds.first())
             service.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
