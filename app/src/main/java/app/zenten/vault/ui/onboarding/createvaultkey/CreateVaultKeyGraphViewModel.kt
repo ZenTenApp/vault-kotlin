@@ -25,9 +25,10 @@ private inline fun <reified VM : androidx.lifecycle.ViewModel> rememberCreateVau
     navController: NavHostController,
 ): VM {
     // getBackStackEntry walks the current back stack, so it must be re-resolved
-    // whenever the controller changes; remember keeps it stable across
-    // recompositions of a single screen.
-    val graphEntry = remember(navController) {
+    // whenever the current entry changes; keying the remember on the
+    // NavBackStackEntry (not just the controller) is required so the graph entry
+    // is refreshed on navigation.
+    val graphEntry = remember(navController.currentBackStackEntry) {
         navController.getBackStackEntry(VaultDestinations.CREATE_VAULT_KEY_GRAPH)
     }
     return hiltViewModel(graphEntry)

@@ -33,11 +33,24 @@ The current test suite includes device-lock capability and foreground grace-peri
 
 Host-side tests run on JDK 21 because the Quartz dependency ships JVM 21 bytecode. The Android app itself compiles with Java/Kotlin target 17; Gradle is configured to provision the host-test toolchain when necessary.
 
+## Continuous integration
+
+The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests targeting `main` and on pushes to `main`. It uses a GitHub-hosted Ubuntu runner with JDK 21 (the app still compiles against Java/Kotlin target 17) and Android SDK platform 36 with build-tools 36.0.0, then runs:
+
+1. `./gradlew :app:testDebugUnitTest`
+2. `./gradlew :app:assembleDebug`
+3. `./gradlew :app:lintDebug`
+
+Android lint errors fail the build, so a change that introduces a new lint error cannot pass CI. Instrumented tests (`:app:connectedDebugAndroidTest`) are not run in CI because they require an emulator or connected device.
+
+Branch protection for `main` (required pull-request review, required status checks, and disabled force pushes) is not enabled yet. Until it is, the workflow provides signal but does not block direct pushes to `main`.
+
 ## Before opening a pull request
 
 At minimum:
 
 1. Run `./gradlew :app:testDebugUnitTest`.
 2. Run `./gradlew :app:assembleDebug` if Android/UI/build configuration changed.
-3. Exercise affected sensitive screens manually on a device/emulator where feasible. Device-authentication changes should cover PIN-only, strong biometric plus credential, no-lock enrollment, cancellation, biometric lockout, and background-grace behavior, including pre-Android 11 (API 26–29) capability handling.
-4. Confirm no secrets, generated APKs, or local configuration files are included in the change.
+3. Run `./gradlew :app:lintDebug` if Android resources or Kotlin sources changed.
+4. Exercise affected sensitive screens manually on a device/emulator where feasible. Device-authentication changes should cover PIN-only, strong biometric plus credential, no-lock enrollment, cancellation, biometric lockout, and background-grace behavior, including pre-Android 11 (API 26–29) capability handling.
+5. Confirm no secrets, generated APKs, or local configuration files are included in the change.
