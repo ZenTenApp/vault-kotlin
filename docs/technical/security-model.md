@@ -38,6 +38,7 @@
 - Backup status, pending writes, and checkpoints persist only canonical account/source IDs, coarse state/error categories, counters, and timestamps—not keys, passphrases, payloads, sync codes, auth tokens, or challenges.
 - Presence comparisons are identifier-only. A remote private-key payload is decrypted only when its associated account is absent locally and restoration is required.
 - The KeyHive provider exposes only associated-account `createdAt`, `zentenKey`, and `nostrPubkey` fields as `json_v1` through a signature-protected ContentProvider. The signature permission is the IPC confidentiality boundary; certificate-derived application encryption is not used because the certificate is public. Vault Key material, passphrases, mnemonics, SSH public keys, and Nostr private keys are not exposed; the Nostr public key is shared so sibling apps can address the account.
+- Dependency and source scanning is free-tier: Dependabot alerts and security updates are enabled, and CI runs Gitleaks (full git history) and Semgrep (Kotlin/Android, ERROR-severity gate). GitHub's paid code and secret scanning are unavailable on the Free private-repo plan. Configuration and limits are documented in [Build and test](build-and-test.md#dependency-and-security-scanning).
 
 ## Required production review topics
 
@@ -46,7 +47,7 @@
 3. Clipboard retention, screenshot/task-switcher behavior, accessibility exposure, and automatic hiding of sensitive content.
 4. Remote-data validation, signature checks, encryption compatibility, downgrade/replay behavior, and denial-of-service limits.
 5. Network timeouts, retries, offline state, remote-service compromise/outage, and status accuracy.
-6. Secret handling in logs, telemetry, analytics, crash reporting, CI, support, and release builds.
+6. Secret handling in logs, telemetry, analytics, crash reporting, CI, support, and release builds, including coverage gaps left by the free-tier scanners (no push protection, no Security-tab dashboard, runtime-fetched Semgrep rules).
 7. Independent cryptography and protocol review before production use.
 8. Whether interactive private-key disclosure should use a separate authentication-bound encryption domain, given that background backup and KeyHive provider access must remain unattended.
 

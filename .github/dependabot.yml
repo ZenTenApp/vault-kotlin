@@ -1,0 +1,39 @@
+# Dependabot configuration.
+#
+# Dependabot alerts and security updates are free for all repositories,
+# including private ones on the GitHub Free plan, and are enabled in the
+# repository settings. This file adds version updates so dependencies (and the
+# pinned GitHub Actions used by CI) receive routine upgrade pull requests.
+# See docs/technical/build-and-test.md.
+
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Routine minor/patch bumps arrive as one reviewable PR instead of many.
+    # Crypto, native, and protocol dependencies are deliberately excluded from
+    # the batch so they get individual scrutiny: they carry golden-vector
+    # parity, native page-size, and NIP-compatibility risk that the test suite
+    # must confirm.
+    groups:
+      gradle-routine:
+        patterns: [ "*" ]
+        exclude-patterns:
+          - "org.bouncycastle:*"
+          - "fr.acinq.secp256k1:*"
+          - "com.vitorpamplona.quartz:*"
+          - "androidx.security:security-crypto"
+        update-types: [ "minor", "patch" ]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Workflow actions are pinned to commit SHAs; Dependabot keeps those pins
+    # current as upstream tags move.
+    open-pull-requests-limit: 5
