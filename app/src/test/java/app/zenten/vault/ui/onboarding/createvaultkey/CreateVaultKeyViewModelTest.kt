@@ -5,6 +5,8 @@ import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.data.kv.AppStorageService
+import app.zenten.vault.ui.availability.RemoteOperationPrecondition
+import app.zenten.vault.ui.availability.RemoteOperationReadiness
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
@@ -49,6 +51,8 @@ class CreateVaultKeyViewModelTest {
         clockOverride: Clock = clock,
     ): CreateVaultKeyViewModel {
         val appStorage = mockk<AppStorageService>()
+        val remoteOperationPrecondition = mockk<RemoteOperationPrecondition>()
+        coEvery { remoteOperationPrecondition.check() } returns RemoteOperationReadiness.READY
         every { secureStorage.addVaultKey(any()) } just runs
         every { appStorage.sshKdfRounds } returns flowOf(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS)
         every { appStorage.vaultKeyPasteAttempts } returns flowOf(0)
@@ -61,7 +65,7 @@ class CreateVaultKeyViewModelTest {
         )
         return CreateVaultKeyViewModel(
             clockOverride,
-            SetupService(secureStorage, appStorage, engine),
+            SetupService(secureStorage, appStorage, engine, remoteOperationPrecondition),
             secureStorage,
             appStorage,
         )

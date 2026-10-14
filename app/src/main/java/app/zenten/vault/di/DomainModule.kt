@@ -15,6 +15,7 @@ import app.zenten.vault.domain.ProfileService
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeyRecoveryService
 import app.zenten.vault.network.nostr.NostrRelayGateway
+import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -57,8 +58,9 @@ object DomainModule {
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
         engine: AccountConsolidationEngine,
+        remoteOperationPrecondition: RemoteOperationPrecondition,
         scheduler: BackupWorkScheduler,
-    ) = SetupService(secureStorage, appStorage, engine, scheduler)
+    ) = SetupService(secureStorage, appStorage, engine, remoteOperationPrecondition, scheduler)
 
     @Provides @Singleton
     fun vaultKeyRecoveryService(
