@@ -1,9 +1,13 @@
 package app.zenten.vault.ui.availability
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -132,8 +136,11 @@ class RemoteOperationPrecondition @Inject constructor(
 }
 
 /** Blocks navigation until the same prerequisite policy used by background work passes. */
-class AppAccessGuard(context: Context) : AutoCloseable {
-    private val precondition = RemoteOperationPrecondition(context.applicationContext)
+class AppAccessGuard(
+    context: Context,
+    private val precondition: RemoteOperationPrecondition = RemoteOperationPrecondition(context.applicationContext),
+) : AutoCloseable {
+    private val appContext = context.applicationContext
     private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val generation = AtomicLong(0)
@@ -146,8 +153,24 @@ class AppAccessGuard(context: Context) : AutoCloseable {
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = refresh()
     }
 
+    // A manual clock or timezone change invalidates the last good time check. Observing the
+    // system broadcast re-validates immediately instead of keeping the gate green until an
+    // unrelated network event or resume happens.
+    private val timeChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) = refresh()
+    }
+
     init {
         connectivityManager.registerDefaultNetworkCallback(networkCallback)
+        ContextCompat.registerReceiver(
+            appContext,
+            timeChangeReceiver,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_TIME_CHANGED)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         refresh()
     }
 
@@ -174,6 +197,7 @@ class AppAccessGuard(context: Context) : AutoCloseable {
 
     override fun close() {
         connectivityManager.unregisterNetworkCallback(networkCallback)
+        appContext.unregisterReceiver(timeChangeReceiver)
         scope.cancel()
     }
 
