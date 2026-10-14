@@ -31,6 +31,7 @@ The **Creating VaultKey** status is presented as a terminal-style transcript. Th
 - The primary setup action is unavailable while processing is in progress.
 - The Vault Key is not shown as a normal associated-account item; its per-source state is available from the dedicated **Vault Key** screen.
 - Quorum failure messages identify whether relay or Brave Sync coverage is missing without exposing source credentials or secret material.
+- Before any remote backup, setup, retry, and the create-flow backup consult `RemoteOperationPrecondition`. Unless Android reports validated internet and the device clock is not known to be wrong, Vault persists or keeps the Vault Key locally and reports a retryable failure instead of signing timestamped Nostr backup events or Brave Sync authentication tokens. A time-source outage alone does not block setup because it is not proof of incorrect device time.
 
 ## Current limitations
 
