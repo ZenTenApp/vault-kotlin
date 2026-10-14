@@ -121,6 +121,9 @@ dependencies {
     testImplementation(libs.secp256k1.kmp.jni.jvm)
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter)
+    // Robolectric tests use the JUnit4 runner; the Vintage engine runs them on the
+    // JUnit Platform configured for these unit tests.
+    testRuntimeOnly(libs.junit.vintage.engine)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
