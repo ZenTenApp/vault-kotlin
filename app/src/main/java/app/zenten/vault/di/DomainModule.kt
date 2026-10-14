@@ -68,8 +68,9 @@ object DomainModule {
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
         scheduler: BackupWorkScheduler,
+        gateway: NostrRelayGateway,
         clock: Clock,
-    ) = VaultKeyRecoveryService(repository, secureStorage, appStorage, scheduler, clock)
+    ) = VaultKeyRecoveryService(repository, secureStorage, appStorage, scheduler, gateway, clock)
 
     @Provides @Singleton
     fun accountService(secureStorage: SecureStorageService, setupService: SetupService, appStorage: AppStorageService) =

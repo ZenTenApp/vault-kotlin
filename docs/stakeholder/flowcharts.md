@@ -28,10 +28,10 @@ flowchart TD
     RecoverSecrets --> RecoverValid{"24 values in range with valid BIP-39 checksum?"}
     RecoverValid -->|No| RecoverSecrets
     RecoverValid -->|Yes| RecoverPassphrase["Enter VaultKey passphrase"]
-    RecoverPassphrase --> RecoverBrave["Query enabled Brave Sync sources for vaultkey entity"]
-    RecoverBrave -->|Missing / network / invalid passphrase| RecoverError["Show safe error and allow retry"]
+    RecoverPassphrase --> RecoverSources["Query enabled Nostr relay and Brave Sync sources for the vaultkey record"]
+    RecoverSources -->|Missing / network / invalid passphrase| RecoverError["Show safe error and allow retry"]
     RecoverError --> RecoverPassphrase
-    RecoverBrave -->|Recovered and decrypted| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
+    RecoverSources -->|Recovered and decrypted| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
     RecoverStore --> Accounts
     Welcome -->|"Create VaultKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome

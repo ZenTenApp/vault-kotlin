@@ -2,7 +2,7 @@
 
 ## Purpose
 
-After the user imports the same Vault Key, source consolidation restores every valid remotely backed-up associated account that is absent locally. The Vault Key itself is never recovered remotely: the user must supply its private key and passphrase.
+After the user imports or recovers the same Vault Key, source consolidation restores every valid remotely backed-up associated account that is absent locally. The Vault Key is not restored by this consolidation flow: it re-enters the app through **Recover VaultKey**, which uses the user's Secret Combinations and passphrase to read the separate `vaultkey` record from enabled relays and Brave Sync sources.
 
 ## Trigger and ordering
 

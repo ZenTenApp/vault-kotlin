@@ -64,7 +64,7 @@ class RecoverVaultKeyViewModel @Inject constructor(
                 .onSuccess { _state.value = RecoverVaultKeyState(completed = true) }
                 .onFailure { error ->
                     val message = when (error) {
-                        is java.io.IOException -> "Vault could not reach Brave Sync. Check your connection and try again."
+                        is java.io.IOException -> "Vault could not reach a backup source. Check your connection and try again."
                         is IllegalArgumentException -> error.message ?: "The Secret Combinations are invalid."
                         else -> "Unable to recover VaultKey. Check your Secret Combinations and passphrase, then try again."
                     }
