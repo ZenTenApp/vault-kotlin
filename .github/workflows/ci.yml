@@ -33,7 +33,7 @@ jobs:
       # and the host-side unit-test launcher requests a JDK 21 toolchain, which
       # resolves to this same JDK instead of triggering a Foojay download.
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
