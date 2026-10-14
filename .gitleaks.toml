@@ -1,0 +1,32 @@
+# Gitleaks configuration for the Vault repository.
+#
+# Gitleaks is the free substitute for GitHub's paid secret scanning (see
+# docs/technical/build-and-test.md). The default rule set flags a number of
+# non-secret values in this repository's crypto test fixtures. Keep every
+# allowlist entry as narrow as possible: anything outside these paths/patterns
+# must still fail the scan.
+
+[extend]
+# Start from the shipped default rules and add only the allowances below.
+useDefault = true
+
+[[allowlists]]
+description = "Public Nostr npub keys are public by definition and can never be a secret."
+regexTarget = "match"
+regexes = [
+  '''npub1[0-9a-z]{50,}''',
+]
+
+[[allowlists]]
+description = "Brave Sync's service key is a public protocol constant from the open-source Brave client, not a credential."
+regexTarget = "match"
+regexes = [
+  '''qztbjzBqJueQZLFkwTTJrieu8Vw3789u''',
+]
+
+[[allowlists]]
+description = "Golden crypto fixtures and their generator embed intentionally non-secret sample keys used by parity tests."
+paths = [
+  '''app/src/test/resources/golden/.*''',
+  '''tools/gen-golden-vectors\.mjs''',
+]

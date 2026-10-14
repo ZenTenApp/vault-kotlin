@@ -1,0 +1,94 @@
+name: Security
+
+# Free replacement for GitHub's paid code scanning (GitHub Code Security) and
+# secret scanning (GitHub Secret Protection), which are unavailable on this
+# private repository's GitHub Free plan. Gitleaks blocks leaked secrets and
+# Semgrep blocks high-severity code defects. Findings are written to the
+# workflow log and uploaded as a SARIF artifact rather than the Security tab.
+# See docs/technical/build-and-test.md for the rationale and limitations.
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  schedule:
+    # Re-scan weekly even without code changes so newly published rules and
+    # newly disclosed patterns are applied to the existing tree and history.
+    - cron: "17 6 * * 1"
+
+# Cancel an in-progress run when a branch/PR is updated, so only the newest
+# commit consumes runner minutes (private repos draw from the org's 2,000
+# free monthly Actions minutes).
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository (full history)
+        # Pinned to a commit SHA: a mutable tag could be repointed to malicious
+        # code, and CI in this repository handles signing/backup material.
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # History is required so secrets removed in a later commit are still
+          # detected. A shallow clone would only see the tip.
+          fetch-depth: 0
+
+      # Gitleaks CLI is MIT-licensed and free for organizations. The
+      # gitleaks/gitleaks-action wrapper requires a paid organization license,
+      # so the pinned container image is invoked directly. `.gitleaks.toml`
+      # allowlists non-secret test fixtures; anything else fails the job.
+      - name: Scan git history for committed secrets
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            detect --source=/repo --redact --no-banner --exit-code=1
+
+  code-scan:
+    name: Code scan (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # `--severity ERROR` keeps the gate to high-confidence, high-impact
+      # findings so routine advisory warnings (for example mutable Action tags)
+      # do not block every PR. `.semgrepignore` excludes generated test fixtures.
+      # Rules are fetched from the free Semgrep registry at run time; `--metrics=off`
+      # disables telemetry.
+      - name: Run Semgrep (fails on ERROR severity)
+        run: |
+          mkdir -p "$RUNNER_TEMP/semgrep"
+          docker run --rm \
+            --volume "$PWD:/src" \
+            --volume "$RUNNER_TEMP/semgrep:/out" \
+            --workdir /src \
+            semgrep/semgrep:1.180.0 \
+            semgrep scan \
+              --config p/default \
+              --config p/kotlin \
+              --config p/security-audit \
+              --metrics=off \
+              --severity ERROR \
+              --error \
+              --sarif \
+              --output /out/semgrep.sarif
+
+      # Keep the report even when the gate above failed, for triage.
+      - name: Upload Semgrep report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: semgrep-sarif
+          path: ${{ runner.temp }}/semgrep/semgrep.sarif
+          if-no-files-found: ignore

@@ -1,0 +1,13 @@
+# Semgrep ignore list for the Vault repository.
+#
+# Semgrep is the free substitute for GitHub's paid code scanning (see
+# docs/technical/build-and-test.md). These exclusions only suppress findings in
+# generated/intentional test material; all app and test Kotlin sources are
+# still scanned.
+
+# Generated golden crypto fixtures (produced by tools/gen-golden-vectors.mjs).
+app/src/test/resources/golden/
+
+# Test-vector generator. It hardcodes sample private keys on purpose to produce
+# the golden fixtures; they are throwaway test keys, not real credentials.
+tools/gen-golden-vectors.mjs
