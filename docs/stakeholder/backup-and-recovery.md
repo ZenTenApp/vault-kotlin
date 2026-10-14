@@ -26,7 +26,7 @@ If that minimum is unavailable, the app keeps the validated Vault Key securely o
 
 ## Recovery expectation
 
-On a new device, the user imports the same vault key and passphrase. The app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
+On a new device, the user either re-imports the same vault key and passphrase or recovers the Vault Key from the eight saved Secret Combinations plus its passphrase. **Recover VaultKey** derives the Vault Key's two recovery addresses from the 24 saved words and checks every enabled Nostr relay and Brave Sync source for the `vaultkey` record, accepting the first copy the passphrase decrypts. After the Vault Key is available, the app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
 
 Recovery availability depends on network and service availability and whether at least one valid copy was previously created. It is not an unconditional guarantee.
 
@@ -42,7 +42,7 @@ Status appears per source in associated-account details and on a dedicated Vault
 | Backup failed | The latest write failed. | Check connectivity and retry. |
 | Unknown | The source could not be checked conclusively. | Refresh; do not assume the copy is absent. |
 
-Background consolidation runs hourly, subject to network availability, and avoids unnecessary rechecks when fresh and no writes are pending. General consolidation processes associated accounts only: it uses the Vault Key Nostr identity on relays and the Brave seed on Brave Sync. Vault Key consolidation is separate and uses the Brave-derived Nostr identity on relays plus the same Brave seed on Brave Sync.
+Background consolidation runs hourly, subject to network availability, and avoids unnecessary rechecks when fresh and no writes are pending. General consolidation processes associated accounts only: it uses the Vault Key Nostr identity on relays and the Brave seed on Brave Sync. Vault Key consolidation is separate and uses the Brave-derived Nostr identity on relays plus the same Brave seed on Brave Sync. Such consolidation only repairs an already-set-up device; a lost Vault Key is regained through **Recover VaultKey** using the saved Secret Combinations and passphrase, which is the only path that reads those relay and Brave copies back into the app.
 
 ## Privacy expectations
 
