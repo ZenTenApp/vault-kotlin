@@ -23,6 +23,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -40,6 +41,28 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
+/**
+ * Deterministic stand-in for the zxcvbn estimator.
+ *
+ * The real estimator's scores are its own contract and are covered by
+ * [ZxcvbnPassphraseStrengthCheckerTest]; using it here would only make the wizard tests
+ * slow and coupled to dictionary contents.
+ */
+private class FakePassphraseStrengthChecker(
+    private val weakPassphrases: Set<String> = emptySet(),
+    private val defaultScore: Int = 4,
+) : PassphraseStrengthChecker {
+    /** Every passphrase actually measured, so tests can assert measurement was skipped. */
+    val measured = mutableListOf<String>()
+
+    override suspend fun measure(passphrase: CharSequence): PassphraseStrength {
+        val text = passphrase.toString()
+        measured += text
+        val score = if (text in weakPassphrases) 1 else defaultScore
+        return passphraseStrengthForScore(score)
+    }
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class CreateVaultKeyViewModelTest {
     private val dispatcher = StandardTestDispatcher()
@@ -49,6 +72,7 @@ class CreateVaultKeyViewModelTest {
         secureStorage: SecureStorageService = mockk(),
         engine: AccountConsolidationEngine = mockk(),
         clockOverride: Clock = clock,
+        passphraseStrengthChecker: PassphraseStrengthChecker = FakePassphraseStrengthChecker(),
     ): CreateVaultKeyViewModel {
         val appStorage = mockk<AppStorageService>()
         val remoteOperationPrecondition = mockk<RemoteOperationPrecondition>()
@@ -68,6 +92,7 @@ class CreateVaultKeyViewModelTest {
             SetupService(secureStorage, appStorage, engine, remoteOperationPrecondition),
             secureStorage,
             appStorage,
+            passphraseStrengthChecker,
         )
     }
 
@@ -89,39 +114,92 @@ class CreateVaultKeyViewModelTest {
         state.first { !it.generating }
 
     @Test
-    fun rejects_passphrases_that_do_not_satisfy_every_creation_rule() {
+    fun rejects_passphrases_below_the_length_floor() = runTest(dispatcher) {
         val viewModel = viewModel()
-        val invalidPassphrases = listOf(
-            "Short1!",         // fewer than eight characters
-            "lowercase1!",     // no uppercase letter
-            "UPPERCASE1!",     // no lowercase letter
-            "NoNumber!",       // no numeric character
-            "NoSpecial1",       // no special character
-            "Whitespace1 ",     // whitespace is not a special character
+        val tooShort = listOf(
+            "Short1!",   // eight characters
+            "Valid123!", // nine characters, still under the floor
+            "invalid",   // far under the floor
         )
 
-        invalidPassphrases.forEach { passphrase ->
+        tooShort.forEach { passphrase ->
             assertFalse(viewModel.choosePassphrase(passphrase), passphrase)
         }
 
-        viewModel.verifyAndGenerate("Whitespace1 ")
+        viewModel.verifyAndGenerate("Short1!")
         assertTrue(viewModel.state.value.passphraseMissing)
     }
 
     @Test
-    fun accepts_a_passphrase_that_satisfies_every_creation_rule() {
-        assertTrue(viewModel().choosePassphrase("Valid123!"))
+    fun rejects_a_long_passphrase_the_estimator_finds_guessable() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            passphraseStrengthChecker = FakePassphraseStrengthChecker(weakPassphrases = setOf("vaultkey1234!")),
+        )
+
+        assertFalse(viewModel.choosePassphrase("vaultkey1234!"))
+
+        // The refusal publishes its measurement so the checklist can explain itself.
+        assertEquals(1, viewModel.passphraseStrength.value?.score)
+        viewModel.verifyAndGenerate("vaultkey1234!")
+        assertTrue(viewModel.state.value.passphraseMissing)
     }
 
     @Test
-    fun invalid_choice_discards_a_previously_accepted_passphrase() {
+    fun accepts_a_passphrase_that_satisfies_both_creation_rules() = runTest(dispatcher) {
+        assertTrue(viewModel().choosePassphrase("Valid123!Pass"))
+    }
+
+    @Test
+    fun invalid_choice_discards_a_previously_accepted_passphrase() = runTest(dispatcher) {
         val viewModel = viewModel()
-        assertTrue(viewModel.choosePassphrase("Valid123!"))
+        assertTrue(viewModel.choosePassphrase("Valid123!Pass"))
 
         assertFalse(viewModel.choosePassphrase("invalid"))
-        viewModel.verifyAndGenerate("Valid123!")
+        viewModel.verifyAndGenerate("Valid123!Pass")
 
         assertTrue(viewModel.state.value.passphraseMissing)
+    }
+
+    @Test
+    fun measures_the_typed_passphrase_only_after_typing_pauses() = runTest(dispatcher) {
+        val checker = FakePassphraseStrengthChecker()
+        val viewModel = viewModel(passphraseStrengthChecker = checker)
+
+        viewModel.onPassphraseChanged("Correct1 horse!")
+        // Nothing runs during the quiet period, so typing cannot queue one search per keystroke.
+        assertEquals(emptyList<String>(), checker.measured)
+
+        advanceTimeBy(CreateVaultKeyViewModel.PASSPHRASE_STRENGTH_DEBOUNCE_MILLIS - 1)
+        assertEquals(emptyList<String>(), checker.measured)
+
+        advanceUntilIdle()
+
+        assertEquals(listOf("Correct1 horse!"), checker.measured)
+        assertEquals(4, viewModel.passphraseStrength.value?.score)
+    }
+
+    @Test
+    fun skips_measurement_for_input_the_length_rule_already_rejects() = runTest(dispatcher) {
+        val checker = FakePassphraseStrengthChecker()
+        val viewModel = viewModel(passphraseStrengthChecker = checker)
+
+        viewModel.onPassphraseChanged("Short1!")
+        advanceUntilIdle()
+
+        assertEquals(emptyList<String>(), checker.measured)
+        assertNull(viewModel.passphraseStrength.value)
+    }
+
+    @Test
+    fun drops_the_measured_strength_when_the_passphrase_step_is_left() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.onPassphraseChanged("Correct1 horse!")
+        advanceUntilIdle()
+        assertNotNull(viewModel.passphraseStrength.value)
+
+        viewModel.clearPassphraseStrength()
+
+        assertNull(viewModel.passphraseStrength.value)
     }
 
     @Test

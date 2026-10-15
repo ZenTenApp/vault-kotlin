@@ -115,6 +115,10 @@ dependencies {
     implementation(libs.quartz)
     // Pin the secp256k1 android JNI ABI explicitly (also a Quartz transitive).
     implementation(libs.secp256k1.kmp.jni.android)
+    // zxcvbn estimates how many guesses a VaultKey passphrase would cost an attacker.
+    // The passphrase is the only secret protecting a VaultKey backup that may already be
+    // published to public relays, so strength is measured rather than pattern-matched.
+    implementation(libs.zxcvbn)
     // Unit tests
     // secp256k1 (Schnorr, NIP-44 ECDH) needs the JVM JNI artifact to run in host-side
     // (Robolectric/JUnit) tests; the -jni-android artifact only loads on a device/emulator.

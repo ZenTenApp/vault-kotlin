@@ -35,9 +35,9 @@ flowchart TD
     RecoverStore --> Accounts
     Welcome -->|"Create VaultKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
-    CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["Create Passphrase: unmet rules disappear after 2-second success feedback"]
+    CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["Create Passphrase: met length requirement disappears after 2-second success feedback"]
     CreatePassphrase -->|"Back"| CreateIntro
-    CreatePassphrase -->|"Confirm (8+ chars; upper, lower, number, special)"| CreateConfirm["Re-enter Passphrase"]
+    CreatePassphrase -->|"Confirm (minimum 12 characters; strength meter at or above the policy floor)"| CreateConfirm["Re-enter Passphrase"]
     CreateConfirm -->|"Back"| CreatePassphrase
     CreateConfirm -->|"Verify"| CreateMatch{"Re-entry matches the chosen passphrase?"}
     CreateMatch -->|No| CreateMismatch["Inline error; nothing created"]
