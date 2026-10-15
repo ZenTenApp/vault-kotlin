@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Vault</string>
 
     <!-- Get started / first-run screen -->
@@ -38,11 +38,137 @@
     <string name="create_vault_key_passphrase_title">Create Passphrase</string>
     <string name="create_vault_key_passphrase_icon_description">Padlock</string>
     <string name="create_vault_key_passphrase_label">Create Passphrase</string>
-    <string name="create_vault_key_passphrase_rule_length">8+ characters</string>
-    <string name="create_vault_key_passphrase_rule_uppercase">Uppercase letter</string>
-    <string name="create_vault_key_passphrase_rule_lowercase">Lowercase letter</string>
-    <string name="create_vault_key_passphrase_rule_number">Number</string>
-    <string name="create_vault_key_passphrase_rule_special">Special character</string>
+    <!--
+        The length floor is substituted from VaultKeyPassphrasePolicy.MINIMUM_LENGTH so the
+        displayed number cannot drift away from the rule actually enforced. Ignored as a plural
+        candidate on purpose: the value is a fixed policy constant, never a count, so only one
+        form ever exists and a plural resource would add indirection for nothing.
+    -->
+    <string name="create_vault_key_passphrase_rule_min_length" tools:ignore="PluralsCandidate">Minimum %1$d characters</string>
+    <!--
+        Strength meter labels. The first three describe scores below
+        VaultKeyPassphrasePolicy.MINIMUM_STRENGTH_SCORE, so none of them may read as approval:
+        the meter must never describe a passphrase as strong while Confirm is still hidden.
+    -->
+    <string name="create_vault_key_passphrase_strength_very_weak">Very weak</string>
+    <string name="create_vault_key_passphrase_strength_weak">Weak</string>
+    <string name="create_vault_key_passphrase_strength_not_strong_enough">Not strong enough</string>
+    <string name="create_vault_key_passphrase_strength_strong">Strong</string>
+    <string name="create_vault_key_passphrase_strength_very_strong">Very strong</string>
+    <!-- Announced in place of the bare meter and its label, which are merged into one node. -->
+    <string name="create_vault_key_passphrase_strength_description">Passphrase strength: %1$s, %2$s to crack</string>
+    <!-- The meter's label row: band, then the crack-time estimate, on one line. -->
+    <string name="create_vault_key_passphrase_meter_summary">%1$s · %2$s to crack</string>
+    <string name="create_vault_key_passphrase_details_open">Why this rating</string>
+
+    <!--
+        Crack-time wording. The unit is chosen in code (`crackTimeOf`) and rendered here so
+        plurals stay correct; zxcvbn ships its own display strings, but they are English-only
+        library text with no plural forms.
+    -->
+    <string name="create_vault_key_passphrase_crack_time_instant">less than a second</string>
+    <string name="create_vault_key_passphrase_crack_time_centuries">centuries</string>
+    <plurals name="create_vault_key_passphrase_crack_time_seconds">
+        <item quantity="one">%1$d second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
+    <plurals name="create_vault_key_passphrase_crack_time_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="create_vault_key_passphrase_crack_time_hours">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
+    <plurals name="create_vault_key_passphrase_crack_time_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="create_vault_key_passphrase_crack_time_months">
+        <item quantity="one">%1$d month</item>
+        <item quantity="other">%1$d months</item>
+    </plurals>
+    <plurals name="create_vault_key_passphrase_crack_time_years">
+        <item quantity="one">%1$d year</item>
+        <item quantity="other">%1$d years</item>
+    </plurals>
+
+    <!-- Create VaultKey flow: the "why this rating" explanation sheet -->
+    <string name="create_vault_key_passphrase_details_title">Passphrase strength</string>
+    <string name="create_vault_key_passphrase_details_close">Close</string>
+    <string name="create_vault_key_passphrase_details_score">Strength score</string>
+    <string name="create_vault_key_passphrase_details_score_value">%1$d of %2$d</string>
+    <string name="create_vault_key_passphrase_details_time_to_crack">Time to crack</string>
+    <!--
+        Both rows describe an offline attack on a stolen backup with many cores; only the hash the
+        backup is protected by differs. The first row is the real situation, the second shows what a
+        weak hash would cost.
+    -->
+    <string name="create_vault_key_passphrase_details_attack_slow_hash">Slow hash (10,000 guesses per second)</string>
+    <string name="create_vault_key_passphrase_details_attack_fast_hash">Fast hash (10 billion guesses per second)</string>
+    <string name="create_vault_key_passphrase_details_noticed">What we noticed</string>
+    <string name="create_vault_key_passphrase_details_nothing_noticed">No predictable patterns found.</string>
+    <string name="create_vault_key_passphrase_details_improve">How to improve it</string>
+
+    <!--
+        Plain-language names for the kinds of structure zxcvbn can recognize. Named here rather
+        than taken from the library so the wording and the plurals stay app-owned.
+    -->
+    <string name="create_vault_key_passphrase_finding_common_password">A commonly used password</string>
+    <string name="create_vault_key_passphrase_finding_common_word">A common word or name</string>
+    <string name="create_vault_key_passphrase_finding_reversed_word">A common word spelled backwards</string>
+    <string name="create_vault_key_passphrase_finding_substituted_word">A common word with character substitutions</string>
+    <string name="create_vault_key_passphrase_finding_keyboard_pattern">A keyboard pattern</string>
+    <string name="create_vault_key_passphrase_finding_repeated_characters">Repeated characters</string>
+    <string name="create_vault_key_passphrase_finding_predictable_sequence">A predictable sequence</string>
+    <string name="create_vault_key_passphrase_finding_date">A date</string>
+    <string name="create_vault_key_passphrase_finding_recent_year">A recent year</string>
+    <!-- Not a weakness: the stretch the estimator could not explain. -->
+    <string name="create_vault_key_passphrase_finding_unpredictable_characters">Unpredictable characters</string>
+    <plurals name="create_vault_key_passphrase_finding_characters">
+        <item quantity="one">%1$d character</item>
+        <item quantity="other">%1$d characters</item>
+    </plurals>
+    <string name="create_vault_key_passphrase_finding_guesses">%1$s guesses</string>
+    <!--
+        Wraps the matched text so its boundaries are visible when it starts or ends with spaces or
+        punctuation, which several real matches do.
+    -->
+    <string name="create_vault_key_passphrase_finding_token">\"%1$s\"</string>
+    <string name="create_vault_key_passphrase_finding_keyboard">%1$s keyboard</string>
+    <plurals name="create_vault_key_passphrase_finding_turns">
+        <item quantity="one">%1$d turn</item>
+        <item quantity="other">%1$d turns</item>
+    </plurals>
+    <plurals name="create_vault_key_passphrase_finding_repeats">
+        <item quantity="one">repeats %1$d time</item>
+        <item quantity="other">repeats %1$d times</item>
+    </plurals>
+    <string name="create_vault_key_passphrase_finding_ascending">ascending</string>
+    <string name="create_vault_key_passphrase_finding_descending">descending</string>
+    <!--
+        zxcvbn's own pattern names, shown next to the plain-language kind so a reader can see both
+        what the estimator matched and what it means.
+    -->
+    <string name="create_vault_key_passphrase_pattern_dictionary">Dictionary</string>
+    <string name="create_vault_key_passphrase_pattern_spatial">Spatial</string>
+    <string name="create_vault_key_passphrase_pattern_repeat">Repeat</string>
+    <string name="create_vault_key_passphrase_pattern_sequence">Sequence</string>
+    <string name="create_vault_key_passphrase_pattern_regex">Regex</string>
+    <string name="create_vault_key_passphrase_pattern_date">Date</string>
+    <string name="create_vault_key_passphrase_pattern_bruteforce">Bruteforce</string>
+
+    <!--
+        Friendly names for zxcvbn's internal dictionary identifiers, which ship as values like
+        "us_tv_and_film". An unrecognized name falls back to the raw identifier in code.
+    -->
+    <string name="create_vault_key_passphrase_dictionary_passwords">Common passwords</string>
+    <string name="create_vault_key_passphrase_dictionary_english_wikipedia">Common English words</string>
+    <string name="create_vault_key_passphrase_dictionary_us_tv_and_film">TV and film titles</string>
+    <string name="create_vault_key_passphrase_dictionary_surnames">Surnames</string>
+    <string name="create_vault_key_passphrase_dictionary_female_names">Female first names</string>
+    <string name="create_vault_key_passphrase_dictionary_male_names">Male first names</string>
+    <string name="create_vault_key_passphrase_dictionary_rank">%1$s #%2$d</string>
     <string name="create_vault_key_passphrase_rule_satisfied">%1$s, satisfied</string>
     <string name="create_vault_key_passphrase_rule_pending">%1$s, still required</string>
     <string name="create_vault_key_passphrase_confirm">Confirm</string>

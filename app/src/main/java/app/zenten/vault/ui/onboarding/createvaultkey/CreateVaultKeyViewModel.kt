@@ -19,6 +19,8 @@ import app.zenten.vault.domain.SetupService
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,12 +52,26 @@ class CreateVaultKeyViewModel @Inject constructor(
     private val setupService: SetupService,
     private val secureStorage: SecureStorageService,
     private val appStorage: AppStorageService,
+    private val passphraseStrengthChecker: PassphraseStrengthChecker,
 ) : ViewModel() {
     /**
      * Passphrase chosen on step 2. Kept out of [state] so it can never be read
      * back by a composable or leak into a UI snapshot/log of the state object.
      */
     private var chosenPassphrase: String? = null
+
+    /**
+     * Latest measured guessability of the passphrase being typed.
+     *
+     * Null means "no measurement for the current input yet", which the screen shows
+     * differently from a measurement that came back weak. Holds no secret material:
+     * only the score and the guess-count magnitude.
+     */
+    private val _passphraseStrength = MutableStateFlow<PassphraseStrength?>(null)
+    val passphraseStrength: StateFlow<PassphraseStrength?> = _passphraseStrength.asStateFlow()
+
+    /** Pending debounced measurement; replaced on every keystroke. */
+    private var passphraseStrengthJob: Job? = null
 
     private var secretCombinationsLoadStarted = false
 
@@ -91,19 +107,64 @@ class CreateVaultKeyViewModel @Inject constructor(
     }
 
     /**
+     * Schedules a debounced strength measurement for the passphrase being typed.
+     *
+     * The quiet period keeps the estimator from running its pattern search once per
+     * keystroke. The length rule is applied first because it is free, and every input
+     * below the floor is rejected regardless of how well it would score.
+     */
+    fun onPassphraseChanged(passphrase: String) {
+        passphraseStrengthJob?.cancel()
+        if (!VaultKeyPassphrasePolicy.hasMinimumLength(passphrase)) {
+            _passphraseStrength.value = null
+            return
+        }
+        passphraseStrengthJob = viewModelScope.launch {
+            delay(PASSPHRASE_STRENGTH_DEBOUNCE_MILLIS)
+            _passphraseStrength.value = passphraseStrengthChecker.measure(passphrase)
+        }
+    }
+
+    /**
+     * Drops the cached measurement when the passphrase step leaves the screen.
+     *
+     * Without this, returning to the step via Back would show strength feedback for
+     * text that is no longer in the field.
+     */
+    fun clearPassphraseStrength() {
+        passphraseStrengthJob?.cancel()
+        passphraseStrengthJob = null
+        _passphraseStrength.value = null
+    }
+
+    /**
      * Records the passphrase chosen on step 2.
+     *
+     * Strength is re-measured here instead of trusting the screen's debounced preview,
+     * because the user can edit the field and confirm faster than the preview updates.
+     * Both rules are enforced in the ViewModel so acceptance never depends on UI state.
      *
      * Any previously generated key is discarded: if the user walked back and
      * changed the passphrase, a key encrypted with the old one must not survive.
      */
-    fun choosePassphrase(passphrase: String): Boolean {
-        if (!VaultKeyPassphrasePolicy.isValid(passphrase)) {
+    suspend fun choosePassphrase(passphrase: String): Boolean {
+        val strength = if (VaultKeyPassphrasePolicy.hasMinimumLength(passphrase)) {
+            passphraseStrengthChecker.measure(passphrase)
+        } else {
+            // No measurement needed for input the length rule already rejects.
+            null
+        }
+        if (!VaultKeyPassphrasePolicy.isValid(passphrase, strength)) {
+            // Publish the fresh result so the checklist explains the refusal, rather
+            // than leaving stale success feedback on screen.
+            _passphraseStrength.value = strength
             // Do not leave an earlier valid secret available if a later choice is rejected.
             chosenPassphrase = null
             _state.value = CreateVaultKeyState()
             return false
         }
         chosenPassphrase = passphrase
+        clearPassphraseStrength()
         _state.value = CreateVaultKeyState()
         return true
     }
@@ -372,6 +433,14 @@ class CreateVaultKeyViewModel @Inject constructor(
         const val MAX_VAULT_KEY_PASTE_ATTEMPTS = 4
         /** Each failed paste extends the lockout by one more minute. */
         const val VAULT_KEY_PASTE_LOCKOUT_STEP_MILLIS = 60_000L
+        /**
+         * Quiet period before measuring the passphrase being typed.
+         *
+         * Long enough to absorb normal typing and cover the estimator's own
+         * millisecond-scale cost, short enough that the Confirm action still appears
+         * to react to the last keystroke.
+         */
+        const val PASSPHRASE_STRENGTH_DEBOUNCE_MILLIS = 250L
     }
 
 }
