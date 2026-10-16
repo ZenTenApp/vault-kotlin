@@ -134,6 +134,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
                                 displayName = state.profiles[account.createdAt]?.displayName,
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = { navController.navigate(VaultDestinations.accountDetail(account.createdAt)) },
+                                dateOnly = true,
                             )
                         }
                     }

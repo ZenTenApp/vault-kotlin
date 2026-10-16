@@ -22,6 +22,15 @@ class AccountsListFormattingTest {
     }
 
     @Test
+    fun `detail date includes the time while the list date is date-only`() {
+        val timestamp = 1_700_000_000_000_000L
+
+        // The full detail format always carries a clock time; the compact list format must not.
+        assertTrue(formatAccountCreatedAt(timestamp).contains(":"))
+        assertTrue(!formatAccountCreatedDate(timestamp).contains(":"))
+    }
+
+    @Test
     fun `Nostr public key is shortened to its npub prefix and suffix`() {
         val shortened = formatShortNpub("00".repeat(32))
 

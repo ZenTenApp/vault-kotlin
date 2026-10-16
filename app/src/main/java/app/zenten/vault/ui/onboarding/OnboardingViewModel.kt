@@ -42,7 +42,7 @@ class OnboardingViewModel @Inject constructor(
                     zenTenPass = passphrase,
                     nostr = nostr.toPersistedKeyPair(),
                 )
-                _state.value = _state.value.copy(stage = "Backing up vaultKey account…")
+                _state.value = _state.value.copy(stage = "Backing up VaultKey account…")
                 setupService.performSetup(account).getOrThrow()
             }.onSuccess {
                 _state.value = OnboardingState(completed = true, stage = "Setup complete")

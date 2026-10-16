@@ -33,6 +33,8 @@ fun AccountCard(
     displayName: String? = null,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    // The compact list view shows only the date; the detail view keeps the full date and time.
+    dateOnly: Boolean = false,
 ) {
     val cardModifier = if (onClick == null) modifier else modifier.clickable(onClick = onClick)
     VaultCard(modifier = cardModifier) {
@@ -73,7 +75,8 @@ fun AccountCard(
                 }
             }
             Text(
-                text = "Created on ${formatAccountCreatedAt(account.createdAt)}",
+                text = "Created on " +
+                    if (dateOnly) formatAccountCreatedDate(account.createdAt) else formatAccountCreatedAt(account.createdAt),
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
@@ -104,3 +107,6 @@ internal fun accountCardIdentity(displayName: String?, account: Account): String
 
 internal fun formatAccountCreatedAt(accountId: Long): String =
     SimpleDateFormat("EEEE, MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(accountId / 1_000L))
+
+internal fun formatAccountCreatedDate(accountId: Long): String =
+    SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(accountId / 1_000L))
