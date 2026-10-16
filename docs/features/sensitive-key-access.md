@@ -25,7 +25,7 @@ Private-key disclosure is never the default account-detail state.
 
 - The private-key view does not currently auto-hide after a timeout.
 - Clipboard-clearing behavior is not implemented.
-- Android cannot verify that a selected Sharesheet target saved the key. The mandatory post-creation flow completes its export step when it opens the chooser.
+- Android cannot verify that a selected Sharesheet target saved the key. The mandatory post-creation flow completes its export step when it opens the chooser, and the voluntary **Export account** action on account details cannot verify the receiving app at all.
 
 ## Primary implementation locations
 

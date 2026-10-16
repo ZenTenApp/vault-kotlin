@@ -1,5 +1,6 @@
 package app.zenten.vault.ui.accounts
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,12 +37,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -64,6 +69,10 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     LaunchedEffect(accountId) { viewModel.load(accountId) }
     val state by viewModel.state.collectAsState()
     val account = state.account
+    val context = LocalContext.current
+    // Target picker shown while the user chooses where to send the account export.
+    var exportTargets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
+    var exportError by remember { mutableStateOf<String?>(null) }
     if (account == null) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Text("Account not found")
@@ -115,6 +124,14 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                 fingerprint = formatSshFingerprint(account.zenTenKey),
                 kdfRounds = formatKdfRounds(account.zenTenKey),
             )
+            Button(
+                onClick = {
+                    exportError = null
+                    exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Export account") }
+            exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "Backup status",
@@ -124,6 +141,29 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             state.sources.forEach { SourceStatusRow(it) }
             Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth()) { Text("Consolidate backup") }
         }
+    }
+    exportTargets?.let { availableTargets ->
+        ExportTargetDialog(
+            targets = availableTargets,
+            onDismiss = { exportTargets = null },
+            onTargetSelected = { target ->
+                try {
+                    context.startActivity(
+                        LocalAccountBackupShare.targetedSendIntent(
+                            LocalAccountBackupShare.accountExportText(account),
+                            target,
+                        ),
+                    )
+                    exportTargets = null
+                } catch (_: ActivityNotFoundException) {
+                    exportTargets = null
+                    exportError = "That app is no longer available. Choose another app."
+                } catch (_: SecurityException) {
+                    exportTargets = null
+                    exportError = "Android did not allow this app to receive the export. Choose another app."
+                }
+            },
+        )
     }
 }
 
