@@ -150,7 +150,7 @@ fun LocalAccountBackupExportScreen(
 }
 
 @Composable
-private fun ExportTargetDialog(
+internal fun ExportTargetDialog(
     targets: List<LocalAccountBackupShare.ShareTarget>,
     onDismiss: () -> Unit,
     onTargetSelected: (LocalAccountBackupShare.ShareTarget) -> Unit,

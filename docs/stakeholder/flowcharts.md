@@ -83,6 +83,7 @@ flowchart TD
     Accounts --> Settings["Settings"]
     Settings --> Vault Key["Vault Key"]
     Detail -->|"Back"| Accounts
+    Detail -->|"Export account"| DetailExport["Choose an app to receive the self-describing export"]
     Vault Key -->|"Back"| Settings
 ```
 
@@ -211,12 +212,16 @@ flowchart LR
     Account --> Status["Review per-source status"]
     Status --> One["Select Consolidate backup"]
     One --> Targeted["Run targeted consolidation"]
+    Status --> Export["Select Export account"]
+    Export --> ExportPick["Choose an app to receive the self-describing export"]
     Accounts --> Settings["Open Settings"]
     Settings --> VaultKey["Open Vault Key"]
     VaultKey --> VaultKeyState{"Vault Key quorum complete?"}
     VaultKeyState -->|No| Retry["Retry Vault Key setup"]
     VaultKeyState -->|Yes| All["Select Consolidate VaultKey backup"]
     All --> Full["Run Vault Key consolidation only"]
+    VaultKey --> ExportVK["Select Export VaultKey"]
+    ExportVK --> ExportVKPick["Choose an app to receive the self-describing VaultKey export"]
 ```
 
 ## Vault Key consolidation
