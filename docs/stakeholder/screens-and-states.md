@@ -6,7 +6,7 @@ This screen map reflects the current Android proof-of-concept navigation. The ap
 
 The fixed dark theme uses the design team's Material 3 palette, generated from the approved brand colors (seed `#D9D9D9`, error `#F36262`, success `#62F3B6`) and then overridden with the exact approved values where Material's generated tones differed. The visible result is the approved palette: primary `#D9D9D9`, background and base surface `#121212`, cards and raised surfaces `#232323`, accent and borders `#3A3A3A`, primary text `#FFFFFF` with secondary text `#B6B6B6`, error `#F36262`, and success `#62F3B6`. Success is exposed as an app-specific semantic color, as is the vault-key flow's link blue, because Material has no equivalent role. Text and accessible state labels continue to identify status without relying only on color.
 
-The palette also includes light, medium-contrast, and high-contrast variants. They are defined but not selectable today: the app still ships only the standard-contrast dark theme, and the extra variants exist so a future accessibility setting can enable them without a redesign. Those accessibility variants intentionally keep Material's generated colors rather than the brand overrides, so their contrast guarantees hold. The launcher icon keeps its own approved brand colors (`#D9D9D9` plate, `#3A3A3A` mark).
+The palette also includes light, medium-contrast, and high-contrast variants. They are defined but not selectable today: the app still ships only the standard-contrast dark theme, and the extra variants exist so a future accessibility setting can enable them without a redesign. Those accessibility variants intentionally keep Material's generated colors rather than the brand overrides, so their contrast guarantees hold. The launcher icon is the app's own shield mark on a `#121212` plate, so it matches the app background instead of using a palette role, and **Get started** draws the same mark on that same background so the in-app logo and the icon are identical.
 
 | Screen | Purpose | Main action | Important states |
 | --- | --- | --- | --- |
@@ -65,12 +65,12 @@ flowchart TD
 
 ### Get started
 
-- The screen shows the ZenTen brand mark on a circular themed plate, a welcome title, and a short purpose description.
+- The screen shows the app icon (the vault shield mark on its `#121212` background, exactly as the launcher renders it), a welcome title, and a short purpose description.
 - **Create VaultKey** opens the Create VaultKey wizard, whose implemented screens collect consent and a passphrase, verify the passphrase, generate the VaultKey, export it as the first local Vault Backup, and verify the exported copy by pasting it back.
 - **Login with VaultKey** is the only implemented action and opens **Set up Vault Key** to import an existing Ed25519 OpenSSH key. It uses a neutral raised surface rather than the primary action color to show its secondary visual priority.
 - An "or continue with" separator precedes **Google**, **Apple**, and **Microsoft** buttons. Each has a right-aligned **Coming soon** label and is disabled because these providers are not implemented.
 - Every unimplemented action shows a short "coming soon" snackbar naming the action. A new message replaces any visible one, so repeated taps do not queue up.
-- All colors come from the app theme. Multi-color third-party brand marks are the deliberate exception: their colors live inside the vector assets because brand guidelines forbid recoloring. The monochrome ZenTen and Apple marks are tinted from the theme.
+- All colors come from the app theme. Multi-color third-party brand marks are the deliberate exception: their colors live inside the vector assets because brand guidelines forbid recoloring, and the app's own shield mark lives in its asset for the same reason once it is no longer tinted. The monochrome Apple mark is tinted from the theme.
 - The content scrolls vertically so short screens cannot clip the buttons.
 
 ### Create VaultKey wizard

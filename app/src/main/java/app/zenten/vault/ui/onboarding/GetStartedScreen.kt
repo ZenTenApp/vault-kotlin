@@ -1,7 +1,7 @@
 package app.zenten.vault.ui.onboarding
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -20,7 +19,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -39,9 +37,11 @@ import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.components.VaultPillButtonStyle
 import kotlinx.coroutines.launch
 
-/** Diameter of the circular brand badge and the glyph drawn inside it. */
-private val BrandBadgeSize = 132.dp
-private val BrandGlyphSize = 64.dp
+/**
+ * Side of the square footprint the app mark is drawn in. The mark carries its own
+ * transparent margin, so the visible shield is roughly 90dp wide by 113dp tall here.
+ */
+private val BrandMarkSize = 200.dp
 
 /** Vertical gap between stacked action buttons. */
 private val ButtonSpacing = 8.dp
@@ -96,11 +96,11 @@ fun GetStartedScreen(navController: NavHostController) {
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(24.dp))
 
-            BrandBadge()
+            BrandMark()
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
 
             Text(
                 text = stringResource(R.string.get_started_title),
@@ -188,26 +188,20 @@ fun GetStartedScreen(navController: NavHostController) {
     }
 }
 
-/** Circular plate behind the monochrome ZenTen glyph. */
+/**
+ * The app mark, drawn exactly as the launcher icon shows it.
+ *
+ * `Image`, not `Icon`: the asset is multi-tone and owns its colors, so it must not
+ * pick up the theme's content color. It also needs no plate behind it, because the
+ * screen background is already the icon's `#121212` background color.
+ */
 @Composable
-private fun BrandBadge() {
-    Surface(
-        modifier = Modifier.size(BrandBadgeSize),
-        shape = CircleShape,
-        // surfaceContainer, not surface: in this palette surface equals background,
-        // so the plate would be invisible against the screen behind it.
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                painter = painterResource(R.drawable.logo_zenten),
-                contentDescription = stringResource(R.string.get_started_logo_description),
-                modifier = Modifier.size(BrandGlyphSize),
-                // The asset is monochrome, so it is tinted from the theme.
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
+private fun BrandMark() {
+    Image(
+        painter = painterResource(R.drawable.vault_app_icon),
+        contentDescription = stringResource(R.string.get_started_logo_description),
+        modifier = Modifier.size(BrandMarkSize),
+    )
 }
 
 /**

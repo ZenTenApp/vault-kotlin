@@ -1,12 +1,16 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,30 L70,38 L70,54 C70,66 63,74 54,78 C45,74 38,66 38,54 L38,38 Z" />
-    <path
-        android:fillColor="#3A3A3A"
-        android:pathData="M54,48 m-6,0 a6,6 0,1 1,12 0 a6,6 0,1 1,-12 0" />
-</vector>
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive launcher foreground. It is the app mark (vault_app_icon) inset so the
+  whole shield stays inside the icon's visible region: launchers mask, shift and
+  zoom the 108dp foreground layer, and only the central 72dp of it is guaranteed
+  to be shown (66dp is the documented safe zone).
+
+  vault_app_icon already carries about 30% transparent padding inside its 432dp
+  viewport, so a uniform 8dp inset scales it to 92dp and leaves the painted
+  shield within 34dp of the layer centre. That clears every mask shape we
+  support (circle and rounded-square) with margin to spare, which is why the
+  asset itself is not rescaled or duplicated here.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/vault_app_icon"
+    android:inset="8dp" />
