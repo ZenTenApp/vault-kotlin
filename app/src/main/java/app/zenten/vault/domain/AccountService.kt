@@ -33,6 +33,19 @@ class AccountService(
         require(vaultKeyPassphrase == storedPassphrase) { "The passphrase does not match the vaultKey account" }
     }
 
+    /**
+     * Verifies the passphrase that protects one stored account's encrypted private key.
+     *
+     * Export uses this rather than [verifyVaultKeyPassphrase] because a restored account keeps
+     * the passphrase it was originally imported with, which can differ from the current Vault
+     * Key passphrase.
+     */
+    fun verifyAccountPassphrase(accountId: Long, passphrase: String): Result<Unit> = runCatching {
+        val account = requireNotNull(secureStorage.getAccountById(accountId)) { "Account is unavailable" }
+        require(passphrase.isNotBlank()) { "The account passphrase is required to export the account" }
+        require(passphrase == account.zenTenPass) { "The passphrase does not match this account" }
+    }
+
     suspend fun createAssociatedAccount(vaultKeyPassphrase: String, accountName: String): Result<Account> = withContext(Dispatchers.Default) { runCatching {
         verifyVaultKeyPassphrase(vaultKeyPassphrase).getOrThrow()
         val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }

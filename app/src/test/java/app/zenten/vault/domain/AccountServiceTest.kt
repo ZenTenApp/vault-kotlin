@@ -60,6 +60,38 @@ class AccountServiceTest {
     }
 
     @Test
+    fun verify_account_passphrase_accepts_that_accounts_own_passphrase() {
+        val storage = mockk<SecureStorageService>()
+        every { storage.getAccountById(42L) } returns Account(42L, "account", "account-passphrase", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+
+        val result = AccountService(storage, mockk<SetupService>(), appStorage()).verifyAccountPassphrase(42L, "account-passphrase")
+
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun verify_account_passphrase_rejects_a_different_passphrase() {
+        val storage = mockk<SecureStorageService>()
+        every { storage.getAccountById(42L) } returns Account(42L, "account", "account-passphrase", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+
+        val result = AccountService(storage, mockk<SetupService>(), appStorage()).verifyAccountPassphrase(42L, "wrong-passphrase")
+
+        assertFalse(result.isSuccess)
+        assertEquals("The passphrase does not match this account", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun verify_account_passphrase_reports_an_unavailable_account() {
+        val storage = mockk<SecureStorageService>()
+        every { storage.getAccountById(42L) } returns null
+
+        val result = AccountService(storage, mockk<SetupService>(), appStorage()).verifyAccountPassphrase(42L, "account-passphrase")
+
+        assertFalse(result.isSuccess)
+        assertEquals("Account is unavailable", result.exceptionOrNull()?.message)
+    }
+
+    @Test
     fun create_associated_account_is_rejected_at_the_99_account_ceiling() = runTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()

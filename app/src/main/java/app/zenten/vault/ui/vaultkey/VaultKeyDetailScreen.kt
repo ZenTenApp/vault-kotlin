@@ -36,11 +36,13 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
+import app.zenten.vault.domain.AccountService
 import app.zenten.vault.domain.BackupAccountId
 import app.zenten.vault.domain.BackupSourceRepository
 import app.zenten.vault.domain.BackupWorkScheduler
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.ui.accounts.BackupSourceRow
+import app.zenten.vault.ui.accounts.ExportPassphraseDialog
 import app.zenten.vault.ui.accounts.ExportTargetDialog
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import app.zenten.vault.ui.accounts.SourceStatusRow
@@ -58,6 +60,7 @@ class VaultKeyDetailViewModel @Inject constructor(
     private val setupService: SetupService,
     private val scheduler: BackupWorkScheduler,
     private val secureStorage: SecureStorageService,
+    private val accountService: AccountService,
 ) : ViewModel() {
     val state = combine(sourceRepository.sources, appStorage.accountSourceStatuses, appStorage.setupComplete) { sources, statuses, complete ->
         VaultKeyDetailState(
@@ -85,6 +88,10 @@ class VaultKeyDetailViewModel @Inject constructor(
         runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey) }.getOrNull()
     }
 
+    /** Confirms the passphrase protecting the VaultKey before its encrypted key is exported. */
+    fun verifyExportPassphrase(passphrase: String): Boolean =
+        accountService.verifyVaultKeyPassphrase(passphrase).isSuccess
+
     /** Reconciles the Vault Key record only; associated accounts have their own actions. */
     fun consolidate() { scheduler.scheduleVaultKeyConsolidation() }
 }
@@ -105,6 +112,8 @@ fun VaultKeyDetailScreen(
     // Target picker shown while the user chooses where to send the VaultKey export.
     var exportTargets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
+    // Passphrase confirmation shown before the export target picker opens.
+    var confirmExportPassphrase by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -145,7 +154,7 @@ fun VaultKeyDetailScreen(
                     if (viewModel.vaultKeyForExport() == null) {
                         exportError = "VaultKey is unavailable for export."
                     } else {
-                        exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                        confirmExportPassphrase = true
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -163,6 +172,21 @@ fun VaultKeyDetailScreen(
                 }
             }
         }
+    }
+    if (confirmExportPassphrase) {
+        ExportPassphraseDialog(
+            message = "Re-enter the passphrase that protects the VaultKey before exporting its encrypted key.",
+            mismatchError = "That passphrase does not match this VaultKey.",
+            onDismiss = { confirmExportPassphrase = false },
+            onConfirmed = { passphrase ->
+                if (viewModel.verifyExportPassphrase(passphrase)) {
+                    exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                    true
+                } else {
+                    false
+                }
+            },
+        )
     }
     exportTargets?.let { availableTargets ->
         ExportTargetDialog(
