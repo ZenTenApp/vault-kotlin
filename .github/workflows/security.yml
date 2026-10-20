@@ -35,7 +35,7 @@ jobs:
       - name: Check out repository (full history)
         # Pinned to a commit SHA: a mutable tag could be repointed to malicious
         # code, and CI in this repository handles signing/backup material.
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # History is required so secrets removed in a later commit are still
           # detected. A shallow clone would only see the tip.
@@ -59,7 +59,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # `--severity ERROR` keeps the gate to high-confidence, high-impact
       # findings so routine advisory warnings (for example mutable Action tags)
