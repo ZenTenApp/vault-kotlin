@@ -73,6 +73,8 @@ The sync code is derived from the parsed Vault Key seed by `Seedify.toBraveSyncC
 
 Records have no notes. Before writing, the service parses the key as Ed25519 OpenSSH. An identical matching record is success; a conflicting matching record fails and is not overwritten.
 
+For the protocol-level walkthrough (Nigori encryption, credential derivation, transport, and session lifecycle), see [Brave Sync and litesync backup protocol](../technical/brave-sync-backup-protocol.md).
+
 ## Retry and consolidation
 
 Account backup, pending retry, and two-phase consolidation are implemented by `AccountConsolidationEngine` and `background/BackupWorkers.kt`. Work is constrained to a connected network, all remote operations are serialized, and periodic consolidation runs hourly.

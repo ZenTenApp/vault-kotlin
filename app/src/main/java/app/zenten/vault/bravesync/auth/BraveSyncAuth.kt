@@ -12,9 +12,16 @@ import java.util.Base64
 object BraveSyncAuth {
     private const val MnemonicWordCount = 24
     private const val EntropySizeBytes = 32
+    // HKDF `info` parameter. Like hkdfSalt, it is a protocol constant that must match
+    // Brave's client byte-for-byte, since it is mixed into the key derivation.
     private val hkdfInfo = "sync-auth-key".toByteArray(StandardCharsets.UTF_8)
 
-    // brave-core/components/sync/service/brave_sync_auth_manager.cc
+    // HKDF salt for deriving the Ed25519 auth key. These are the exact 64 bytes
+    // Brave passes to HKDF in its C++ client; the negative values here are just
+    // Kotlin's signed view of the same unsigned bytes (e.g. -53 == 0xCB). Because
+    // it is a protocol constant, both peers must use these bytes verbatim or the
+    // derived key pair (and therefore the client ID) will not match.
+    // Source: brave-core/components/sync/service/brave_sync_auth_manager.cc
     private val hkdfSalt = byteArrayOf(
         72, -53, -100, 43, 64, -27, -31, 127, -42, -98, 50, 29, -126,
         -70, -74, -49, 6, 108, 47, -2, -11, 71, -58, 109, 44, 108,
@@ -38,11 +45,16 @@ object BraveSyncAuth {
         val indexes = words.map { word ->
             Bip39Mnemonics.englishWordlist.indexOf(word).also { require(it >= 0) }
         }
+        // Re-pack the 11-bit word indexes into the 256-bit entropy. Each word contributes
+        // its 11 bits most-significant-bit first, so 24 words yield 264 bits; the trailing
+        // 8 bits are the BIP-39 checksum and are dropped by the bitOffset bound below.
         val output = ByteArray(EntropySizeBytes)
         var bitOffset = 0
         indexes.forEach { index ->
             for (shift in 10 downTo 0) {
+                // Inspect one bit of the word index (bit 10 is the most significant).
                 if ((index and (1 shl shift)) != 0 && bitOffset < EntropySizeBytes * 8) {
+                    // Set the corresponding output bit; bytes fill MSB-first, hence 7 - bitOffset % 8.
                     output[bitOffset / 8] = (output[bitOffset / 8].toInt() or (1 shl (7 - bitOffset % 8))).toByte()
                 }
                 bitOffset++

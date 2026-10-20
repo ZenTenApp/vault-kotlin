@@ -11,6 +11,7 @@ This area is for developers, security reviewers, and release engineers. It docum
 - [Security model](security-model.md)
 - [KeyHive associated-account provider](key-hive-provider.md)
 - [SSH key generation and recovery-seed derivation](ssh-key-seed-derivation.md)
+- [Brave Sync and litesync backup protocol](brave-sync-backup-protocol.md)
 
 ## Feature-level implementation references
 

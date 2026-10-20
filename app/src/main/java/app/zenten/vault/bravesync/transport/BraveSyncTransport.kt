@@ -44,7 +44,16 @@ class BraveSyncTransport(
         }
     }
 
-    private fun isGzip(bytes: ByteArray): Boolean = bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()
+    /**
+     * Sniffs the gzip magic number (first two bytes) without relying on HTTP headers.
+     *
+     * Brave's Sync server sometimes returns gzip-compressed bodies without a matching
+     * `Content-Encoding: gzip` header, so [post] uses this as a fallback to avoid handing
+     * still-compressed bytes to the protobuf parser. The size check prevents an
+     * [IndexOutOfBoundsException] on empty or 1-byte responses.
+     */
+    private fun isGzip(bytes: ByteArray): Boolean =
+        bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()
 
     private fun hexToBytes(hex: String): ByteArray {
         require(hex.length == 64 && hex.all { it.digitToIntOrNull(16) != null }) { "Sync client ID must be a 32-byte hex public key" }

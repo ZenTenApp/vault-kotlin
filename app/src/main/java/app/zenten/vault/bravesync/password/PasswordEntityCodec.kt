@@ -44,59 +44,68 @@ internal object PasswordEntityCodec {
         }
         val specifics = ProtoWire.message { message(BraveSyncConfig.PASSWORD_TYPE_ID, passwordSpecifics) }
         val uniqueTag = PasswordUniqueTag.compute(origin, "", input.username, "", realm)
+        // Build the outer Chromium "SyncEntity" protobuf. ProtoWire.message runs this lambda
+        // against a Writer; each call writes one field as a "tag + value", where the tag encodes
+        // both the field number and the wire type (varint vs. length-delimited). The numbers and
+        // types below are dictated by Chromium's sync.proto and must match it exactly.
         return ProtoWire.message {
-            string(1, id)
-            varint(4, version)
-            varint(5, nowMillis)
-            varint(6, nowMillis)
-            string(7, realm)
-            if (deleted) varint(18, 1)
-            string(19, "")
-            string(20, "")
-            message(21, specifics)
-            varint(22, 0)
-            string(23, PasswordUniqueTag.clientTagHash(uniqueTag))
+            string(1, id)                              // entity id (server assigns the real one on commit for new records)
+            varint(4, version)                         // optimistic-concurrency version; 0 means "new entity"
+            varint(5, nowMillis)                       // ctime: creation time, Unix epoch milliseconds
+            varint(6, nowMillis)                       // mtime: last-modified time, Unix epoch milliseconds
+            string(7, realm)                           // "name" of the entity; for passwords this is the signon realm
+            if (deleted) varint(18, 1)                 // tombstone flag; omitted entirely (i.e. false) for live records
+            string(19, "")                             // originator cache GUID (empty: we don't track the originating device)
+            string(20, "")                             // originator client item id (empty for the same reason)
+            message(21, specifics)                     // EntitySpecifics: the type-specific payload (here, password data)
+            varint(22, 0)                              // folder flag = false; passwords are leaf items, not folders
+            string(23, PasswordUniqueTag.clientTagHash(uniqueTag)) // stable cross-device identity for this credential
         }
     }
 
     private fun passwordData(realm: String, origin: String, username: String, password: String, note: PasswordNote?, nowWindowsMicros: Long, deleted: Boolean): ByteArray = ProtoWire.message {
-        varint(1, 0) // SCHEME_HTML
-        string(2, realm)
-        string(3, origin)
-        string(4, "")
-        string(5, "")
-        string(6, username)
-        string(7, "")
-        string(8, password)
+        // Chromium's PasswordSpecificsData message. Field numbers and meanings are from
+        // components/sync/protocol/password_specifics.proto and must match it exactly.
+        varint(1, 0)        // scheme: 0 = SCHEME_HTML (a saved login form)
+        string(2, realm)    // signon_realm: where the credential is stored and refilled
+        string(3, origin)   // origin: scheme://host[:port]/path
+        string(4, "")       // action: form submit target (empty: not scraped from a form)
+        string(5, "")       // username_element: form field name (empty: not scraped)
+        string(6, username) // username_value: the actual username
+        string(7, "")       // password_element: form field name (empty: not scraped)
+        string(8, password) // password_value: the actual password
         if (!deleted) {
-            varint(11, nowWindowsMicros)
-            varint(12, 0)
-            varint(13, 3) // kManuallyAdded
-            varint(14, 0)
-            string(15, "")
-            string(16, "")
-            string(17, "")
-            varint(18, 0)
-            message(19, ProtoWire.message {})
-            varint(20, nowWindowsMicros)
+            varint(11, nowWindowsMicros) // date_created (Windows-epoch microseconds)
+            varint(12, 0)                // blacklisted: false (site isn't blocked from saving)
+            varint(13, 3)                // type: 3 = kManuallyAdded (typed by the user, not captured)
+            varint(14, 0)                // times_used: 0 (no form logins recorded)
+            string(15, "")               // display_name: account holder name (unused)
+            string(16, "")               // avatar_url (unused)
+            string(17, "")               // federation_url: IdP URL (unused; not a federated login)
+            varint(18, 0)                // date_last_used: 0 (never used to log in)
+            message(19, ProtoWire.message {}) // password_issues: empty set (no leak/reuse detected)
+            varint(20, nowWindowsMicros) // date_password_modified (Windows-epoch microseconds)
+            // notes (field 22) is the authoritative note container. Its field 1 is a
+            // Note with: 1=unique_display_name, 2=value, 3=date_created, 4=hide_by_default.
             note?.let { value ->
                 message(22, ProtoWire.message {
                     message(1, ProtoWire.message {
-                        string(1, "")
-                        string(2, value.value)
-                        varint(3, nowWindowsMicros)
-                        varint(4, if (value.hidden) 1 else 0)
+                        string(1, "")                         // unique_display_name (one note, so empty is fine)
+                        string(2, value.value)                // Note.value: the note text
+                        varint(3, nowWindowsMicros)           // Note.date_created (Windows-epoch micros)
+                        varint(4, if (value.hidden) 1 else 0) // Note.hide_by_default
                     })
                 })
             }
-            string(23, "")
-            string(24, "")
-            varint(25, 0)
-            varint(26, 0)
-            string(27, "")
+            string(23, "")       // sender_email (password sharing; unused)
+            string(24, "")       // sender_name (password sharing; unused)
+            varint(25, 0)        // date_received (password sharing; 0 = not shared to us)
+            varint(26, 0)        // sharing_notification_displayed: false
+            string(27, "")       // sender_profile_image_url (password sharing; unused)
         } else {
-            varint(12, 0)
-            varint(13, 3)
+            // Tombstone: keep only the minimal fields a reader still expects.
+            varint(12, 0) // blacklisted: false
+            varint(13, 3) // type: kManuallyAdded
         }
     }
 
