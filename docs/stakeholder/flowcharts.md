@@ -83,7 +83,9 @@ flowchart TD
     Accounts --> Settings["Settings"]
     Settings --> Vault Key["Vault Key"]
     Detail -->|"Back"| Accounts
-    Detail -->|"Export account"| DetailExport["Choose an app to receive the self-describing export"]
+    Detail -->|"Export account"| DetailPassphrase{"Passphrase matches stored account?"}
+    DetailPassphrase -->|"No"| DetailPassphrase
+    DetailPassphrase -->|"Yes"| DetailExport["Choose an app to receive the self-describing export"]
     Vault Key -->|"Back"| Settings
 ```
 
@@ -213,7 +215,8 @@ flowchart LR
     Status --> One["Select Consolidate backup"]
     One --> Targeted["Run targeted consolidation"]
     Status --> Export["Select Export account"]
-    Export --> ExportPick["Choose an app to receive the self-describing export"]
+    Export --> ExportPassphrase["Confirm the account passphrase"]
+    ExportPassphrase --> ExportPick["Choose an app to receive the self-describing export"]
     Accounts --> Settings["Open Settings"]
     Settings --> VaultKey["Open Vault Key"]
     VaultKey --> VaultKeyState{"Vault Key quorum complete?"}
@@ -221,7 +224,8 @@ flowchart LR
     VaultKeyState -->|Yes| All["Select Consolidate VaultKey backup"]
     All --> Full["Run Vault Key consolidation only"]
     VaultKey --> ExportVK["Select Export VaultKey"]
-    ExportVK --> ExportVKPick["Choose an app to receive the self-describing VaultKey export"]
+    ExportVK --> ExportVKPassphrase["Confirm the VaultKey passphrase"]
+    ExportVKPassphrase --> ExportVKPick["Choose an app to receive the self-describing VaultKey export"]
 ```
 
 ## Vault Key consolidation

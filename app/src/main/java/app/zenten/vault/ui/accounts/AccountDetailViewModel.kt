@@ -67,6 +67,10 @@ class AccountDetailViewModel @Inject constructor(
         }
     }
     fun consolidate() { accountId.value?.let(scheduler::scheduleAccountConsolidation) }
+
+    /** Confirms the passphrase protecting the loaded account before its key is exported. */
+    fun verifyExportPassphrase(passphrase: String): Boolean =
+        accountId.value?.let { accountService.verifyAccountPassphrase(it, passphrase).isSuccess } == true
 }
 
 data class AccountDetailState(

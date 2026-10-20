@@ -73,6 +73,8 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     // Target picker shown while the user chooses where to send the account export.
     var exportTargets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
+    // Passphrase confirmation shown before the export target picker opens.
+    var confirmExportPassphrase by remember { mutableStateOf(false) }
     if (account == null) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Text("Account not found")
@@ -127,7 +129,7 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             Button(
                 onClick = {
                     exportError = null
-                    exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                    confirmExportPassphrase = true
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Export account") }
@@ -141,6 +143,20 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             state.sources.forEach { SourceStatusRow(it) }
             Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth()) { Text("Consolidate backup") }
         }
+    }
+    if (confirmExportPassphrase) {
+        ExportPassphraseDialog(
+            message = "Re-enter the passphrase that protects this account before exporting its encrypted key.",
+            onDismiss = { confirmExportPassphrase = false },
+            onConfirmed = { passphrase ->
+                if (viewModel.verifyExportPassphrase(passphrase)) {
+                    exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                    true
+                } else {
+                    false
+                }
+            },
+        )
     }
     exportTargets?.let { availableTargets ->
         ExportTargetDialog(

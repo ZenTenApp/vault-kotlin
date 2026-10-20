@@ -18,6 +18,7 @@ Private-key disclosure is never the default account-detail state.
 ## Failure and security expectations
 
 - The user must confirm immediately before private-key disclosure.
+- Before the encrypted private key is exported through the voluntary account-detail or Vault Key export actions, the user must re-enter the passphrase that protects that account or Vault Key. A wrong or blank passphrase shows an inline error and keeps the target picker closed. The mandatory creation-time exports do not re-ask, because the passphrase was just entered to create the record.
 - The private-key dialog is protected from screenshots on supported Android devices.
 - Normal UI should not expose private-key content in notifications, errors, or logs.
 
