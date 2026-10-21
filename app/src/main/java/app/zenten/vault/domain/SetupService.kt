@@ -45,8 +45,9 @@ class SetupService(
     ): Result<Unit> = runCatching {
         persistVaultKey(vaultKey)
         appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
-        // Only the create-flow relay operation uses the recoverable Brave sub-account
-        // identity. The stored vaultKey keeps its normal identity for later consolidation.
+        // Only the create-flow relay operation uses the recoverable Vault Key backup (`vkbckp`)
+        // associated-account identity. The stored vaultKey keeps its normal identity for later
+        // consolidation.
         val createFlowVaultKey = vaultKey.copy(nostr = createFlowRelayIdentity)
         // Source-level state records failures for later retries. A network problem must not
         // undo the irreversible local commit or send the user back to key generation, so a

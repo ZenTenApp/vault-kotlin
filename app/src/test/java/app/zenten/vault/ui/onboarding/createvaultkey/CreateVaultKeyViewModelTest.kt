@@ -246,7 +246,7 @@ class CreateVaultKeyViewModelTest {
         io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
         val seed = SshKeyCodec.parse(storedVaultKey.captured.zenTenKey, passphrase.toCharArray()).seed
-        assertEquals(Seedify.toBraveSyncWordIndices(seed), viewModel.state.value.secretCombinationIndices)
+        assertEquals(Seedify.toVaultKeyBackupWordIndices(seed), viewModel.state.value.secretCombinationIndices)
         assertFalse(viewModel.state.value.secretCombinationsLoading)
     }
 
@@ -271,7 +271,7 @@ class CreateVaultKeyViewModelTest {
     }
 
     @Test
-    fun initial_relay_backup_uses_the_brave_sub_account_nostr_identity() = runTest(dispatcher) {
+    fun initial_relay_backup_uses_the_vault_key_backup_sub_account_nostr_identity() = runTest(dispatcher) {
         val storedVaultKey = slot<Account>()
         val backedUpVaultKey = slot<Account>()
         val secureStorage = mockk<SecureStorageService>()
@@ -287,7 +287,7 @@ class CreateVaultKeyViewModelTest {
         io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
         val seed = SshKeyCodec.parse(storedVaultKey.captured.zenTenKey, passphrase.toCharArray()).seed
-        val expected = NostrKeyDerivation.derive(Seedify.toBraveAccountMnemonic(seed))
+        val expected = NostrKeyDerivation.derive(Seedify.toVaultKeyBackupMnemonic(seed))
         assertEquals(expected.publicKey.joinToString("") { "%02x".format(it) }, backedUpVaultKey.captured.nostr.pubkey)
         assertEquals(expected.privateKey.joinToString("") { "%02x".format(it) }, backedUpVaultKey.captured.nostr.privkey)
         val expectedStored = NostrKeyDerivation.derive(Seedify.toMnemonic(seed))

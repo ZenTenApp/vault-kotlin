@@ -151,7 +151,7 @@ class SecretCombinationsViewModel @Inject constructor(
                     runCatching {
                         val passphrase = vaultKey.zenTenPass
                         val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
-                        Seedify.toBraveSyncWordIndices(seed)
+                        Seedify.toVaultKeyBackupWordIndices(seed)
                     }.getOrNull()
                 }
             }

@@ -53,7 +53,7 @@ object VaultDestinations {
     /** Fifth screen: paste the exported VaultKey to confirm the backup is usable. */
     const val CREATE_VAULT_KEY_CONFIRM_BACKUP = "get-started/create-vault-key/confirm-backup"
 
-    /** Sixth screen: back up the Brave mnemonic as grouped BIP-39 word positions. */
+    /** Sixth screen: back up the Vault Key backup recovery mnemonic as grouped BIP-39 word positions. */
     const val CREATE_VAULT_KEY_SECRET_COMBINATIONS = "get-started/create-vault-key/secret-combinations"
 
     /** Seventh screen: sequentially re-enter every grouped word position. */

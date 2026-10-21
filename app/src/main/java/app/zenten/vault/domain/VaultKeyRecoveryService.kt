@@ -23,13 +23,13 @@ import java.io.IOException
 import java.time.Clock
 
 /**
- * Recovers the VaultKey record addressed by the user's Brave recovery word positions.
+ * Recovers the VaultKey record addressed by the user's Vault Key backup recovery word positions.
  *
  * The 24 words alone are enough to derive both recovery addresses, so no passphrase is needed
  * to locate a candidate:
  * - the Brave Sync code, which appends Brave's date-derived 25th word; and
  * - the Nostr identity under which Vault Key relay records are published, because that identity
- *   is the NIP-06 key pair of the same 24-word Brave sub-account mnemonic.
+ *   is the NIP-06 key pair of the same 24-word Vault Key backup (`vkbckp`) associated account mnemonic.
  *
  * Every enabled restore-capable source is queried and the first copy that decrypts with the
  * user's passphrase wins. A copy that is corrupt or belongs to another key does not block the
@@ -46,12 +46,12 @@ class VaultKeyRecoveryService(
     suspend fun recover(indices: List<Int>, passphrase: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val words = mnemonicWords(indices)
-            val braveNostr = NostrKeyDerivation.derive(words).toPersistedKeyPair()
+            val vaultKeyBackupNostr = NostrKeyDerivation.derive(words).toPersistedKeyPair()
             val syncCode = "$words ${braveSync25thWord()}"
 
             // Nostr relays are queried first because a relay record needs only the 24 words,
             // while every Brave lookup also depends on Brave Sync's date-derived 25th word.
-            val lookups = lookupNostrSources(braveNostr) + lookupBraveSources(syncCode)
+            val lookups = lookupNostrSources(vaultKeyBackupNostr) + lookupBraveSources(syncCode)
             val candidates = lookups.mapNotNull { it.value }
             if (candidates.isEmpty()) {
                 // A reachable source that simply holds no Vault Key proves absence; only when
@@ -89,16 +89,16 @@ class VaultKeyRecoveryService(
     /** One source read; [error] preserves the difference between unreachable and record-absent. */
     private data class Lookup(val value: String?, val error: Throwable?)
 
-    /** Reads Vault Key records from enabled relays under the 24-word-derived Brave identity. */
-    private suspend fun lookupNostrSources(braveNostr: NostrKeyPair): List<Lookup> =
+    /** Reads Vault Key records from enabled relays under the 24-word-derived Vault Key backup identity. */
+    private suspend fun lookupNostrSources(vaultKeyBackupNostr: NostrKeyPair): List<Lookup> =
         enabledSources(BackupSourceType.NOSTR_RELAY).map { source ->
             runCatching {
                 relayGateway.fetchAuthenticatedByRelay(
                     source.endpoint,
-                    braveNostr.pubkey,
+                    vaultKeyBackupNostr.pubkey,
                     BackupService.VAULT_KEY_BACKUP_KIND,
-                    braveNostr.privateKey(),
-                ).getOrThrow().firstNotNullOfOrNull { decodeVaultKeyEvent(it, braveNostr) }
+                    vaultKeyBackupNostr.privateKey(),
+                ).getOrThrow().firstNotNullOfOrNull { decodeVaultKeyEvent(it, vaultKeyBackupNostr) }
             }.fold(
                 onSuccess = { Lookup(it, null) },
                 onFailure = { Lookup(null, it) },
@@ -108,16 +108,16 @@ class VaultKeyRecoveryService(
     /**
      * Decrypts a relay Vault Key record.
      *
-     * The relay copy is a NIP-44 self-encryption under the Brave identity, and its payload is
+     * The relay copy is a NIP-44 self-encryption under the Vault Key backup identity, and its payload is
      * the single-line encrypted OpenSSH private key. Returns `null` for anything that does not
      * satisfy the Vault Key event contract instead of handing bad material to the parser.
      */
-    private fun decodeVaultKeyEvent(event: NostrEvent, braveNostr: NostrKeyPair): String? = runCatching {
+    private fun decodeVaultKeyEvent(event: NostrEvent, vaultKeyBackupNostr: NostrKeyPair): String? = runCatching {
         require(NostrEventCodec.isValid(event))
-        require(event.kind == BackupService.VAULT_KEY_BACKUP_KIND && event.pubkey == braveNostr.pubkey)
+        require(event.kind == BackupService.VAULT_KEY_BACKUP_KIND && event.pubkey == vaultKeyBackupNostr.pubkey)
         val dTag = event.tags.singleOrNull { it.firstOrNull() == "d" }?.getOrNull(1)
         require(dTag == BackupService.VAULT_KEY_D_TAG) { "VaultKey event is missing its d tag" }
-        Nip44.decryptSelf(event.content, braveNostr.privateKey(), braveNostr.publicKey())
+        Nip44.decryptSelf(event.content, vaultKeyBackupNostr.privateKey(), vaultKeyBackupNostr.publicKey())
             .takeIf { it.isNotBlank() }
     }.getOrNull()
 

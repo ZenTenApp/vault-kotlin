@@ -91,7 +91,7 @@ Neither Brave nor litesync uses user accounts. Every credential is derived deter
 
 ```text
 Vault Key SSH seed (32 bytes)
-  └─ Brave sub-account seed = SHA256( SHA256("brave") + seed )
+  └─ Vault Key backup sub-account seed = SHA256( SHA256("vkbckp") + seed )
        ├─ BIP-39 24 words + date-derived 25th word  → Sync code
        └─ same 24-word mnemonic → Nostr identity for Vault Key relay records
 

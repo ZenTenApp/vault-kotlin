@@ -222,13 +222,13 @@ class CreateVaultKeyViewModel @Inject constructor(
                         nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
                     )
                     val createFlowRelayIdentity = NostrKeyDerivation.derive(
-                        Seedify.toBraveAccountMnemonic(parsed.seed),
+                        Seedify.toVaultKeyBackupMnemonic(parsed.seed),
                     ).toPersistedKeyPair()
                     Triple(vaultKey, createFlowRelayIdentity, parsed.seed)
                 }
                 _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.DERIVING_SYNC_CODE)
                 val secretCombinationIndices = withContext(Dispatchers.Default) {
-                    Seedify.toBraveSyncWordIndices(parsedSeed)
+                    Seedify.toVaultKeyBackupWordIndices(parsedSeed)
                 }
                 Triple(vaultKey, createFlowRelayIdentity, secretCombinationIndices)
             }.mapCatching { (vaultKey, createFlowRelayIdentity, secretCombinationIndices) ->
@@ -358,7 +358,7 @@ class CreateVaultKeyViewModel @Inject constructor(
                     runCatching {
                         val passphrase = vaultKey.zenTenPass
                         val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
-                        Seedify.toBraveSyncWordIndices(seed)
+                        Seedify.toVaultKeyBackupWordIndices(seed)
                     }.getOrNull()
                 }
             }

@@ -37,13 +37,13 @@ class VaultKeyRecoveryServiceTest {
         val generated = SshKeyCodec.generateEncrypted(clock.millis(), passphrase.toCharArray())
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
         val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
-        val braveMnemonic = Seedify.toBraveAccountMnemonic(seed)
-        val braveNostr = NostrKeyDerivation.derive(braveMnemonic).toPersistedKeyPair()
-        val indices = Seedify.toBraveSyncWordIndices(seed)
+        val vaultKeyBackupMnemonic = Seedify.toVaultKeyBackupMnemonic(seed)
+        val vaultKeyBackupNostr = NostrKeyDerivation.derive(vaultKeyBackupMnemonic).toPersistedKeyPair()
+        val indices = Seedify.toVaultKeyBackupWordIndices(seed)
 
         // Publish the Vault Key relay record exactly as the backup path would, under the
-        // Brave-derived identity that the 24 words can reconstruct.
-        val publisher = Account(1, normalized, passphrase, nostr = braveNostr)
+        // Vault Key backup (`vkbckp`)-derived identity that the 24 words can reconstruct.
+        val publisher = Account(1, normalized, passphrase, nostr = vaultKeyBackupNostr)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
@@ -51,7 +51,7 @@ class VaultKeyRecoveryServiceTest {
             BackupService.VAULT_KEY_BACKUP_KIND,
         )
         coEvery {
-            fixture.gateway.fetchAuthenticatedByRelay(any(), braveNostr.pubkey, any(), any())
+            fixture.gateway.fetchAuthenticatedByRelay(any(), vaultKeyBackupNostr.pubkey, any(), any())
         } returns Result.success(listOf(event))
         every { fixture.repository.sources } returns flowOf(listOf(relaySource))
 
@@ -78,7 +78,7 @@ class VaultKeyRecoveryServiceTest {
             Result.failure(IOException("relay unreachable"))
         every { fixture.repository.sources } returns flowOf(listOf(relaySource))
 
-        val result = fixture.service.recover(Seedify.toBraveSyncWordIndices(seed), passphrase)
+        val result = fixture.service.recover(Seedify.toVaultKeyBackupWordIndices(seed), passphrase)
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is IOException)
@@ -91,8 +91,8 @@ class VaultKeyRecoveryServiceTest {
         val generated = SshKeyCodec.generateEncrypted(clock.millis(), passphrase.toCharArray())
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
         val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
-        val braveNostr = NostrKeyDerivation.derive(Seedify.toBraveAccountMnemonic(seed)).toPersistedKeyPair()
-        val publisher = Account(1, normalized, passphrase, nostr = braveNostr)
+        val vaultKeyBackupNostr = NostrKeyDerivation.derive(Seedify.toVaultKeyBackupMnemonic(seed)).toPersistedKeyPair()
+        val publisher = Account(1, normalized, passphrase, nostr = vaultKeyBackupNostr)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
@@ -103,7 +103,7 @@ class VaultKeyRecoveryServiceTest {
             Result.success(listOf(event))
         every { fixture.repository.sources } returns flowOf(listOf(relaySource))
 
-        val result = fixture.service.recover(Seedify.toBraveSyncWordIndices(seed), "wrong passphrase")
+        val result = fixture.service.recover(Seedify.toVaultKeyBackupWordIndices(seed), "wrong passphrase")
 
         assertTrue(result.isFailure)
         verify(exactly = 0) { fixture.secureStorage.addVaultKey(any()) }

@@ -26,7 +26,7 @@ class DefaultBackupSourceFactory(
     private val backupService: BackupService,
 ) : BackupSourceFactory {
     /**
-     * Derives the run-scoped Brave credentials once.
+     * Derives the run-scoped Vault Key backup credentials once.
      *
      * Besides avoiding repeated SSH decryption, this also fixes Brave Sync's date-derived 25th
      * word for the whole run, so a run that spans midnight cannot use two different sync codes.
@@ -34,15 +34,15 @@ class DefaultBackupSourceFactory(
     override fun createRunContext(vaultKey: Account): BackupSourceRunContext {
         val passphrase = vaultKey.zenTenPass
         val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
-        val braveMnemonic = Seedify.toBraveAccountMnemonic(seed)
+        val vaultKeyBackupMnemonic = Seedify.toVaultKeyBackupMnemonic(seed)
         return BraveRunContext(
             syncCode = Seedify.toBraveSyncCode(seed),
-            nostr = NostrKeyDerivation.derive(braveMnemonic).toPersistedKeyPair(),
+            nostr = NostrKeyDerivation.derive(vaultKeyBackupMnemonic).toPersistedKeyPair(),
         )
     }
 
     override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): AccountBackupSource {
-        val braveContext = context as? BraveRunContext
+        val vaultKeyBackupContext = context as? BraveRunContext
         return when (config.type) {
             // Without a run context the relay source falls back to the Vault Key identity for
             // Vault Key records; standalone callers that do so are responsible for that choice.
@@ -50,14 +50,14 @@ class DefaultBackupSourceFactory(
                 config = config,
                 gateway = relayGateway,
                 backupService = backupService,
-                braveNostr = braveContext?.nostr,
+                vaultKeyBackupNostr = vaultKeyBackupContext?.nostr,
             )
             BackupSourceType.BRAVE_SYNC -> {
                 val passwordService = BravePasswordService(
                     BraveSyncTransport(serverUrl = config.endpoint, serviceKey = BraveSyncConfig.SERVICE_KEY),
                     cacheSession = true,
                 )
-                BraveBackupSource(config, BraveSyncBackupService(passwordService, braveContext?.syncCode))
+                BraveBackupSource(config, BraveSyncBackupService(passwordService, vaultKeyBackupContext?.syncCode))
             }
         }
     }
@@ -66,8 +66,9 @@ class DefaultBackupSourceFactory(
 /**
  * Secret, memory-only credentials shared across all endpoints of one engine operation.
  *
- * Both members are derived from the same Brave sub-account of the Vault Key seed, which is what
- * makes the Vault Key backup recoverable from the 24 words the user writes down during setup.
+ * Both members are derived from the same Vault Key backup (`vkbckp`) associated account of the
+ * Vault Key seed, which is what makes the Vault Key backup recoverable from the 24 words the user
+ * writes down during setup.
  */
 private data class BraveRunContext(
     val syncCode: String,
@@ -85,9 +86,9 @@ data class NostrCandidate(
  *
  * Two identities are in play, and they must not be mixed:
  *
- * - **Vault Key records** (`kind` [BackupService.VAULT_KEY_BACKUP_KIND]) use [braveNostr], the
- *   identity derived from the Brave sub-account mnemonic, so they can be recovered from the
- *   24 words alone.
+ * - **Vault Key records** (`kind` [BackupService.VAULT_KEY_BACKUP_KIND]) use
+ *   [vaultKeyBackupNostr], the identity derived from the Vault Key backup (`vkbckp`) associated
+ *   account mnemonic, so they can be recovered from the 24 words alone.
  * - **Associated-account records** (`kind` [BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND]) use
  *   the Vault Key's own identity, which requires the Vault Key itself to recover.
  *
@@ -97,10 +98,10 @@ class NostrBackupSource(
     override val config: BackupSourceConfig,
     private val gateway: NostrRelayGateway,
     private val backupService: BackupService,
-    private val braveNostr: NostrKeyPair? = null,
+    private val vaultKeyBackupNostr: NostrKeyPair? = null,
 ) : AccountBackupSource {
     /** Identity that publishes and reads Vault Key records; falls back when no run context exists. */
-    private fun vaultKeyIdentity(vaultKey: Account): NostrKeyPair = braveNostr ?: vaultKey.nostr
+    private fun vaultKeyIdentity(vaultKey: Account): NostrKeyPair = vaultKeyBackupNostr ?: vaultKey.nostr
 
     override suspend fun index(vaultKey: Account): Result<SourceIndex> = runCatching {
         val vaultKeyIdentity = vaultKeyIdentity(vaultKey)
@@ -186,7 +187,8 @@ data class BraveCandidate(
  *
  * All record encoding, decoding, and sync-code handling lives in [BraveSyncBackupService]; this
  * adapter only maps that service onto the [AccountBackupSource] contract. Brave Sync needs no
- * identity switch because its sync code is already derived from the Brave sub-account seed.
+ * identity switch because its sync code is already derived from the Vault Key backup (`vkbckp`)
+ * associated account seed.
  */
 class BraveBackupSource(
     override val config: BackupSourceConfig,

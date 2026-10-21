@@ -7,7 +7,16 @@ import java.time.Instant
 /** ZenTen's no-prefix path: the raw 32-byte Ed25519 seed is BIP-39 entropy. */
 object Seedify {
     private const val SEED_SIZE_BYTES = 32
-    private const val BRAVE_ASSOCIATED_ACCOUNT = "brave"
+
+    /**
+     * Sub-account name used to derive the recoverable Vault Key backup seed.
+     *
+     * `vkbckp` is the Vault Key BacKup acronym ("VK" + "BCKP"). [deriveAssociatedAccountSeed]
+     * hashes it and mixes it with the Vault Key's SSH seed, so the exact spelling is part of the
+     * generation contract: changing it produces a different 24-word mnemonic, sync code, and
+     * Nostr identity for Vault Keys generated afterwards.
+     */
+    private const val VAULT_KEY_BACKUP_ASSOCIATED_ACCOUNT = "vkbckp"
     private const val MILLIS_PER_DAY = 24L * 60 * 60 * 1_000
     private val braveSyncEpoch = Instant.parse("2022-05-10T00:00:00Z")
 
@@ -17,24 +26,24 @@ object Seedify {
     }
 
     /**
-     * Generates a Brave Sync code by deriving Seedify's `brave` associated account,
-     * encoding its seed as a normal 24-word BIP-39 mnemonic, then appending
-     * Brave's date-derived 25th word.
+     * Generates a Brave Sync code from the Vault Key backup (`vkbckp`) associated account by
+     * encoding its seed as a normal 24-word BIP-39 mnemonic, then appending Brave's date-derived
+     * 25th word.
      *
      * This intentionally does not use Seedify's legacy Brave-prefixed mnemonic
      * derivation. [now] is injectable so callers and tests can reproduce a code
      * for a particular Brave Sync day.
      */
     fun toBraveSyncCode(seed: ByteArray, now: Instant = Instant.now()): String =
-        "${toBraveAccountMnemonic(seed)} ${braveSync25thWord(now)}"
+        "${toVaultKeyBackupMnemonic(seed)} ${braveSync25thWord(now)}"
 
-    /** The 24-word mnemonic of Seedify's deterministic `brave` associated account. */
-    fun toBraveAccountMnemonic(seed: ByteArray): String =
-        toMnemonic(deriveAssociatedAccountSeed(seed, BRAVE_ASSOCIATED_ACCOUNT))
+    /** The 24-word mnemonic of Seedify's deterministic Vault Key backup (`vkbckp`) associated account. */
+    fun toVaultKeyBackupMnemonic(seed: ByteArray): String =
+        toMnemonic(deriveAssociatedAccountSeed(seed, VAULT_KEY_BACKUP_ASSOCIATED_ACCOUNT))
 
     /** One-based BIP-39 positions for the 24 recovery words in the Brave Sync code. */
-    fun toBraveSyncWordIndices(seed: ByteArray): List<Int> {
-        return toBraveAccountMnemonic(seed).split(" ").map { word ->
+    fun toVaultKeyBackupWordIndices(seed: ByteArray): List<Int> {
+        return toVaultKeyBackupMnemonic(seed).split(" ").map { word ->
             Bip39Mnemonics.englishWordlist.indexOf(word).also { index ->
                 check(index >= 0) { "Generated Brave Sync word is absent from the BIP-39 word list" }
             } + 1
