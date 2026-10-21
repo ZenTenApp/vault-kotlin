@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test
 /**
  * Covers the Settings-initiated Secret Combinations flow's gate and durable step markers.
  *
- * The displayed values themselves come from the same `Seedify.toBraveSyncWordIndices`
+ * The displayed values themselves come from the same `Seedify.toVaultKeyBackupWordIndices`
  * derivation the create wizard uses; this test asserts the review flow decrypts the stored
  * VaultKey and reports those exact positions.
  */
@@ -52,7 +52,7 @@ class SecretCombinationsViewModelTest {
             rounds = SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS,
         )
         val seed = SshKeyCodec.parse(generated.privateKeyPem, passphrase.toCharArray()).seed
-        expectedIndices = Seedify.toBraveSyncWordIndices(seed)
+        expectedIndices = Seedify.toVaultKeyBackupWordIndices(seed)
         secureStorage = mockk()
         every { secureStorage.getVaultKey() } returns Account(
             createdAt = generated.createdAt,

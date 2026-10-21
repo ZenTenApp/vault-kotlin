@@ -42,17 +42,17 @@ The relay identity depends on the record class, and the two are never mixed:
 
 | Record class | Relay identity | Recoverable from |
 | --- | --- | --- |
-| Vault Key (`37801`) | NIP-06 identity derived from the 24-word mnemonic of Seedify's deterministic `brave` associated account | the 24 written-down words |
+| Vault Key (`37801`) | NIP-06 identity derived from the 24-word mnemonic of Seedify's deterministic `vkbckp` (Vault Key BacKup) associated account | the 24 written-down words |
 | Associated account (`37802`) | the stored Vault Key Nostr identity | the Vault Key private key and passphrase |
 
-That identity is used for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication of its own record class. The backed-up Vault Key plaintext is still the original VaultKey's canonical single-line Base64 OpenSSH private key. `DefaultBackupSourceFactory` derives the Brave identity once per engine operation and passes it to `NostrBackupSource`, so Vault Key creation, imported-Vault Key setup, retries, and Vault Key consolidation all address the same relay record instead of creating a duplicate under a second identity.
+That identity is used for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication of its own record class. The backed-up Vault Key plaintext is still the original VaultKey's canonical single-line Base64 OpenSSH private key. `DefaultBackupSourceFactory` derives the Vault Key backup identity once per engine operation and passes it to `NostrBackupSource`, so Vault Key creation, imported-Vault Key setup, retries, and Vault Key consolidation all address the same relay record instead of creating a duplicate under a second identity.
 
 ### NIP-42 lifecycle
 
 `NostrRelayService` creates an authenticated one-shot Quartz connection for source reads and writes:
 
 1. Install `RelayAuthenticator` before connecting.
-2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that record class (the Brave sub-account identity for Vault Key records; the stored Vault Key identity for associated accounts).
+2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that record class (the `vkbckp` Vault Key backup identity for Vault Key records; the stored Vault Key identity for associated accounts).
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
 4. Pin the challenged relay in Quartz's connection pool for the full operation timeout while waiting for a definitive AUTH acknowledgement. `fetchAll` removes its subscription after `CLOSED`, so an authenticated read maintains a temporary keep-alive subscription until the handshake and retry finish. If the initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
 5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.

@@ -61,7 +61,7 @@ class SshKeyCodecTest {
     }
 
     @Test
-    fun generates_brave_sync_code_from_brave_associated_account_and_daily_word() {
+    fun generates_brave_sync_code_from_vault_key_backup_associated_account_and_daily_word() {
         val seed = SshKeyCodec.parse(
             root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content,
             "phase1-test-passphrase".toCharArray(),
@@ -70,15 +70,15 @@ class SshKeyCodecTest {
         val code = Seedify.toBraveSyncCode(seed, Instant.parse("2026-01-01T00:00:00Z"))
         assertEquals(
             code.split(" ").take(24).joinToString(" "),
-            Seedify.toBraveAccountMnemonic(seed),
+            Seedify.toVaultKeyBackupMnemonic(seed),
         )
         assertEquals(
             code.split(" ").take(24),
-            Seedify.toBraveSyncWordIndices(seed).map { Bip39Mnemonics.englishWordlist[it - 1] },
+            Seedify.toVaultKeyBackupWordIndices(seed).map { Bip39Mnemonics.englishWordlist[it - 1] },
         )
 
         assertEquals(
-            "jacket mutual dry guard cat ribbon wasp police plug absurd add police face rack alcohol palm absorb long pumpkin dizzy odor job crush dial pledge",
+            "story solid net hybrid cupboard mistake glance juice large harvest very license maid miss acoustic bracket bargain point marriage sister arctic acquire cattle tourist pledge",
             code,
         )
         assertEquals(25, code.split(" ").size)

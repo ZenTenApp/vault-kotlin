@@ -33,7 +33,7 @@ import app.zenten.vault.ui.components.SecretCombinationPicker
 import app.zenten.vault.ui.components.SecretCombinationsWarning
 import app.zenten.vault.ui.components.VaultPillButton
 
-/** Step 6: let the user transcribe the Brave recovery words as BIP-39 positions. */
+/** Step 6: let the user transcribe the Vault Key backup recovery words as BIP-39 positions. */
 @Composable
 fun CreateVaultKeySecretCombinationsScreen(
     navController: NavHostController,
