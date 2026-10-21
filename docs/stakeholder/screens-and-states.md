@@ -16,7 +16,7 @@ The palette also includes light, medium-contrast, and high-contrast variants. Th
 | Get started | Introduce the vault and offer first-run entry paths | Login with VaultKey | New installation; unimplemented action tapped ("coming soon") |
 | Set up Vault Key | Import Vault Key private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | Accounts | List associated accounts and reach app settings | Create account; open account; open Settings | Loading, empty, recovering, populated |
-| Settings | Provide vault-management entry points and SSH key-generation controls | Open Vault Key; choose KDF rounds | Ready |
+| Settings | Provide vault-management entry points and SSH key-generation controls | Open Vault Key; open Secret Combinations; choose KDF rounds | Ready |
 | Create associated account | Generate a local-first account | Create account | Ready, creating, local success, scheduling error |
 | Export account | Require a verified text export before account use | Choose an app to save key; paste saved key to confirm | In-app app picker open, no compatible apps, launch rejected, paste malformed/mismatched/unreadable/empty |
 | Account detail | Inspect account identity and per-source backup state | Export account; consolidate backup | Missing, source checking/writing/present/missing/failed/unknown; passphrase prompt open, wrong/blank passphrase; export picker open, no compatible apps, launch rejected |
@@ -116,7 +116,17 @@ flowchart TD
 
 - Settings uses a centered title and a Back action that returns to **Accounts**.
 - The current vault section contains one full-width **Vault Key** item with supporting text. It opens Vault Key source status and Vault Key consolidation controls.
+- A second full-width **Secret Combinations** item opens the passphrase-gated review flow described below.
 - **KDF rounds** is a dropdown for the bcrypt work factor used by newly generated Vault Keys and associated SSH accounts. It permits only `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`, defaults to `128`, and does not alter existing encrypted keys.
+
+### Secret Combinations review
+
+- The flow is reachable only from **Settings** and starts with a passphrase gate that asks the user to re-enter the passphrase protecting the VaultKey. The gate is still abortable: a Back action returns to **Settings**, and a wrong or blank passphrase shows an inline error without displaying any combination.
+- After the gate passes, the flow cannot be cancelled. The display screen blocks system Back, and Back from verification returns to the display to review the combinations rather than leaving the flow. The only exit is to finish verification or, if the stored VaultKey cannot be decrypted, use the explicit **Back to Settings** action on the unavailable state.
+- The display screen reuses the create wizard's three-row snapping wheel, warning card, acknowledgement checkbox, and **Continue** action.
+- The verification screen requires all 24 positions again in the same eight labeled rows, with sequential segment entry and a red border for a diverging value. A wrong value is corrected in place, and Back returns to the displayed combinations to review them without leaving the flow; values already entered are preserved when the user returns.
+- A success check is shown for three seconds before the app returns to **Settings**. The flow marker is cleared as soon as verification succeeds, so a later restart follows normal launch navigation.
+- If the app is killed after the passphrase gate, the next launch reopens the unfinished display or verification step instead of returning to normal navigation.
 
 ### Create associated account
 

@@ -95,3 +95,18 @@ flowchart LR
 **Success:** The user regains all valid discovered associated accounts when usable remote backups can be found.
 
 **Important limitation:** The app cannot recover the Vault Key private key or its passphrase. If either is unavailable, this recovery path is unavailable.
+
+## 6. Rewrite and verify the VaultKey Secret Combinations
+
+**User goal:** Write down a fresh offline copy of the VaultKey's 24 recovery word positions from a configured device.
+
+1. The user opens **Settings** and selects **Secret Combinations**.
+2. The app asks for the passphrase that protects the VaultKey before showing anything. A wrong passphrase shows an inline error and no combination.
+3. Once the passphrase matches, the app displays the 24 one-based BIP-39 positions in eight rows of three and asks the user to write them down and store them offline.
+4. The user acknowledges that all eight combinations were saved and continues.
+5. The app requires all 24 positions again, one segment at a time, to prove the written copy is accurate.
+6. After every value matches, the app confirms success and returns to **Settings**.
+
+**Success:** The user holds an independently written copy of the VaultKey Secret Combinations and has verified it against the vault.
+
+**Safety expectation:** The combinations are shown only after the VaultKey passphrase is verified. Once that gate passes the flow cannot be cancelled or skipped, and the app reopens the unfinished step after a restart. A wrong verification segment is corrected in place; system Back returns to the displayed combinations and never escapes the flow.

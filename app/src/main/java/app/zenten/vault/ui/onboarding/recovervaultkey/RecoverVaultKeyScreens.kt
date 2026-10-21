@@ -66,7 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
-import app.zenten.vault.ui.onboarding.createvaultkey.sanitizeCombinationSegment
+import app.zenten.vault.ui.components.sanitizeCombinationSegment
 import app.zenten.vault.ui.theme.LocalExtendedColors
 
 private val RecoveryRowHeight = 80.dp

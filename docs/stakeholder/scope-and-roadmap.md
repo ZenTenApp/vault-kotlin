@@ -17,6 +17,7 @@
 | Generate associated Ed25519 SSH accounts | Implemented (PoC) | Created accounts appear in the account list using creation IDs. |
 | View public key and fingerprint | Implemented (PoC) | Available on associated-account detail. |
 | Confirm before showing/copying private key | Implemented (PoC) | Sensitive-view safeguards are present; expiry/export polish is still needed. |
+| Re-display and verify VaultKey Secret Combinations | Implemented (PoC) | Reachable from **Settings**. Passphrase-gated, non-cancellable once entered, and resumes after a restart until verification completes. |
 | Encrypted Nostr relay backup | Implemented (PoC) | Requires operational validation and production hardening. |
 | Brave Sync backup and discovery | Implemented (PoC) | Requires end-to-end interoperability and release validation. |
 | Backup status and manual sync | Partial | Current UI shows destination markers; richer plain-language status, timestamps, and recovery guidance remain. |

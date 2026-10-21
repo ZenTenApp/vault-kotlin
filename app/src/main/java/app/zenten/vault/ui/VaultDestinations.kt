@@ -79,6 +79,28 @@ object VaultDestinations {
     /** VaultKey account and its per-source backup coverage. */
     const val VAULT_KEY = "vaultKey-account"
 
+    /**
+     * Nested graph for the Settings-initiated **Secret Combinations** review flow.
+     *
+     * Like the create wizard, this is a graph so the combination values and the verification
+     * cursor can be shared by its screens without putting secret material in route arguments.
+     * Once the passphrase gate is passed the flow is irreversible and a persisted step reopens
+     * the unfinished destination after a process restart.
+     */
+    const val VIEW_SECRET_COMBINATIONS_GRAPH = "secret-combinations"
+
+    /** Passphrase gate shown before any combination is displayed. Abortable until it passes. */
+    const val VIEW_SECRET_COMBINATIONS_VERIFY = "secret-combinations/verify"
+
+    /** Displays the 24 BIP-39 positions for transcription; Back is disabled. */
+    const val VIEW_SECRET_COMBINATIONS_SHOW = "secret-combinations/show"
+
+    /** Sequentially re-enters every position; Back is disabled. */
+    const val VIEW_SECRET_COMBINATIONS_CONFIRM = "secret-combinations/confirm"
+
+    /** Brief success confirmation before returning to Settings. */
+    const val VIEW_SECRET_COMBINATIONS_COMPLETE = "secret-combinations/complete"
+
     /** App settings and vault management entry points. */
     const val SETTINGS = "settings"
 

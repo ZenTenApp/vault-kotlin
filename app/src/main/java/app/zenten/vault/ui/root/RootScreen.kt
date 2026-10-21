@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateVaultKeyStep
+import app.zenten.vault.data.kv.SecretCombinationsViewStep
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PlaceholderScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,8 +38,15 @@ class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewMod
         appStorage.setupComplete,
         appStorage.pendingLocalBackupAccountIds,
         appStorage.createVaultKeyStep,
-    ) { complete, pending, createStep ->
+        appStorage.secretCombinationsViewStep,
+    ) { complete, pending, createStep, secretCombinationsStep ->
         when {
+            // The Settings review flow is irreversible once entered, so it takes precedence
+            // over every other launch destination until verification finishes.
+            secretCombinationsStep == SecretCombinationsViewStep.SHOW ->
+                VaultDestinations.VIEW_SECRET_COMBINATIONS_SHOW
+            secretCombinationsStep == SecretCombinationsViewStep.CONFIRM ->
+                VaultDestinations.VIEW_SECRET_COMBINATIONS_CONFIRM
             complete && pending.isNotEmpty() -> VaultDestinations.localAccountBackupExport(pending.first().toLong())
             complete -> VaultDestinations.ACCOUNTS
             createStep == CreateVaultKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO

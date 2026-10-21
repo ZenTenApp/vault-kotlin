@@ -1,5 +1,7 @@
 package app.zenten.vault.ui.onboarding.createvaultkey
 
+import app.zenten.vault.ui.components.isCombinationSegmentIncorrect
+import app.zenten.vault.ui.components.sanitizeCombinationSegment
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
