@@ -66,6 +66,29 @@ class VaultDestinationsTest {
     }
 
     @Test
+    fun secretCombinationsViewSteps_haveStableRoutes() {
+        assertEquals("secret-combinations", VaultDestinations.VIEW_SECRET_COMBINATIONS_GRAPH)
+        assertEquals("secret-combinations/verify", VaultDestinations.VIEW_SECRET_COMBINATIONS_VERIFY)
+        assertEquals("secret-combinations/show", VaultDestinations.VIEW_SECRET_COMBINATIONS_SHOW)
+        assertEquals("secret-combinations/confirm", VaultDestinations.VIEW_SECRET_COMBINATIONS_CONFIRM)
+        assertEquals("secret-combinations/complete", VaultDestinations.VIEW_SECRET_COMBINATIONS_COMPLETE)
+    }
+
+    @Test
+    fun secretCombinationsViewGraph_isThePrefixOfItsSteps() {
+        // The nested graph route must stay a prefix of every step route so the flow's
+        // graph-scoped ViewModel resolves for all of them.
+        listOf(
+            VaultDestinations.VIEW_SECRET_COMBINATIONS_VERIFY,
+            VaultDestinations.VIEW_SECRET_COMBINATIONS_SHOW,
+            VaultDestinations.VIEW_SECRET_COMBINATIONS_CONFIRM,
+            VaultDestinations.VIEW_SECRET_COMBINATIONS_COMPLETE,
+        ).forEach { route ->
+            assertEquals(true, route.startsWith(VaultDestinations.VIEW_SECRET_COMBINATIONS_GRAPH + "/"), route)
+        }
+    }
+
+    @Test
     fun accountDetail_buildsRouteFromId() {
         assertEquals("accounts/1234567890", VaultDestinations.accountDetail(1234567890L))
     }

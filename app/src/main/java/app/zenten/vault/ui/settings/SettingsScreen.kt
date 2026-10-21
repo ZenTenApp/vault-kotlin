@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -109,6 +110,35 @@ fun SettingsScreen(
                     )
                     Text(
                         text = "Review backup coverage and consolidate your vault",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Icon(Icons.Default.ChevronRight, contentDescription = null)
+            }
+
+            OutlinedButton(
+                onClick = { navController.navigate(VaultDestinations.VIEW_SECRET_COMBINATIONS_GRAPH) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                contentPadding = PaddingValues(18.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Password,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                    Text(
+                        text = "Secret Combinations",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Write down and verify your VaultKey recovery combinations",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                     )

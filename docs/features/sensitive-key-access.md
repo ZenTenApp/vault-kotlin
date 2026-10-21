@@ -19,6 +19,7 @@ Private-key disclosure is never the default account-detail state.
 
 - The user must confirm immediately before private-key disclosure.
 - Before the encrypted private key is exported through the voluntary account-detail or Vault Key export actions, the user must re-enter the passphrase that protects that account or Vault Key. A wrong or blank passphrase shows an inline error and keeps the target picker closed. The mandatory creation-time exports do not re-ask, because the passphrase was just entered to create the record.
+- The VaultKey's 24 BIP-39 Secret Combinations are also passphrase-gated. They are only derived and displayed after the user re-enters the VaultKey passphrase, and that review flow is described in [Secret Combinations review](secret-combinations-review.md).
 - The private-key dialog is protected from screenshots on supported Android devices.
 - Normal UI should not expose private-key content in notifications, errors, or logs.
 
@@ -31,4 +32,5 @@ Private-key disclosure is never the default account-detail state.
 ## Primary implementation locations
 
 - UI: `app/src/main/java/app/zenten/vault/ui/accounts/AccountDetailScreen.kt`
+- Secret Combinations review: `app/src/main/java/app/zenten/vault/ui/secretcombinations/`
 - Fingerprint/key utilities: `app/src/main/java/app/zenten/vault/crypto/SshKeyCodec.kt`

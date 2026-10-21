@@ -16,7 +16,9 @@ flowchart TD
     Prerequisites -->|No| Blocked["Unavailable screen: explain errors/warnings and offer a recheck"]
     Blocked --> Prerequisites
     Prerequisites -->|Yes| Root["Root checks persisted state"]
-    Root --> Setup{"Vault Key setup complete?"}
+    Root --> SecretReview{"Secret Combinations review unfinished?"}
+    SecretReview -->|Yes| ReviewResume["Resume Secret Combinations review"]
+    SecretReview -->|No| Setup{"Vault Key setup complete?"}
     Setup -->|No| GeneratedProgress{"Generated VaultKey already committed?"}
     GeneratedProgress -->|No| Welcome["Get started"]
     GeneratedProgress -->|Create Backup pending| CreateBackupIntro
@@ -226,7 +228,31 @@ flowchart LR
     VaultKey --> ExportVK["Select Export VaultKey"]
     ExportVK --> ExportVKPassphrase["Confirm the VaultKey passphrase"]
     ExportVKPassphrase --> ExportVKPick["Choose an app to receive the self-describing VaultKey export"]
+    Settings --> SecretCombos["Open Secret Combinations"]
 ```
+
+## Secret Combinations review
+
+```mermaid
+flowchart TD
+    Settings["Settings"] --> SecretCombos["Open Secret Combinations"]
+    SecretCombos --> SecretVerify["Re-enter the VaultKey passphrase"]
+    SecretVerify --> SecretMatch{"Passphrase matches the stored VaultKey?"}
+    SecretMatch -->|No| SecretError["Inline error"]
+    SecretError --> SecretVerify
+    SecretMatch -->|Yes| SecretShow["Show 24 BIP-39 positions in eight groups of three; no Back"]
+    SecretShow -->|Unavailable| SecretExit["Combinations unreadable: return to Settings"]
+    SecretShow -->|"Acknowledge backup + Continue"| SecretConfirm["Re-enter every position; sequential"]
+    SecretConfirm -->|Wrong segment| SecretWrong["Red border; remain on current segment"]
+    SecretWrong --> SecretConfirm
+    SecretConfirm -->|Correct segment| SecretConfirm
+    SecretConfirm -->|"Back (review combinations)"| SecretShow
+    SecretConfirm -->|Unavailable| SecretExit
+    SecretConfirm -->|"All 24 correct"| SecretDone["Clear the flow marker; success check for 3 seconds"]
+    SecretDone -->|Automatic| Settings
+```
+
+The review flow is entered from **Settings** and is gated by the VaultKey passphrase. Passing the gate records a non-secret step marker and makes the flow irreversible: the display step blocks system Back, Back from verification returns to the display to review the combinations, and the user must write down and re-enter all 24 positions before the flow ends. Returning to the display and continuing again preserves the values already verified. Verification input is strict and sequential, so a wrong segment is corrected in place rather than skipped. Killing the app after the gate reopens the precise unfinished step at next launch, and going Back from verification records the display step again so a restart resumes there. If the stored VaultKey cannot be decrypted at all there is nothing to transcribe, so only then does the flow offer a return to **Settings**. The transcribed values are held only in the flow's graph-scoped ViewModel and are never written to disk or navigation arguments.
 
 ## Vault Key consolidation
 

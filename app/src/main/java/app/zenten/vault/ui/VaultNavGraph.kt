@@ -24,6 +24,10 @@ import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyIntroScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyPassphraseScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeySecretCombinationsScreen
 import app.zenten.vault.ui.root.RootScreen
+import app.zenten.vault.ui.secretcombinations.SecretCombinationsCompleteScreen
+import app.zenten.vault.ui.secretcombinations.SecretCombinationsConfirmScreen
+import app.zenten.vault.ui.secretcombinations.SecretCombinationsShowScreen
+import app.zenten.vault.ui.secretcombinations.SecretCombinationsVerifyScreen
 import app.zenten.vault.ui.onboarding.recovervaultkey.RecoverVaultKeyCombinationsScreen
 import app.zenten.vault.ui.onboarding.recovervaultkey.RecoverVaultKeyPassphraseScreen
 import app.zenten.vault.ui.settings.SettingsScreen
@@ -104,6 +108,29 @@ fun VaultNavGraph(
 
             composable(VaultDestinations.CREATE_VAULT_KEY_CONGRATULATIONS) {
                 CreateVaultKeyCongratulationsScreen(navController)
+            }
+        }
+
+        // The Settings review flow uses a nested graph so its screens share one graph-scoped
+        // ViewModel and the transcribed values never pass through navigation arguments.
+        navigation(
+            route = VaultDestinations.VIEW_SECRET_COMBINATIONS_GRAPH,
+            startDestination = VaultDestinations.VIEW_SECRET_COMBINATIONS_VERIFY,
+        ) {
+            composable(VaultDestinations.VIEW_SECRET_COMBINATIONS_VERIFY) {
+                SecretCombinationsVerifyScreen(navController)
+            }
+
+            composable(VaultDestinations.VIEW_SECRET_COMBINATIONS_SHOW) {
+                SecretCombinationsShowScreen(navController)
+            }
+
+            composable(VaultDestinations.VIEW_SECRET_COMBINATIONS_CONFIRM) {
+                SecretCombinationsConfirmScreen(navController)
+            }
+
+            composable(VaultDestinations.VIEW_SECRET_COMBINATIONS_COMPLETE) {
+                SecretCombinationsCompleteScreen(navController)
             }
         }
 

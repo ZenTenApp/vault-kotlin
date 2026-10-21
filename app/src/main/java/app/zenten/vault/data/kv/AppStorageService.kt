@@ -30,6 +30,18 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
             runCatching { CreateVaultKeyStep.valueOf(stored) }.getOrNull()
         }
     }
+    /**
+     * Durable progress of the Settings-initiated **Secret Combinations** review flow.
+     *
+     * Non-null means the user already passed the passphrase gate and must finish transcribing
+     * and verifying the combinations before the app returns to normal navigation, including
+     * after a process restart.
+     */
+    val secretCombinationsViewStep: Flow<SecretCombinationsViewStep?> = dataStore.data.map { preferences ->
+        preferences[SECRET_COMBINATIONS_VIEW_STEP]?.let { stored ->
+            runCatching { SecretCombinationsViewStep.valueOf(stored) }.getOrNull()
+        }
+    }
     val customBackupSources: Flow<List<BackupSourceConfig>> = jsonFlow(CUSTOM_BACKUP_SOURCES)
     val pendingSourceWrites: Flow<List<PendingSourceWrite>> = jsonFlow(PENDING_SOURCE_WRITES)
     val accountSourceStatuses: Flow<List<AccountSourceStatus>> = jsonFlow(ACCOUNT_SOURCE_STATUSES)
@@ -72,6 +84,16 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     /** Persists only wizard progress; generated key material remains in encrypted storage. */
     suspend fun setCreateVaultKeyStep(step: CreateVaultKeyStep) = dataStore.edit {
         it[CREATE_VAULT_KEY_STEP] = step.name
+    }
+
+    /** Records which irreversible step of the Secret Combinations review flow is active. */
+    suspend fun setSecretCombinationsViewStep(step: SecretCombinationsViewStep) = dataStore.edit {
+        it[SECRET_COMBINATIONS_VIEW_STEP] = step.name
+    }
+
+    /** Clears the review flow once every combination has been verified. */
+    suspend fun clearSecretCombinationsViewStep() = dataStore.edit {
+        it.remove(SECRET_COMBINATIONS_VIEW_STEP)
     }
 
     /**
@@ -187,6 +209,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
         val SSH_KDF_ROUNDS = intPreferencesKey("ssh_kdf_rounds_v1")
         val CREATE_VAULT_KEY_STEP = stringPreferencesKey("create_vault_key_step_v1")
+        val SECRET_COMBINATIONS_VIEW_STEP = stringPreferencesKey("secret_combinations_view_step_v1")
         val CUSTOM_BACKUP_SOURCES = stringPreferencesKey("custom_backup_sources_v2")
         val PENDING_SOURCE_WRITES = stringPreferencesKey("pending_source_writes_v2")
         val ACCOUNT_SOURCE_STATUSES = stringPreferencesKey("account_source_statuses_v2")
@@ -207,6 +230,17 @@ enum class CreateVaultKeyStep {
     CONFIRM_BACKUP,
     SECRET_COMBINATIONS,
     CONGRATULATIONS,
+}
+
+/**
+ * Resumable steps of the Settings-initiated Secret Combinations review flow.
+ *
+ * The flow cannot be abandoned once the passphrase gate is passed, so these values are read
+ * at launch to reopen the exact unfinished step.
+ */
+enum class SecretCombinationsViewStep {
+    SHOW,
+    CONFIRM,
 }
 
 @Serializable

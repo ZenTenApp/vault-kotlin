@@ -1,9 +1,6 @@
 package app.zenten.vault.ui.onboarding.createvaultkey
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.snapping.SnapPosition
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,44 +9,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
+import app.zenten.vault.ui.components.SecretCombinationPicker
+import app.zenten.vault.ui.components.SecretCombinationsWarning
 import app.zenten.vault.ui.components.VaultPillButton
 
 /** Step 6: let the user transcribe the Brave recovery words as BIP-39 positions. */
@@ -155,144 +136,5 @@ fun CreateVaultKeySecretCombinationsScreen(
             )
             Spacer(Modifier.height(16.dp))
         }
-    }
-}
-
-/** Keeps the required action and the consequence together without repeating either below. */
-@Composable
-private fun SecretCombinationsWarning() {
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.errorContainer, shape)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.WarningAmber,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.create_vault_key_secret_combinations_warning_title),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.create_vault_key_secret_combinations_warning_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-        }
-    }
-}
-
-private val CombinationRowHeight = 72.dp
-private val CombinationRowSpacing = 10.dp
-private val CombinationSlotHeight = CombinationRowHeight + CombinationRowSpacing
-
-/**
- * Three-row snapping wheel. Empty edge padding lets rows 1 and 8 occupy the center target
- * without wrapping, while only this compact region—not the whole screen—scrolls.
- */
-@Composable
-private fun SecretCombinationPicker(groups: List<List<Int>>, visible: Boolean) {
-    val listState = rememberLazyListState()
-    val centeredIndex by remember(listState) {
-        derivedStateOf {
-            val layout = listState.layoutInfo
-            val viewportCenter = (layout.viewportStartOffset + layout.viewportEndOffset) / 2
-            layout.visibleItemsInfo.minByOrNull { item ->
-                kotlin.math.abs((item.offset + item.size / 2) - viewportCenter)
-            }?.index ?: 0
-        }
-    }
-
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(CombinationSlotHeight * 3),
-        contentPadding = PaddingValues(vertical = CombinationSlotHeight),
-        flingBehavior = rememberSnapFlingBehavior(
-            lazyListState = listState,
-            snapPosition = SnapPosition.Center,
-        ),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        itemsIndexed(groups, key = { index, _ -> index }) { rowIndex, group ->
-            SecretCombinationRow(
-                label = rowIndex + 1,
-                indices = group,
-                visible = visible,
-                positionFromCenter = rowIndex.compareTo(centeredIndex),
-                // Symmetric spacing keeps the card's center on the snap point.
-                modifier = Modifier.padding(vertical = CombinationRowSpacing / 2),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SecretCombinationRow(
-    label: Int,
-    indices: List<Int>,
-    visible: Boolean,
-    /** Negative above center, zero at center, positive below center. */
-    positionFromCenter: Int,
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(12.dp)
-    val isCentered = positionFromCenter == 0
-    val contentOpacity = if (isCentered) 1f else 0.28f
-    val edgeColor = MaterialTheme.colorScheme.background
-    val innerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val rowBrush = when {
-        positionFromCenter < 0 -> Brush.verticalGradient(
-            colors = listOf(edgeColor, innerColor),
-        )
-        positionFromCenter > 0 -> Brush.verticalGradient(
-            colors = listOf(innerColor, edgeColor),
-        )
-        else -> Brush.verticalGradient(listOf(innerColor, innerColor))
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(CombinationRowHeight),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "$label.",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .padding(end = 12.dp)
-                .alpha(contentOpacity),
-        )
-        Text(
-            text = if (visible) indices.joinToString("-") else "••••-••••-••••",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentOpacity),
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .weight(1f)
-                // Elevation belongs only to the selected card. Neighboring cards use
-                // directional fills so they visually recede toward the wheel edges.
-                .then(
-                    if (isCentered) Modifier.shadow(10.dp, shape, clip = false)
-                    else Modifier,
-                )
-                .background(brush = rowBrush, shape = shape)
-                .padding(vertical = 18.dp, horizontal = 8.dp),
-        )
     }
 }
