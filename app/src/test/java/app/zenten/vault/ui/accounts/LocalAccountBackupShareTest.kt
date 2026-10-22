@@ -86,6 +86,24 @@ class LocalAccountBackupShareTest {
         assertEquals(7, lines.size)
     }
 
+    @Test
+    fun clipboard_export_contains_only_single_line_pem() {
+        val account = Account(
+            createdAt = 1_700_000_000_000_000L,
+            zenTenKey = goldenEncryptedKey(),
+            zenTenPass = "pass",
+            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
+            accountName = "Personal account",
+        )
+
+        val lines = LocalAccountBackupShare.accountKeyPemText(account).lines()
+
+        assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----", lines[0])
+        assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
+        assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
+        assertEquals(3, lines.size)
+    }
+
     private fun goldenEncryptedKey(): String =
         requireNotNull(javaClass.getResourceAsStream("/golden/crypto-vectors.json"))
             .bufferedReader()
