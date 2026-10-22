@@ -230,7 +230,7 @@ flowchart LR
     VaultKeyState -->|No| Retry["Retry Vault Key setup"]
     VaultKeyState -->|Yes| All["Select Consolidate VaultKey backup"]
     All --> Full["Run Vault Key consolidation only"]
-    VaultKey --> ExportVK["Select Export VaultKey"]
+    VaultKey --> ExportVK["Select Export VaultKey to Notes"]
     ExportVK --> ExportVKPassphrase["Confirm the VaultKey passphrase"]
     ExportVKPassphrase --> ExportVKPick["Choose an app to receive the self-describing VaultKey export"]
     Settings --> SecretCombos["Open Secret Combinations"]

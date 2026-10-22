@@ -158,7 +158,7 @@ fun VaultKeyDetailScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            ) { Text("Export VaultKey") }
+            ) { Text("Export VaultKey to Notes") }
             exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Text("Backup Status", style = MaterialTheme.typography.titleMedium)
             state.sources.forEach { SourceStatusRow(it) }
