@@ -25,6 +25,13 @@ regexes = [
 ]
 
 [[allowlists]]
+description = "Kotlin source that wraps a key-encoding call in OpenSSH PEM markers, for example SshKeyCodec.normalizeToSingleLineBase64(...) inside the marker literals. The default private-key rule fires once 64+ characters sit between the markers, but here that text is source code, not key material. A real key body is Base64, which never contains parentheses, so requiring a call in the captured span keeps this entry from masking an actual committed key."
+regexTarget = "match"
+regexes = [
+  '''-----BEGIN OPENSSH PRIVATE KEY-----[\s\S]{0,200}?\([^)]*\)[\s\S]{0,200}?KEY-----''',
+]
+
+[[allowlists]]
 description = "Golden crypto fixtures and their generator embed intentionally non-secret sample keys used by parity tests."
 paths = [
   '''app/src/test/resources/golden/.*''',
