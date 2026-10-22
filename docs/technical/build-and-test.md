@@ -63,7 +63,7 @@ Things the free substitutes do not provide:
 
 Non-secret values are allowlisted narrowly so genuine findings still fail:
 
-- `.gitleaks.toml` allowlists public Nostr `npub` keys, Brave's public Sync service key, and the golden crypto fixtures plus their generator.
+- `.gitleaks.toml` allowlists public Nostr `npub` keys, Brave's public Sync service key, Kotlin source that wraps a key-encoding call in OpenSSH PEM markers, and the golden crypto fixtures plus their generator.
 - `.semgrepignore` excludes generated golden fixtures and the test-vector generator.
 
 Reproduce either scan locally with the same image, configuration, and gate used in CI:
