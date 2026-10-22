@@ -85,9 +85,11 @@ flowchart TD
     Accounts --> Settings["Settings"]
     Settings --> Vault Key["Vault Key"]
     Detail -->|"Back"| Accounts
-    Detail -->|"Export account"| DetailPassphrase{"Passphrase matches stored account?"}
+    Detail -->|"Export Account to Notes"| DetailPassphrase{"Passphrase matches stored account?"}
+    Detail -->|"Export Account to Clipboard"| DetailPassphrase
     DetailPassphrase -->|"No"| DetailPassphrase
-    DetailPassphrase -->|"Yes"| DetailExport["Choose an app to receive the self-describing export"]
+    DetailPassphrase -->|"Yes, notes"| DetailExport["Choose an app to receive the self-describing export"]
+    DetailPassphrase -->|"Yes, clipboard"| DetailClipboard["Copy the OpenSSH PEM block to the clipboard"]
     Vault Key -->|"Back"| Settings
 ```
 
@@ -216,9 +218,12 @@ flowchart LR
     Account --> Status["Review per-source status"]
     Status --> One["Select Consolidate backup"]
     One --> Targeted["Run targeted consolidation"]
-    Status --> Export["Select Export account"]
-    Export --> ExportPassphrase["Confirm the account passphrase"]
+    Status --> ExportNotes["Select Export Account to Notes"]
+    ExportNotes --> ExportPassphrase["Confirm the account passphrase"]
     ExportPassphrase --> ExportPick["Choose an app to receive the self-describing export"]
+    Status --> ExportClipboard["Select Export Account to Clipboard"]
+    ExportClipboard --> ExportPassphrase
+    ExportPassphrase --> Clipboard["Copy the OpenSSH PEM block to the clipboard"]
     Accounts --> Settings["Open Settings"]
     Settings --> VaultKey["Open Vault Key"]
     VaultKey --> VaultKeyState{"Vault Key quorum complete?"}

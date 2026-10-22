@@ -63,6 +63,12 @@ import app.zenten.vault.ui.components.VaultCard
 import app.zenten.vault.ui.theme.LocalExtendedColors
 import kotlinx.coroutines.launch
 
+/**
+ * The two voluntary export destinations offered on account details. Both release the same
+ * self-describing encrypted-key text, so both are gated behind the same passphrase dialog.
+ */
+private enum class AccountExportAction { NOTES, CLIPBOARD }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewModel: AccountDetailViewModel = hiltViewModel()) {
@@ -70,10 +76,16 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     val state by viewModel.state.collectAsState()
     val account = state.account
     val context = LocalContext.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     // Target picker shown while the user chooses where to send the account export.
     var exportTargets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
-    // Passphrase confirmation shown before the export target picker opens.
+    // Confirmation that the encrypted key was placed on the clipboard, shown after that export.
+    var exportCopied by remember { mutableStateOf(false) }
+    // Which export the pending passphrase confirmation should run once the user confirms.
+    var pendingExportAction by remember { mutableStateOf<AccountExportAction?>(null) }
+    // Passphrase confirmation shown before any export action runs.
     var confirmExportPassphrase by remember { mutableStateOf(false) }
     if (account == null) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
@@ -129,11 +141,28 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             Button(
                 onClick = {
                     exportError = null
+                    exportCopied = false
+                    pendingExportAction = AccountExportAction.NOTES
                     confirmExportPassphrase = true
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Export account") }
+            ) { Text("Export Account to Notes") }
+            Button(
+                onClick = {
+                    exportError = null
+                    exportCopied = false
+                    pendingExportAction = AccountExportAction.CLIPBOARD
+                    confirmExportPassphrase = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Export Account to Clipboard") }
             exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (exportCopied) {
+                Text(
+                    text = "Encrypted account key copied to the clipboard.",
+                    color = LocalExtendedColors.current.success.color,
+                )
+            }
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "Backup status",
@@ -147,10 +176,33 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     if (confirmExportPassphrase) {
         ExportPassphraseDialog(
             message = "Re-enter the passphrase that protects this account before exporting its encrypted key.",
-            onDismiss = { confirmExportPassphrase = false },
+            onDismiss = {
+                confirmExportPassphrase = false
+                pendingExportAction = null
+            },
             onConfirmed = { passphrase ->
                 if (viewModel.verifyExportPassphrase(passphrase)) {
-                    exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                    // Run only the export the user tapped; the passphrase gate is shared so the
+                    // destination is remembered while the dialog is open.
+                    when (pendingExportAction) {
+                        AccountExportAction.NOTES ->
+                            exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                        AccountExportAction.CLIPBOARD -> coroutineScope.launch {
+                            runCatching {
+                                clipboard.setClipEntry(
+                                    ClipData.newPlainText(
+                                        "Encrypted account key",
+                                        LocalAccountBackupShare.accountKeyPemText(account),
+                                    ).toClipEntry(),
+                                )
+                            }.onSuccess {
+                                exportCopied = true
+                            }.onFailure {
+                                exportError = "Vault could not copy the account key to the clipboard. Try again."
+                            }
+                        }
+                        null -> Unit
+                    }
                     true
                 } else {
                     false

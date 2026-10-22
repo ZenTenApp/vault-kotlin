@@ -50,13 +50,24 @@ object LocalAccountBackupShare {
      */
     internal fun vaultKeyExportText(account: Account): String = selfDescribingExportText(account, "VaultKey")
 
+    /**
+     * Builds the clipboard-only export: the passphrase-encrypted OpenSSH key wrapped in PEM
+     * markers, and nothing else. The clipboard form deliberately omits the account metadata
+     * (npub, creation ID, display name, creation date) that the notes export appends, because
+     * a raw key is what a key-import field or another SSH tool expects to receive.
+     */
+    internal fun accountKeyPemText(account: Account): String = pemBlock(account)
+
+    private fun pemBlock(account: Account): String = listOf(
+        "-----BEGIN OPENSSH PRIVATE KEY-----",
+        SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey),
+        "-----END OPENSSH PRIVATE KEY-----",
+    ).joinToString("\n")
+
     private fun selfDescribingExportText(account: Account, displayName: String): String {
-        val key = SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey)
         val npub = formatNpub(account.nostr.pubkey)
         return listOf(
-            "-----BEGIN OPENSSH PRIVATE KEY-----",
-            key,
-            "-----END OPENSSH PRIVATE KEY-----",
+            pemBlock(account),
             npub,
             account.createdAt.toString(),
             displayName,
