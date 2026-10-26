@@ -6,11 +6,11 @@
   to be shown (66dp is the documented safe zone).
 
   vault_app_icon already carries about 30% transparent padding inside its 432dp
-  viewport, so a uniform 8dp inset scales it to 92dp and leaves the painted
+  viewport, so a uniform 16dp inset scales it to 112dp and leaves the painted
   shield within 34dp of the layer centre. That clears every mask shape we
   support (circle and rounded-square) with margin to spare, which is why the
   asset itself is not rescaled or duplicated here.
 -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/vault_app_icon"
-    android:inset="8dp" />
+    android:inset="16dp" />
