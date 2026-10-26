@@ -25,9 +25,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -50,6 +52,12 @@ private val ButtonSpacing = 8.dp
 
 /** Size of the third-party provider marks in the "continue with" buttons. */
 private val ProviderIconSize = 20.dp
+
+/**
+ * Extra fade applied to the not-yet-available provider buttons so they read as
+ * clearly inactive compared to Material's default disabled treatment.
+ */
+private val DisabledProviderOpacity = 0.5f
 
 /**
  * First-run entry screen.
@@ -106,7 +114,7 @@ fun GetStartedScreen(navController: NavHostController) {
 
             Text(
                 text = stringResource(R.string.get_started_title),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
             )
@@ -153,6 +161,7 @@ fun GetStartedScreen(navController: NavHostController) {
 
             VaultPillButton(
                 label = googleLabel,
+                modifier = Modifier.alpha(DisabledProviderOpacity),
                 enabled = false,
                 onClick = { showComingSoon(googleLabel) },
                 icon = { ProviderIcon(R.drawable.ic_brand_google, googleLabel) },
@@ -163,6 +172,7 @@ fun GetStartedScreen(navController: NavHostController) {
 
             VaultPillButton(
                 label = appleLabel,
+                modifier = Modifier.alpha(DisabledProviderOpacity),
                 enabled = false,
                 onClick = { showComingSoon(appleLabel) },
                 icon = {
@@ -179,6 +189,7 @@ fun GetStartedScreen(navController: NavHostController) {
 
             VaultPillButton(
                 label = microsoftLabel,
+                modifier = Modifier.alpha(DisabledProviderOpacity),
                 enabled = false,
                 onClick = { showComingSoon(microsoftLabel) },
                 icon = { ProviderIcon(R.drawable.ic_brand_microsoft, microsoftLabel) },
