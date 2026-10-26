@@ -1,6 +1,6 @@
 # Feature documentation
 
-This directory describes each feature currently available in the ZenTen Vault Android proof of concept. It is the feature-level reference for product, design, engineering, QA, and stakeholder review.
+This directory describes each feature currently available in the ZenTen Vault Android app. It is the feature-level reference for product, design, engineering, QA, and stakeholder review.
 
 ## Features
 
@@ -24,4 +24,4 @@ Each feature document identifies:
 - current limitations; and
 - the primary implementation locations.
 
-“Implemented” means source code is present in this repository. It is not a production-readiness or security-audit claim.
+“Implemented” means source code is present in this repository and covered by automated tests where practical. It is not a security-audit certification; the [release gates](../stakeholder/scope-and-roadmap.md#release-gates-before-production-use) still apply before production use.

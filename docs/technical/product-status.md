@@ -1,6 +1,6 @@
 # Implementation status
 
-This is a repository-oriented status view, not a production-readiness certification. **Present in code** does not imply completed security, interoperability, UX, or operational validation.
+This is a repository-oriented status view for a pre-release production build. It is not a production-readiness certification, and **present in code** does not imply completed security, interoperability, UX, or operational validation.
 
 | Area | Status | Repository evidence | Notes |
 | --- | --- | --- | --- |

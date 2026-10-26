@@ -38,4 +38,4 @@ ZenTen Vault is not an SSH terminal, SSH agent, Git client, general password man
 
 ## Current maturity
 
-This repository is a proof of concept. Stakeholders should use the [scope and roadmap](scope-and-roadmap.md) to distinguish current implementation from intended product behavior. It must not be represented as a production-ready credential vault without further security review and release work.
+This repository contains a pre-release production build of the app. Stakeholders should use the [scope and roadmap](scope-and-roadmap.md) to distinguish current implementation from intended product behavior. It is not yet released and must not be represented as a production-ready credential vault until the [release gates](scope-and-roadmap.md#release-gates-before-production-use) are complete.

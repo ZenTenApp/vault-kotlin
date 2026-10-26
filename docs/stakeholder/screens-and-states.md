@@ -1,6 +1,6 @@
 # Screens and states
 
-This screen map reflects the current Android proof-of-concept navigation. The app always uses its dark visual theme; it does not follow the device's light or dark preference and offers no theme switcher.
+This screen map reflects the current Android app navigation. The app always uses its dark visual theme; it does not follow the device's light or dark preference and offers no theme switcher.
 
 ## Visual palette
 

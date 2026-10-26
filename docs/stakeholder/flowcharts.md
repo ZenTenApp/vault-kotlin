@@ -1,6 +1,6 @@
 # App flowcharts
 
-These diagrams are a discussion aid for the currently implemented Android proof of concept. They describe observed application behavior, not a production-readiness commitment. See [User journeys](user-journeys.md) for user goals and limitations, and [Backup and recovery](backup-and-recovery.md) for the user recovery responsibilities.
+These diagrams describe the currently implemented Android app on its production track. They describe observed application behavior, not a production-readiness commitment or a statement that the app has been released. See [User journeys](user-journeys.md) for user goals and limitations, and [Backup and recovery](backup-and-recovery.md) for the user recovery responsibilities.
 
 ## App entry and navigation
 

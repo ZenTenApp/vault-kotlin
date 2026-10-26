@@ -1,6 +1,6 @@
 # Technical documentation
 
-This area is for developers, security reviewers, and release engineers. It documents the current Android proof-of-concept implementation.
+This area is for developers, security reviewers, and release engineers. It documents the current pre-release Android implementation.
 
 ## Start here
 

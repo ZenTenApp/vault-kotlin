@@ -1,6 +1,6 @@
 # Security model
 
-> This document records current security intent and review scope. It is not a security audit or a claim that the proof of concept is safe for production credentials.
+> This document records current security intent and review scope. It is not a security audit or a claim that the app is safe for production credentials before the [release gates](../stakeholder/scope-and-roadmap.md#release-gates-before-production-use) are met.
 
 ## Protected assets
 
