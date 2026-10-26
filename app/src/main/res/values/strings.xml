@@ -55,10 +55,11 @@
     <string name="create_vault_key_passphrase_strength_not_strong_enough">Not strong enough</string>
     <string name="create_vault_key_passphrase_strength_strong">Strong</string>
     <string name="create_vault_key_passphrase_strength_very_strong">Very strong</string>
-    <!-- Announced in place of the bare meter and its label, which are merged into one node. -->
-    <string name="create_vault_key_passphrase_strength_description">Passphrase strength: %1$s, %2$s to crack</string>
-    <!-- The meter's label row: band, then the crack-time estimate, on one line. -->
-    <string name="create_vault_key_passphrase_meter_summary">%1$s · %2$s to crack</string>
+    <!--
+        The meter's label row. States the band in words; the crack-time estimate lives in the
+        details sheet, so this line stays a plain verdict rather than pairing it with a number.
+    -->
+    <string name="create_vault_key_passphrase_meter_summary">Passphrase Strength: %1$s</string>
     <string name="create_vault_key_passphrase_details_open">Why this rating</string>
 
     <!--
