@@ -5,12 +5,23 @@
   zoom the 108dp foreground layer, and only the central 72dp of it is guaranteed
   to be shown (66dp is the documented safe zone).
 
-  vault_app_icon already carries about 30% transparent padding inside its 432dp
-  viewport, so a uniform 16dp inset scales it to 112dp and leaves the painted
-  shield within 34dp of the layer centre. That clears every mask shape we
-  support (circle and rounded-square) with margin to spare, which is why the
-  asset itself is not rescaled or duplicated here.
+  vault_app_icon is cropped tightly to the shield (243.89 x 304.23 units, aspect
+  0.8017), so it is portrait and has no transparent margin to rely on. The insets
+  below build an inner box with that same aspect ratio, so the shield fills the box
+  exactly at its previous on-screen size:
+
+    inner height = 108 - 2 * 27.24 = 53.52dp
+    inner width  = 108 - 2 * 32.55 = 42.90dp   (42.90 / 53.52 = 0.8017)
+
+  The shield is therefore ~53.5dp tall and ~42.9dp wide and centred in the layer,
+  unchanged from before the crop (its farthest corner stays ~34.3dp from the
+  centre, as it did when the shield sat inside the padded 432dp asset). Per-side
+  dimensions are used instead of a uniform inset so the box can be non-square and
+  match the asset's aspect ratio.
 -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/vault_app_icon"
-    android:inset="16dp" />
+    android:insetLeft="32.55dp"
+    android:insetTop="27.24dp"
+    android:insetRight="32.55dp"
+    android:insetBottom="27.24dp" />
