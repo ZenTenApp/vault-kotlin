@@ -38,10 +38,12 @@ import app.zenten.vault.ui.components.VaultPillButtonStyle
 import kotlinx.coroutines.launch
 
 /**
- * Side of the square footprint the app mark is drawn in. The mark carries its own
- * transparent margin, so the visible shield is roughly 90dp wide by 113dp tall here.
+ * Rendered size of the app mark. The asset is cropped to the shield's own bounds
+ * (243.89 x 304.23 vector units), so it is portrait, carries no transparent margin,
+ * and the width follows from the height through that aspect ratio.
  */
-private val BrandMarkSize = 200.dp
+private val BrandMarkHeight = 200.dp
+private val BrandMarkWidth = BrandMarkHeight * (243.89f / 304.23f) // ≈ 160.dp
 
 /** Vertical gap between stacked action buttons. */
 private val ButtonSpacing = 8.dp
@@ -200,7 +202,7 @@ private fun BrandMark() {
     Image(
         painter = painterResource(R.drawable.vault_app_icon),
         contentDescription = stringResource(R.string.get_started_logo_description),
-        modifier = Modifier.size(BrandMarkSize),
+        modifier = Modifier.size(width = BrandMarkWidth, height = BrandMarkHeight),
     )
 }
 

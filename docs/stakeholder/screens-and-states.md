@@ -65,7 +65,7 @@ flowchart TD
 
 ### Get started
 
-- The screen shows the app icon (the vault shield mark on its `#121212` background, exactly as the launcher renders it), a welcome title, and a short purpose description.
+- The screen shows the app icon (the vault shield mark on its `#121212` background, exactly as the launcher renders it; the asset is cropped to the shield, so it carries no transparent padding and the mark is sized to the shield's 0.8017 aspect ratio), a welcome title, and a short purpose description.
 - **Create VaultKey** opens the Create VaultKey wizard, whose implemented screens collect consent and a passphrase, verify the passphrase, generate the VaultKey, export it as the first local Vault Backup, and verify the exported copy by pasting it back.
 - **Login with VaultKey** is the only implemented action and opens **Set up Vault Key** to import an existing Ed25519 OpenSSH key. It uses a neutral raised surface rather than the primary action color to show its secondary visual priority.
 - An "or continue with" separator precedes **Google**, **Apple**, and **Microsoft** buttons. Each has a right-aligned **Coming soon** label and is disabled because these providers are not implemented.
