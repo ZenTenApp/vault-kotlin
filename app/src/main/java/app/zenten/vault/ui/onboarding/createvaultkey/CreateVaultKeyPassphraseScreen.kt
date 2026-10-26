@@ -40,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -61,11 +60,11 @@ import kotlinx.coroutines.launch
  * different questions ("is it long enough?" and "is it hard to guess?") and a
  * side-by-side grid made them read as one sentence.
  *
- * The meter's label couples the band with a concrete crack-time estimate,
- * because "2 seconds to crack" is more honest than the adjective alone. The info
- * button beside the bar opens [PassphraseStrengthDetailsSheet], which explains
- * the rating; the whole explanation lives there rather than inline because this
- * step has no room for it.
+ * The meter's label names the band in words; the concrete crack-time estimate
+ * lives in [PassphraseStrengthDetailsSheet], which the info button beside the bar
+ * opens. Keeping the number out of the label leaves the row scannable, and the
+ * whole explanation lives in the sheet rather than inline because this step has no
+ * room for it.
  *
  * The length rule is checked here on every keystroke because it is free, and it
  * leaves the panel two seconds after it is met so the meter becomes the focus.
@@ -118,7 +117,10 @@ fun CreateVaultKeyPassphraseScreen(navController: NavHostController) {
                 },
             )
 
-            Column(modifier = Modifier.padding(18.dp)) {
+            // Vertical inset is half the horizontal one so the length rule and the meter sit
+            // closer to the field; together with StrengthMeterTopSpacing this puts the bar about
+            // 16dp below the input, down from about 32dp.
+            Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp)) {
                 AnimatedVisibility(
                     visible = showLengthRule,
                     enter = fadeIn() + expandVertically(),
@@ -140,9 +142,6 @@ fun CreateVaultKeyPassphraseScreen(navController: NavHostController) {
                     Spacer(Modifier.height(StrengthMeterTopSpacing))
                     PassphraseStrengthMeter(
                         score = measured.score,
-                        // The offline figure is the one that matters here: a VaultKey backup can
-                        // be attacked with no rate limit, so that is the number worth showing.
-                        crackTime = crackTimeOf(measured.offlineSlowHashSeconds),
                         onShowDetails = {
                             // Drop the keyboard first so the sheet is not squeezed behind it.
                             focusManager.clearFocus()
@@ -187,8 +186,12 @@ fun CreateVaultKeyPassphraseScreen(navController: NavHostController) {
 /** How long a satisfied requirement stays visible before it collapses out of the panel. */
 private const val RULE_SUCCESS_DISPLAY_MILLIS = 2_000L
 
-/** Gap between the length requirement and the strength meter, so the two read as separate items. */
-private val StrengthMeterTopSpacing = 14.dp
+/**
+ * Gap between the length requirement and the strength meter, so the two read as separate items.
+ * Halved from 14dp together with the panel's vertical inset, which halves the distance from the
+ * input field to the bar.
+ */
+private val StrengthMeterTopSpacing = 7.dp
 
 /** Height of one strength segment; thin enough to read as a meter rather than a bar chart. */
 private val StrengthSegmentHeight = 8.dp
@@ -287,29 +290,24 @@ internal fun PassphraseStrengthBar(score: Int, modifier: Modifier = Modifier) {
 }
 
 /**
- * The bar plus its label row: band, crack-time estimate, and an optional "why?" button.
+ * The bar plus its label row: the band in words and an optional "why?" button.
  *
- * @param onShowDetails when null the info button is omitted, which is how the details sheet
- *   reuses this composable without offering to open itself.
+ * The crack-time estimate is deliberately not repeated here; it belongs in the details sheet,
+ * which is where the numbers behind the rating are explained.
+ *
+ * @param onShowDetails when null the info button is omitted, so a caller can show the bar and
+ *   label without offering to open the sheet.
  */
 @Composable
 internal fun PassphraseStrengthMeter(
     score: Int,
-    crackTime: CrackTime,
     modifier: Modifier = Modifier,
     onShowDetails: (() -> Unit)? = null,
 ) {
     val bandLabel = stringResource(passphraseStrengthBand(score).labelRes())
-    val crackTimeLabel = crackTimeText(crackTime)
     val summary = stringResource(
         R.string.create_vault_key_passphrase_meter_summary,
         bandLabel,
-        crackTimeLabel,
-    )
-    val description = stringResource(
-        R.string.create_vault_key_passphrase_strength_description,
-        bandLabel,
-        crackTimeLabel,
     )
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -340,9 +338,6 @@ internal fun PassphraseStrengthMeter(
             text = summary,
             style = MaterialTheme.typography.labelLarge,
             color = strengthAccentColor(score),
-            // One node reading "Passphrase strength: Strong, centuries to crack" rather than the
-            // bare summary. Applied to the text alone so the info button keeps its own semantics.
-            modifier = Modifier.clearAndSetSemantics { contentDescription = description },
         )
     }
 }
