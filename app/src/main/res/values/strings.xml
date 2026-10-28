@@ -222,10 +222,10 @@
 
     <!-- Create VaultKey flow: step 6, transcribe Vault Key backup recovery word positions -->
     <string name="create_vault_key_secret_combinations_title">Secret Combinations</string>
-    <string name="create_vault_key_secret_combinations_warning_title">Keep these combinations safe</string>
-    <string name="create_vault_key_secret_combinations_warning_body">Write down all 8 combinations and store them offline. Vault cannot restore them if they are lost.</string>
+    <string name="create_vault_key_secret_combinations_warning_title">Warning: </string>
+    <string name="create_vault_key_secret_combinations_warning_body">Write down all 8 combinations correctly and store them offline. If they are lost VaultKey cannot be recovered.</string>
     <string name="create_vault_key_secret_combinations_instruction">Scroll to view all 8 combinations</string>
-    <string name="create_vault_key_secret_combinations_consent">I have saved all 8 secret combinations</string>
+    <string name="create_vault_key_secret_combinations_consent">I have saved all 8 Secret Combinations</string>
     <string name="create_vault_key_secret_combinations_confirm">Continue</string>
     <string name="create_vault_key_secret_combinations_unavailable">Secret Combinations are unavailable. Restart Vault and try again.</string>
 
