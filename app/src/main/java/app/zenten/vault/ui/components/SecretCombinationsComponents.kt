@@ -42,13 +42,22 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.zenten.vault.R
 import app.zenten.vault.ui.theme.LocalExtendedColors
 
@@ -95,36 +104,57 @@ private val CombinationSlotHeight = CombinationRowHeight + CombinationRowSpacing
 @Composable
 internal fun SecretCombinationsWarning() {
     val shape = RoundedCornerShape(12.dp)
-    Row(
+    val errorColor = MaterialTheme.colorScheme.error
+    val warningTitle = stringResource(R.string.create_vault_key_secret_combinations_warning_title)
+    val warningBody = stringResource(R.string.create_vault_key_secret_combinations_warning_body)
+
+    // Render the icon as inline content of the text so the message starts on the same line as the
+    // icon, while wrapped lines fall back to the card's left edge (under the icon) instead of being
+    // indented under the "Warning:" label. `InlineTextContent` reserves leading space equal to the
+    // icon, so the placeholder's TextUnit size must match the drawn icon size.
+    val iconSize = 24.dp
+    val inlineIconSize = with(LocalDensity.current) { iconSize.toSp() }
+    val inlineContent = mapOf(
+        WarningIconKey to InlineTextContent(
+            placeholder = Placeholder(
+                width = inlineIconSize,
+                height = inlineIconSize,
+                placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter,
+            ),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.WarningAmber,
+                contentDescription = null,
+                tint = errorColor,
+                modifier = Modifier.size(iconSize),
+            )
+        },
+    )
+
+    Text(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.errorContainer, shape)
+            .border(2.dp, errorColor, shape)
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.WarningAmber,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.create_vault_key_secret_combinations_warning_title),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.create_vault_key_secret_combinations_warning_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-        }
-    }
+        text = buildAnnotatedString {
+            appendInlineContent(WarningIconKey)
+            // Gap between the inline icon and the label.
+            append(" ")
+            withStyle(SpanStyle(color = errorColor, fontWeight = FontWeight.SemiBold)) {
+                append(warningTitle)
+            }
+            // Android trims trailing whitespace in string resources, so add the separator here to
+            // keep a visible gap between "Warning:" and the body text.
+            append(" ")
+            append(warningBody)
+        },
+        inlineContent = inlineContent,
+        style = MaterialTheme.typography.bodyMedium,
+    )
 }
+
+/** Key used to place [SecretCombinationsWarning]'s icon inside its text flow. */
+private const val WarningIconKey = "warningIcon"
 
 /**
  * Three-row snapping wheel. Empty edge padding lets rows 1 and 8 occupy the center target
@@ -208,7 +238,9 @@ private fun SecretCombinationRow(
         )
         Text(
             text = if (visible) indices.joinToString("-") else "••••-••••-••••",
-            style = MaterialTheme.typography.headlineSmall,
+            // Slightly larger than the default headlineSmall so the numbers read as the primary
+            // content of each row without outgrowing the fixed row height.
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp),
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentOpacity),
             textAlign = TextAlign.Center,
