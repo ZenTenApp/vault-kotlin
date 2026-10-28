@@ -179,7 +179,7 @@
     <string name="create_vault_key_confirm_passphrase_icon_description">Padlock inside a repeat arrow</string>
     <string name="create_vault_key_confirm_passphrase_verify">Verify</string>
     <string name="create_vault_key_confirm_passphrase_generating">Creating VaultKey…</string>
-    <string name="create_vault_key_confirm_passphrase_mismatch">The passphrases do not match. Re-enter the passphrase you chose.</string>
+    <string name="create_vault_key_confirm_passphrase_mismatch">Passphrase does not match. Please re-enter.</string>
     <!-- Deliberately generic: an underlying crypto error must not echo key or passphrase material. -->
     <string name="create_vault_key_confirm_passphrase_generation_failed">VaultKey creation failed. Please try again.</string>
 
