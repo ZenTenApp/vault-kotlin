@@ -201,7 +201,7 @@
     <string name="create_vault_key_backup_intro_body2">Any of your preferred encrypted note apps with additional security will suffice for this step. </string>
     <string name="create_vault_key_backup_intro_confirm">Export VaultKey</string>
     <string name="create_vault_key_backup_no_targets">No installed app can receive text exports.</string>
-    <string name="create_vault_key_backup_target_title">Save VaultKey with</string>
+    <string name="create_vault_key_backup_target_title">Export VaultKey with</string>
     <string name="create_vault_key_backup_target_cancel">Cancel</string>
     <string name="create_vault_key_backup_target_missing">That app is no longer available. Choose another app.</string>
     <string name="create_vault_key_backup_target_denied">Android did not allow this app to receive the export. Choose another app.</string>
