@@ -31,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.zenten.vault.R
 import app.zenten.vault.ui.theme.LocalExtendedColors
 
@@ -177,7 +178,7 @@ internal fun CreateVaultKeyWarningRow(centered: Boolean = false) {
         Spacer(Modifier.width(8.dp))
         Text(
             text = stringResource(R.string.create_vault_key_intro_warning),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
             color = MaterialTheme.colorScheme.error,
         )
     }
