@@ -60,10 +60,6 @@ object VaultDestinations {
     const val CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS =
         "get-started/create-vault-key/confirm-secret-combinations"
 
-    /** Final screen: celebrate successful VaultKey creation and backup verification. */
-    const val CREATE_VAULT_KEY_CONGRATULATIONS =
-        "get-started/create-vault-key/congratulations"
-
     /** Accounts list (main screen after setup). */
     const val ACCOUNTS = "accounts"
 

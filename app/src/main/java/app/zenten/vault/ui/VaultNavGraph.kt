@@ -19,7 +19,6 @@ import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyConfirmBackup
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyConfirmPassphraseScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyCreatingScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyConfirmSecretCombinationsScreen
-import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyCongratulationsScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyIntroScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyPassphraseScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeySecretCombinationsScreen
@@ -104,10 +103,6 @@ fun VaultNavGraph(
 
             composable(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS) {
                 CreateVaultKeyConfirmSecretCombinationsScreen(navController)
-            }
-
-            composable(VaultDestinations.CREATE_VAULT_KEY_CONGRATULATIONS) {
-                CreateVaultKeyCongratulationsScreen(navController)
             }
         }
 

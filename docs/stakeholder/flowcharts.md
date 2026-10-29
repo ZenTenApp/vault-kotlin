@@ -24,7 +24,6 @@ flowchart TD
     GeneratedProgress -->|Create Backup pending| CreateBackupIntro
     GeneratedProgress -->|Confirm Backup pending| CreateConfirmBackup
     GeneratedProgress -->|Secret Combinations pending| CreateSecrets
-    GeneratedProgress -->|Congratulations pending| Congratulations
     Welcome -->|"Login with VaultKey"| VaultKeySetup["Set up Vault Key"]
     Welcome -->|"Recover VaultKey"| RecoverSecrets["Enter 8 saved Secret Combinations"]
     RecoverSecrets --> RecoverValid{"24 values in range with valid BIP-39 checksum?"}
@@ -67,12 +66,11 @@ flowchart TD
     CreateBackupMatch -->|Yes| CreateSecrets["Secret Combinations: 24 BIP-39 indices in eight groups of three"]
     CreateSecrets -->|"Hide / show"| CreateSecrets
     CreateSecrets -->|"Acknowledge backup + Continue"| VerifySecrets["Verify Secret Combinations: sequential segment entry"]
-    VerifySecrets -->|"Wrong segment"| VerifyError["Red border; remain on current segment"]
+    VerifySecrets -->|"Wrong segment"| VerifyError["Error-colored semi-bold text and inline message; remain on current segment"]
     VerifyError --> VerifySecrets
     VerifySecrets -->|"Correct segment"| VerifySecrets
     VerifySecrets -->|"Back"| CreateSecrets
-    VerifySecrets -->|"All 24 correct"| Congratulations["Completion: large outlined check for 3 seconds"]
-    Congratulations -->|"Automatic"| MarkComplete["Mark generated VaultKey setup complete"]
+    VerifySecrets -->|"All 24 correct"| MarkComplete["Mark generated VaultKey setup complete"]
     MarkComplete --> Accounts
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
@@ -95,7 +93,7 @@ flowchart TD
 
 The interactive app relocks on cold start, process restart, or after it has remained in the background for 30 seconds. Returning sooner keeps the in-memory session unlocked. Removing the device lock causes the next foreground check to show the mandatory setup warning. The whole activity blocks screenshots, screen recording, and sensitive Recents previews where Android supports it. This UI gate does not change trusted sibling-app access through the signature-protected KeyHive provider or background worker operation.
 
-After passphrase verification, the dedicated **Creating VaultKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. Vault Key backup and consolidation use the Nostr identity derived from the 24-word `vkbckp` (Vault Key BacKup) associated-account mnemonic for relay operations; Brave Sync uses those same 24 words plus its daily 25th word. General associated-account consolidation uses the Vault Key Nostr identity on relays and the Vault Key backup seed on Brave Sync. The two record classes remain separate, so account consolidation cannot create a duplicate Vault Key relay copy under the Vault Key identity. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-VaultKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, at **Save your Secret Combinations** after the pasted key matched, or at **Congratulations** after every combination was verified. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. A wrong **Confirm Backup** paste (unsupported or non-matching) is rate-limited: the first three failures block the wizard for one, two, and then three minutes behind a non-dismissible countdown, and the fourth returns to **Create Backup** and resets the counter; clipboard and storage errors are not counted. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. The completion screen blocks Back, displays only a centered outlined check, then automatically marks setup complete after three seconds and replaces the wizard with the account list.
+After passphrase verification, the dedicated **Creating VaultKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. Vault Key backup and consolidation use the Nostr identity derived from the 24-word `vkbckp` (Vault Key BacKup) associated-account mnemonic for relay operations; Brave Sync uses those same 24 words plus its daily 25th word. General associated-account consolidation uses the Vault Key Nostr identity on relays and the Vault Key backup seed on Brave Sync. The two record classes remain separate, so account consolidation cannot create a duplicate Vault Key relay copy under the Vault Key identity. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-VaultKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, or at **Save your Secret Combinations** after the pasted key matched. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. A wrong **Confirm Backup** paste (unsupported or non-matching) is rate-limited: the first three failures block the wizard for one, two, and then three minutes behind a non-dismissible countdown, and the fourth returns to **Create Backup** and resets the counter; clipboard and storage errors are not counted. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. After all segments match, Vault marks setup complete and replaces the wizard with the account list directly.
 
 ## Vault Key-account setup
 
