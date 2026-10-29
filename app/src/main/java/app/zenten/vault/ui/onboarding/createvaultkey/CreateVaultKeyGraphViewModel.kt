@@ -24,11 +24,13 @@ internal fun rememberCreateVaultKeyViewModel(navController: NavHostController): 
 private inline fun <reified VM : androidx.lifecycle.ViewModel> rememberCreateVaultKeyGraphViewModel(
     navController: NavHostController,
 ): VM {
-    // getBackStackEntry walks the current back stack, so it must be re-resolved
-    // whenever the current entry changes; keying the remember on the
-    // NavBackStackEntry (not just the controller) is required so the graph entry
-    // is refreshed on navigation.
-    val graphEntry = remember(navController.currentBackStackEntry) {
+    // Resolve the graph entry once per composition. The graph entry is stable for the
+    // whole wizard, and the composable is recreated when the graph is re-entered, so a
+    // plain remember is sufficient. Re-resolving on every current-entry change used to
+    // run while the exiting screen was still composing after the graph had been popped
+    // (verification now jumps straight to Accounts), and getBackStackEntry then threw
+    // because the graph was no longer on the back stack.
+    val graphEntry = remember {
         navController.getBackStackEntry(VaultDestinations.CREATE_VAULT_KEY_GRAPH)
     }
     return hiltViewModel(graphEntry)

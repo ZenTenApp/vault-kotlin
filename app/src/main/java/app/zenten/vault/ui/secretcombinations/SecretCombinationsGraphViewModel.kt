@@ -17,9 +17,11 @@ import app.zenten.vault.ui.VaultDestinations
 internal fun rememberSecretCombinationsViewModel(
     navController: NavHostController,
 ): SecretCombinationsViewModel {
-    // Key on the current NavBackStackEntry so the graph entry is re-resolved as the user moves
-    // between the flow's destinations.
-    val graphEntry = remember(navController.currentBackStackEntry) {
+    // Resolve the graph entry once per composition. The graph entry is stable for the whole flow,
+    // and the composable is recreated when the graph is re-entered. Re-resolving on every
+    // current-entry change could run while an exiting screen was still composing after the graph
+    // had been popped, and getBackStackEntry then threw because the graph was already gone.
+    val graphEntry = remember {
         navController.getBackStackEntry(VaultDestinations.VIEW_SECRET_COMBINATIONS_GRAPH)
     }
     return hiltViewModel(graphEntry)
