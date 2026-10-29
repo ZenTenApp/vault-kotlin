@@ -229,7 +229,6 @@ enum class CreateVaultKeyStep {
     BACKUP_INTRO,
     CONFIRM_BACKUP,
     SECRET_COMBINATIONS,
-    CONGRATULATIONS,
 }
 
 /**

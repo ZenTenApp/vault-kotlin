@@ -321,14 +321,6 @@ class CreateVaultKeyViewModel @Inject constructor(
         }
     }
 
-    /** Makes the celebration screen resumable before leaving recovery-code verification. */
-    fun recordSecretCombinationsVerified(onRecorded: () -> Unit) {
-        viewModelScope.launch {
-            appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.CONGRATULATIONS)
-            onRecorded()
-        }
-    }
-
     /** Finishes onboarding before opening Accounts so app restart follows the same destination. */
     fun completeGeneratedVaultKeySetup(onCompleted: () -> Unit) {
         if (_state.value.advancing) return

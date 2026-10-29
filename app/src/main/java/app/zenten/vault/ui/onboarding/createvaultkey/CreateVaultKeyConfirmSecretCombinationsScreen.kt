@@ -91,12 +91,13 @@ fun CreateVaultKeyConfirmSecretCombinationsScreen(
                         if (value == expected[index].toString()) {
                             if (index == expected.lastIndex) {
                                 completed = true
-                                viewModel.recordSecretCombinationsVerified {
+                                // Verification is the last step: finish setup and open Accounts
+                                // directly, without the former green-checkmark celebration screen.
+                                viewModel.completeGeneratedVaultKeySetup {
                                     onCompleted()
-                                    navController.navigate(VaultDestinations.CREATE_VAULT_KEY_CONGRATULATIONS) {
-                                        popUpTo(VaultDestinations.CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS) {
-                                            inclusive = true
-                                        }
+                                    navController.navigate(VaultDestinations.ACCOUNTS) {
+                                        popUpTo(VaultDestinations.CREATE_VAULT_KEY_GRAPH) { inclusive = true }
+                                        launchSingleTop = true
                                     }
                                 }
                             } else {
