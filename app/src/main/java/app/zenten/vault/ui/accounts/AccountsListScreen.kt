@@ -36,6 +36,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -106,7 +107,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
 
                 state.accounts.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 120.dp),
-                    contentAlignment = Alignment.Center,
+                    contentAlignment = BiasAlignment(horizontalBias = 0f, verticalBias = -0.5f),
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,

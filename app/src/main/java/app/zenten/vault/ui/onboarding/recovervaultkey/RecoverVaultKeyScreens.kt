@@ -25,16 +25,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,12 +46,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -66,8 +60,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
+import app.zenten.vault.ui.components.VaultScreenHeader
 import app.zenten.vault.ui.components.sanitizeCombinationSegment
-import app.zenten.vault.ui.theme.LocalExtendedColors
 
 private val RecoveryRowHeight = 80.dp
 private val RecoveryRowSpacing = 12.dp
@@ -89,13 +83,9 @@ fun RecoverVaultKeyCombinationsScreen(
             modifier = Modifier.fillMaxSize().padding(innerPadding).imePadding().padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            RecoveryBack { navController.popBackStack() }
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = "Secret Combinations",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
+            RecoveryHeader(
+                title = "Secret Combinations",
+                onBack = { navController.popBackStack() },
             )
             Spacer(Modifier.height(20.dp))
             Text(
@@ -306,10 +296,11 @@ fun RecoverVaultKeyPassphraseScreen(
         modifier = Modifier.fillMaxSize().imePadding().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        RecoveryBack { navController.popBackStack() }
-        Spacer(Modifier.height(36.dp))
-        Text("Enter Passphrase", style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(16.dp))
+        RecoveryHeader(
+            title = "Enter Passphrase",
+            onBack = { navController.popBackStack() },
+        )
+        Spacer(Modifier.height(20.dp))
         Text(
             "Enter the passphrase that protects your VaultKey.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -340,26 +331,6 @@ fun RecoverVaultKeyPassphraseScreen(
 }
 
 @Composable
-private fun RecoveryBack(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .padding(top = 8.dp),
-    ) {
-        TextButton(onClick = onClick) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                tint = LocalExtendedColors.current.link,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "Back",
-                color = LocalExtendedColors.current.link,
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
-    }
+private fun RecoveryHeader(title: String, onBack: () -> Unit) {
+    VaultScreenHeader(title = title, onBack = onBack)
 }

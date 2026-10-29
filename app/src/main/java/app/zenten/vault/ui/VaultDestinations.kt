@@ -72,6 +72,9 @@ object VaultDestinations {
     /** Mandatory local-backup step immediately after account creation. */
     const val LOCAL_ACCOUNT_BACKUP_EXPORT = "accounts/{id}/local-backup/export"
 
+    /** Mandatory paste-back confirmation that follows the account export. */
+    const val LOCAL_ACCOUNT_BACKUP_CONFIRM = "accounts/{id}/local-backup/confirm"
+
     /** VaultKey account and its per-source backup coverage. */
     const val VAULT_KEY = "vaultKey-account"
 
@@ -102,4 +105,5 @@ object VaultDestinations {
 
     fun accountDetail(id: Long): String = "accounts/$id"
     fun localAccountBackupExport(id: Long): String = "accounts/$id/local-backup/export"
+    fun localAccountBackupConfirm(id: Long): String = "accounts/$id/local-backup/confirm"
 }

@@ -9,6 +9,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import app.zenten.vault.ui.accounts.AccountDetailScreen
 import app.zenten.vault.ui.accounts.AccountsListScreen
+import app.zenten.vault.ui.accounts.LocalAccountBackupConfirmScreen
 import app.zenten.vault.ui.accounts.LocalAccountBackupExportScreen
 import app.zenten.vault.ui.vaultKey.VaultKeyDetailScreen
 import app.zenten.vault.ui.newaccount.NewAccountScreen
@@ -151,6 +152,14 @@ fun VaultNavGraph(
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getLong("id") ?: 0L
             LocalAccountBackupExportScreen(navController, id)
+        }
+
+        composable(
+            route = VaultDestinations.LOCAL_ACCOUNT_BACKUP_CONFIRM,
+            arguments = listOf(navArgument("id") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getLong("id") ?: 0L
+            LocalAccountBackupConfirmScreen(navController, id)
         }
 
         composable(VaultDestinations.VAULT_KEY) {

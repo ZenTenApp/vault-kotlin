@@ -75,11 +75,13 @@ flowchart TD
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
-    PendingExport -->|Yes| Export["Export account"]
+    PendingExport -->|Yes| Export["Export Account"]
     PendingExport -->|No| Accounts["Accounts"]
-    Export --> Accounts
+    Export --> ConfirmBackup["Confirm Backup"]
+    ConfirmBackup --> Accounts
+    ConfirmBackup -.->|Back| Export
     Accounts --> Create["Create new SSH account"]
-    Accounts --> Detail["Account details"]
+    Accounts --> Detail["Account Details"]
     Accounts --> Settings["Settings"]
     Settings --> Vault Key["Vault Key"]
     Detail -->|"Back"| Accounts
@@ -133,9 +135,11 @@ flowchart TD
     Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH account"]
     Generate --> Save["Save account locally and record pending export"]
     Save --> Queue["Queue targeted background consolidation"]
-    Queue --> Export["Open required Export account screen"]
+    Queue --> Export["Export Account screen"]
     Export --> Choose["Choose a trusted text-capable app from the in-app picker"]
-    Choose --> Paste["Copy the saved key back and paste it in"]
+    Choose --> ConfirmBackup["Confirm Backup screen"]
+    ConfirmBackup --> Paste["Copy the saved key back and paste it in"]
+    ConfirmBackup -.->|Back| Export
     Paste --> Confirm{"Clipboard read/cleared and pasted key matches stored account?"}
     Confirm -->|No| Paste
     Confirm -->|Yes| Clear["Clear pending export"]

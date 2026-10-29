@@ -20,8 +20,10 @@
     -->
     <string name="get_started_coming_soon">%1$s is not available yet — coming soon.</string>
 
+    <!-- Shared navigation -->
+    <string name="navigate_back">Back</string>
+
     <!-- Create VaultKey flow: step 1, "Getting Started" intro/consent screen -->
-    <string name="create_vault_key_back">Back</string>
     <string name="create_vault_key_intro_icon_description">Pen and paper reminder</string>
     <string name="create_vault_key_intro_title">Getting Started</string>
     <string name="create_vault_key_intro_body1">Grab a pen and paper to prepare for the backup process.</string>
@@ -235,7 +237,6 @@
     <string name="create_vault_key_confirm_secret_combinations_incorrect">Incorrect Secret Combination! Please try again.</string>
 
     <!-- Settings Secret Combinations review flow -->
-    <string name="secret_combinations_back_to_settings">Settings</string>
     <string name="secret_combinations_verify_title">Secret Combinations</string>
     <string name="secret_combinations_verify_body">Re-enter the passphrase that protects your VaultKey before its Secret Combinations are shown.</string>
     <string name="secret_combinations_verify_label">VaultKey Passphrase</string>

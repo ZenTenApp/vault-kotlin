@@ -1,29 +1,18 @@
 package app.zenten.vault.ui.onboarding.createvaultkey
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.annotation.DrawableRes
-import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -32,11 +21,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.annotation.DrawableRes
 import app.zenten.vault.R
-import app.zenten.vault.ui.theme.LocalExtendedColors
+import app.zenten.vault.ui.components.VaultScreenScaffold
 
 /**
- * Footprint of the hero illustration above the title.
+ * Footprint of the hero illustration shown under the header row.
  *
  * Square on purpose even though the three assets have slightly different
  * aspect ratios: each one is scaled to fit inside this box, so every step
@@ -48,21 +38,17 @@ internal val HeroIconSize = 132.dp
 /**
  * Shared page frame for every **Create VaultKey** wizard screen.
  *
- * All wizard steps use the same skeleton: a top-left "< Back" link, a hero
- * illustration, a centered title, then step-specific content, and finally a
- * bottom-anchored action area. Centralizing it here keeps the steps visually
- * identical; only the artwork and copy differ.
+ * All wizard steps use the same skeleton: a header row with an icon-only back
+ * arrow beside the centered title, a hero illustration, step-specific content,
+ * and finally a bottom-anchored action area. The layout itself lives in
+ * [VaultScreenScaffold] so account creation and account export can reuse exactly
+ * the same frame; this wrapper only supplies the wizard's hero artwork.
  *
  * Supporting copy is intentionally not part of this frame: each step owns its
  * own description (or omits it) inside [content], because the steps differ in
  * how many paragraphs they need and how much space sits before their fields.
  *
- * The whole page scrolls so short screens can never clip the action button.
- * When the soft keyboard opens, the frame shrinks by the keyboard height
- * instead of sliding under it, which pulls the bottom-anchored action area up
- * above the keyboard and leaves the rest of the page scrollable.
- *
- * @param title large headline under the illustration.
+ * @param title centered title in the header row.
  * @param heroIcon drawable shown above the title for this step.
  * @param heroIconDescription accessibility label for [heroIcon]; the artwork
  *   carries meaning (what the step is about), so it is not treated as purely
@@ -80,67 +66,21 @@ internal fun CreateVaultKeyScaffold(
     content: @Composable () -> Unit = {},
     actions: @Composable () -> Unit,
 ) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                // Applied outside verticalScroll on purpose: it reduces the
-                // scroll viewport itself, so the bottom action area is laid out
-                // above the keyboard rather than being scrolled behind it.
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-        ) {
-            if (onBack != null) {
-                BackLink(onClick = onBack)
-            } else {
-                // Preserve the normal top-row footprint after the irreversible commit so
-                // the hero and title do not jump upward when the Back action disappears.
-                Spacer(Modifier.height(BackLinkRowHeight))
-            }
-
-            // fillMaxWidth is required for the centering to take effect: without
-            // it this Column wraps to its widest child and the parent Column
-            // (default Start alignment) pins that narrow block to the left edge.
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                HeroIcon(resId = heroIcon, contentDescription = heroIconDescription)
-
-                Spacer(Modifier.height(16.dp))
-
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.Center,
-                )
-            }
-
-            content()
-
-            // Pushes the action area to the bottom of the viewport when the
-            // content is shorter than the screen.
-            Spacer(Modifier.weight(1f))
-
-            actions()
-
-            Spacer(Modifier.height(24.dp))
-        }
-    }
+    VaultScreenScaffold(
+        title = title,
+        onBack = onBack,
+        hero = { HeroIcon(resId = heroIcon, contentDescription = heroIconDescription) },
+        content = content,
+        actions = actions,
+    )
 }
 
 /**
  * Centered supporting copy for a wizard step.
  *
- * Lives here rather than in [CreateVaultKeyScaffold] so each step decides
+ * Lives here rather than in [VaultScreenScaffold] so each step decides
  * whether it has a description at all and how many paragraphs it needs, while
- * still sharing one text style. It stretches to the full width because the
- * scaffold's content slot is not itself center-aligned.
+ * still sharing one text style.
  */
 @Composable
 internal fun CreateVaultKeyDescription(text: String, modifier: Modifier = Modifier) {
@@ -181,34 +121,6 @@ internal fun CreateVaultKeyWarningRow(centered: Boolean = false) {
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
             color = MaterialTheme.colorScheme.error,
         )
-    }
-}
-
-/** Height reserved by the usual Back-link row, including its top margin. */
-private val BackLinkRowHeight = 56.dp
-
-/** Top-left "< Back" navigation link, styled after the approved design's link color. */
-@Composable
-private fun BackLink(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .height(BackLinkRowHeight)
-            .padding(top = 8.dp),
-    ) {
-        TextButton(onClick = onClick) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                tint = LocalExtendedColors.current.link,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = stringResource(R.string.create_vault_key_back),
-                color = LocalExtendedColors.current.link,
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
     }
 }
 

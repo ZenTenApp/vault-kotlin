@@ -28,8 +28,8 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.ConfirmCombinationPicker
-import app.zenten.vault.ui.components.SecretCombinationsBackLink
 import app.zenten.vault.ui.components.VaultPillButton
+import app.zenten.vault.ui.components.VaultScreenHeader
 
 /**
  * Verifies the values the user just wrote down by requiring every segment again.
@@ -72,15 +72,11 @@ fun SecretCombinationsConfirmScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SecretCombinationsBackLink(onClick = reviewCombinations)
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.create_vault_key_confirm_secret_combinations_title),
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
+            VaultScreenHeader(
+                title = stringResource(R.string.create_vault_key_confirm_secret_combinations_title),
+                onBack = reviewCombinations,
             )
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(20.dp))
             Text(
                 text = stringResource(R.string.secret_combinations_confirm_body),
                 style = MaterialTheme.typography.bodyLarge,
