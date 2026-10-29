@@ -106,11 +106,16 @@ fun VaultScreenHeader(
  * action area. Centralizing it here keeps account creation, account export, settings, and
  * the VaultKey wizard screens visually identical.
  *
+ * Screens that supply a [hero] are the exception to the header title: the title moves below
+ * the artwork instead of sitting in the header row, so the illustration reads first and the
+ * header carries only the back arrow. Screens without a hero keep the title in the header.
+ *
  * The page scrolls so short screens never clip the action button. When the soft keyboard
  * opens, the frame shrinks by the keyboard height instead of sliding under it, pulling the
  * bottom action area above the keyboard.
  *
- * @param title screen title, centered in the header row next to the back arrow.
+ * @param title screen title, centered in the header row next to the back arrow, or below the
+ *   [hero] artwork when a hero is supplied.
  * @param onBack invoked by the back arrow, or `null` when the flow cannot go back.
  * @param backEnabled when false the arrow is shown but inert.
  * @param hero optional artwork shown under the header row.
@@ -141,8 +146,11 @@ fun VaultScreenScaffold(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
+            // With a hero the title is rendered under the artwork, so the header shows only
+            // the back arrow: an empty title keeps the header row's height and side slots, so
+            // the arrow does not shift and screens with and without a hero stay aligned.
             VaultScreenHeader(
-                title = title,
+                title = if (hero == null) title else "",
                 onBack = onBack,
                 backEnabled = backEnabled,
             )
@@ -153,6 +161,15 @@ fun VaultScreenScaffold(
                     hero()
                 }
                 Spacer(Modifier.height(16.dp))
+                // headlineMedium, not the header's titleLarge: hero screens keep the larger
+                // centered headline they used before the header unification.
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             content()
