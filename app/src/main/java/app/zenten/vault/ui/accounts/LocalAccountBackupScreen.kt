@@ -6,12 +6,12 @@ import android.content.ClipboardManager
 import android.os.Build
 import android.widget.ImageView
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,12 +33,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
+import app.zenten.vault.ui.components.VaultPillButton
+import app.zenten.vault.ui.components.VaultScreenScaffold
 
+/**
+ * Step 1 of the mandatory associated-account backup: send the encrypted key to a
+ * trusted app.
+ *
+ * This is a two-screen flow. This screen only performs the export; once Android
+ * accepts the target intent the user continues to [LocalAccountBackupConfirmScreen]
+ * to paste the saved key back. System Back is blocked because the export cannot be
+ * skipped before the account may be used.
+ */
 @Composable
 fun LocalAccountBackupExportScreen(
     navController: NavHostController,
@@ -52,75 +66,42 @@ fun LocalAccountBackupExportScreen(
     val context = LocalContext.current
     var targets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var shareError by remember { mutableStateOf<String?>(null) }
-    var confirmError by remember { mutableStateOf<String?>(null) }
-    val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
+    // The export is required before the account can be used, so Back is inert.
     BackHandler { }
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Export account", style = MaterialTheme.typography.headlineMedium)
-        Text("Export this account's encrypted OpenSSH private key to a trusted notes app or another app. This is required before continuing.")
-        if (account == null) Text("Account not found", color = MaterialTheme.colorScheme.error)
-        else Button(
-            onClick = {
-                shareError = null
-                targets = LocalAccountBackupShare.availableTargets(context.packageManager)
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Choose an app to save key") }
-        shareError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (state.exportStarted) {
-            Text("Copy the saved key back from the app you sent it to, then paste it below so Vault can confirm you kept it.")
-            Button(
+
+    VaultScreenScaffold(
+        title = "Export Account",
+        onBack = null,
+        hero = {
+            ExportHero(
+                drawableId = R.drawable.hero_icon_create_backup,
+                description = stringResource(R.string.create_vault_key_backup_intro_icon_description),
+            )
+        },
+        content = {
+            Spacer(Modifier.height(12.dp))
+            ExportDescription("Export this account's encrypted OpenSSH private key to a trusted notes app or another app. This is required before continuing.")
+            if (account == null) {
+                Spacer(Modifier.height(12.dp))
+                Text("Account not found", color = MaterialTheme.colorScheme.error)
+            }
+            shareError?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        actions = {
+            VaultPillButton(
+                label = "Export to Notes",
+                enabled = account != null,
                 onClick = {
-                    confirmError = null
-                    val pastedKey = runCatching {
-                        clipboard.primaryClip
-                            ?.takeIf { it.itemCount > 0 }
-                            ?.getItemAt(0)
-                            ?.coerceToText(context)
-                            ?.toString()
-                            .orEmpty()
-                    }.getOrElse {
-                        confirmError = "Vault could not read the clipboard. Copy the saved key and try again."
-                        return@Button
-                    }
-                    // Clear the clipboard immediately so the sensitive export is not left behind.
-                    val clipboardCleared = runCatching {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            clipboard.clearPrimaryClip()
-                        } else {
-                            clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
-                        }
-                    }.isSuccess
-                    if (!clipboardCleared) {
-                        confirmError = "Vault could not clear the clipboard. Clear it manually, then try again."
-                        return@Button
-                    }
-                    if (pastedKey.isBlank()) {
-                        confirmError = "The clipboard does not contain the saved account key. Copy it and try again."
-                        return@Button
-                    }
-                    when (viewModel.confirmPastedAccountKey(pastedKey)) {
-                        AccountBackupConfirmationResult.MATCHED -> viewModel.complete()
-                        AccountBackupConfirmationResult.INVALID ->
-                            confirmError = "The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key."
-                        AccountBackupConfirmationResult.MISMATCHED ->
-                            confirmError = "That key does not match this account. Paste the key you saved during this step."
-                        AccountBackupConfirmationResult.UNAVAILABLE ->
-                            confirmError = "Vault cannot verify the saved key right now. Try again."
-                    }
+                    shareError = null
+                    targets = LocalAccountBackupShare.availableTargets(context.packageManager)
                 },
-                enabled = !state.completing,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (state.completing) "Confirming..." else "Paste saved key to confirm") }
-            confirmError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-    }
-    LaunchedEffect(state.completed) {
-        if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {
-            popUpTo(VaultDestinations.LOCAL_ACCOUNT_BACKUP_EXPORT) { inclusive = true }
-            launchSingleTop = true
-        }
-    }
+            )
+        },
+    )
+
     targets?.let { availableTargets ->
         account?.let { exportAccount ->
             ExportTargetDialog(
@@ -135,7 +116,9 @@ fun LocalAccountBackupExportScreen(
                             ),
                         )
                         targets = null
-                        viewModel.recordExportStarted()
+                        navController.navigate(VaultDestinations.localAccountBackupConfirm(exportAccount.createdAt)) {
+                            launchSingleTop = true
+                        }
                     } catch (_: ActivityNotFoundException) {
                         targets = null
                         shareError = "That app is no longer available. Choose another app."
@@ -149,6 +132,127 @@ fun LocalAccountBackupExportScreen(
     }
 }
 
+/**
+ * Step 2 of the mandatory associated-account backup: paste the exported key back.
+ *
+ * The paste proves the user kept a readable copy before the account is marked as
+ * backed up. Back returns to the export screen so the key can be sent again if the
+ * user did not receive it.
+ */
+@Composable
+fun LocalAccountBackupConfirmScreen(
+    navController: NavHostController,
+    accountId: Long,
+    viewModel: LocalAccountBackupViewModel = hiltViewModel(),
+) {
+    LaunchedEffect(accountId) { viewModel.load(accountId) }
+    val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    var confirmError by remember { mutableStateOf<String?>(null) }
+    val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
+
+    VaultScreenScaffold(
+        title = "Confirm Backup",
+        onBack = { navController.popBackStack() },
+        hero = {
+            ExportHero(
+                drawableId = R.drawable.hero_icon_confirm_backup,
+                description = stringResource(R.string.create_vault_key_confirm_backup_icon_description),
+            )
+        },
+        content = {
+            Spacer(Modifier.height(12.dp))
+            ExportDescription("Copy the saved key back from the app you sent it to, then paste it below so Vault can confirm you kept it.")
+            confirmError?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        actions = {
+            VaultPillButton(
+                label = if (state.completing) "Confirming..." else "Paste Account Key",
+                enabled = state.account != null && !state.completing,
+                onClick = {
+                    confirmError = null
+                    val pastedKey = runCatching {
+                        clipboard.primaryClip
+                            ?.takeIf { it.itemCount > 0 }
+                            ?.getItemAt(0)
+                            ?.coerceToText(context)
+                            ?.toString()
+                            .orEmpty()
+                    }.getOrElse {
+                        confirmError = "Vault could not read the clipboard. Copy the saved key and try again."
+                        return@VaultPillButton
+                    }
+                    // Clear the clipboard immediately so the sensitive export is not left behind.
+                    val clipboardCleared = runCatching {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            clipboard.clearPrimaryClip()
+                        } else {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+                        }
+                    }.isSuccess
+                    if (!clipboardCleared) {
+                        confirmError = "Vault could not clear the clipboard. Clear it manually, then try again."
+                        return@VaultPillButton
+                    }
+                    if (pastedKey.isBlank()) {
+                        confirmError = "The clipboard does not contain the saved account key. Copy it and try again."
+                        return@VaultPillButton
+                    }
+                    when (viewModel.confirmPastedAccountKey(pastedKey)) {
+                        AccountBackupConfirmationResult.MATCHED -> viewModel.complete()
+                        AccountBackupConfirmationResult.INVALID ->
+                            confirmError = "The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key."
+                        AccountBackupConfirmationResult.MISMATCHED ->
+                            confirmError = "That key does not match this account. Paste the key you saved during this step."
+                        AccountBackupConfirmationResult.UNAVAILABLE ->
+                            confirmError = "Vault cannot verify the saved key right now. Try again."
+                    }
+                },
+            )
+        },
+    )
+
+    LaunchedEffect(state.completed) {
+        if (state.completed) {
+            navController.navigate(VaultDestinations.ACCOUNTS) {
+                // Pops both the export and confirm steps so Back from Accounts cannot re-enter them.
+                popUpTo(VaultDestinations.LOCAL_ACCOUNT_BACKUP_EXPORT) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+}
+
+/** Centered supporting copy shared by the account backup steps. */
+@Composable
+private fun ExportDescription(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/**
+ * Account-backup hero illustration.
+ *
+ * The asset is multi-tone line art that owns its colors, so it is drawn with [Image]
+ * (never tinted by the theme) at the same 132dp footprint the wizard reserves.
+ */
+@Composable
+private fun ExportHero(@DrawableRes drawableId: Int, description: String) {
+    Image(
+        painter = painterResource(drawableId),
+        contentDescription = description,
+        modifier = Modifier.size(132.dp),
+    )
+}
+
 @Composable
 internal fun ExportTargetDialog(
     targets: List<LocalAccountBackupShare.ShareTarget>,
@@ -157,7 +261,7 @@ internal fun ExportTargetDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save encrypted key with") },
+        title = { Text("Export Account") },
         text = {
             if (targets.isEmpty()) {
                 Text("No installed app can receive text exports.")

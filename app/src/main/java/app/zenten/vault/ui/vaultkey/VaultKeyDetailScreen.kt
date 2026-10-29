@@ -1,24 +1,15 @@
 package app.zenten.vault.ui.vaultKey
 
 import android.content.ActivityNotFoundException
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -46,6 +36,7 @@ import app.zenten.vault.ui.accounts.ExportPassphraseDialog
 import app.zenten.vault.ui.accounts.ExportTargetDialog
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import app.zenten.vault.ui.accounts.SourceStatusRow
+import app.zenten.vault.ui.components.VaultScreenScaffold
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -101,7 +92,6 @@ data class VaultKeyDetailState(
     val sources: List<BackupSourceRow> = emptyList(),
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultKeyDetailScreen(
     navController: NavHostController,
@@ -114,65 +104,39 @@ fun VaultKeyDetailScreen(
     var exportError by remember { mutableStateOf<String?>(null) }
     // Passphrase confirmation shown before the export target picker opens.
     var confirmExportPassphrase by remember { mutableStateOf(false) }
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = "VaultKey Account",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = navController::navigateUp) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to settings",
-                        )
+    VaultScreenScaffold(
+        title = "VaultKey Account",
+        onBack = navController::navigateUp,
+        content = {
+            Spacer(Modifier.height(16.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Button(
+                    onClick = {
+                        exportError = null
+                        if (viewModel.vaultKeyForExport() == null) {
+                            exportError = "VaultKey is unavailable for export."
+                        } else {
+                            confirmExportPassphrase = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                ) { Text("Export VaultKey to Notes") }
+                exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                Text("Backup Status", style = MaterialTheme.typography.titleMedium)
+                state.sources.forEach { SourceStatusRow(it) }
+                if (state.setupComplete) {
+                    Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                        Text("Consolidate VaultKey backup")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            // Scrollable so the trailing backup action stays reachable on short screens.
-            // verticalScroll is applied before the content padding so the padding scrolls with the content.
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Button(
-                onClick = {
-                    exportError = null
-                    if (viewModel.vaultKeyForExport() == null) {
-                        exportError = "VaultKey is unavailable for export."
-                    } else {
-                        confirmExportPassphrase = true
+                } else {
+                    Button(onClick = viewModel::retryVaultKey, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                        Text("Retry vaultKey setup")
                     }
-                },
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            ) { Text("Export VaultKey to Notes") }
-            exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Text("Backup Status", style = MaterialTheme.typography.titleMedium)
-            state.sources.forEach { SourceStatusRow(it) }
-            if (state.setupComplete) {
-                Button(onClick = viewModel::consolidate, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Text("Consolidate VaultKey backup")
-                }
-            } else {
-                Button(onClick = viewModel::retryVaultKey, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Text("Retry vaultKey setup")
                 }
             }
-        }
-    }
+        },
+        actions = {},
+    )
     if (confirmExportPassphrase) {
         ExportPassphraseDialog(
             message = "Re-enter the passphrase that protects the VaultKey before exporting its encrypted key.",

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,12 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -59,7 +56,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.zenten.vault.R
-import app.zenten.vault.ui.theme.LocalExtendedColors
 
 /**
  * Reveal-and-verify UI for the VaultKey's 24 BIP-39 word positions.
@@ -69,32 +65,6 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
  * duplicated in each wizard. Callers own the index list, the transcribed values, and
  * navigation; these composables only render and report input.
  */
-
-/**
- * In-flow Back affordance used by the combination screens.
- *
- * It moves between steps of the locked flow, never out of it: callers decide the destination and
- * are expected to keep the user inside the flow.
- */
-@Composable
-internal fun SecretCombinationsBackLink(onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        TextButton(onClick = onClick) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                tint = LocalExtendedColors.current.link,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = stringResource(R.string.create_vault_key_back),
-                color = LocalExtendedColors.current.link,
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
-    }
-}
 
 private val CombinationRowHeight = 72.dp
 private val CombinationRowSpacing = 10.dp

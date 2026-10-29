@@ -2,17 +2,14 @@ package app.zenten.vault.ui.secretcombinations
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,7 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,7 +38,7 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
-import app.zenten.vault.ui.theme.LocalExtendedColors
+import app.zenten.vault.ui.components.VaultScreenHeader
 
 /**
  * Entry gate for the **Secret Combinations** review flow.
@@ -81,18 +77,12 @@ fun SecretCombinationsVerifyScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            BackToSettingsLink(
-                enabled = !state.verifying && !state.passphraseVerified,
-                onClick = { navController.navigateUp() },
+            VaultScreenHeader(
+                title = stringResource(R.string.secret_combinations_verify_title),
+                onBack = { navController.navigateUp() },
+                backEnabled = !state.verifying && !state.passphraseVerified,
             )
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.secret_combinations_verify_title),
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
             Text(
                 text = stringResource(R.string.secret_combinations_verify_body),
                 style = MaterialTheme.typography.bodyLarge,
@@ -156,22 +146,3 @@ fun SecretCombinationsVerifyScreen(
     }
 }
 
-@Composable
-private fun BackToSettingsLink(enabled: Boolean, onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        TextButton(onClick = onClick, enabled = enabled) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                tint = LocalExtendedColors.current.link,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = stringResource(R.string.secret_combinations_back_to_settings),
-                color = LocalExtendedColors.current.link,
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
-    }
-}

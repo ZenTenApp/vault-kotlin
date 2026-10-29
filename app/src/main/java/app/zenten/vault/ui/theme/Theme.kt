@@ -42,7 +42,7 @@ import androidx.core.view.WindowCompat
  *  - `contrast` selects the medium/high contrast schemes, which the stock export
  *    defines but leaves unused.
  *  - System bar icon appearance is kept in sync with the active scheme.
- *  - `link` is exposed alongside `success` as an extended color.
+ *  - `success` is exposed as an extended color where Material has no role.
  */
 
 /** One Material-style color role group: base color, its content color, and its container pair. */
@@ -58,14 +58,10 @@ data class ColorFamily(
  * Colors that Material 3 has no built-in role for.
  *
  * - [success]: positive/verified state, for example a confirmed backup.
- * - [link]: iOS-style system blue used only for the in-content "Back" navigation
- *   link in the vault-key flow. Intentionally not `colorScheme.primary`, which
- *   is reserved for primary actions, and not part of the generated palette.
  */
 @Immutable
 data class ExtendedColorScheme(
     val success: ColorFamily,
-    val link: Color,
 )
 
 /** Contrast levels exported by Material Theme Builder, selectable for a future accessibility setting. */
@@ -303,15 +299,8 @@ private val darkSchemeHighContrast = darkColorScheme(
     surfaceContainerHighest = surfaceContainerHighestDarkHighContrast,
 )
 
-/**
- * iOS-style system blue for the vault-key flow's "Back" link. Not part of the
- * generated palette, and identical across every scheme and contrast level.
- */
-private val vaultLink = Color(0xFF007AFF)
-
 val extendedLight = ExtendedColorScheme(
     success = ColorFamily(successLight, onSuccessLight, successContainerLight, onSuccessContainerLight),
-    link = vaultLink,
 )
 
 val extendedLightMediumContrast = ExtendedColorScheme(
@@ -321,7 +310,6 @@ val extendedLightMediumContrast = ExtendedColorScheme(
         successContainerLightMediumContrast,
         onSuccessContainerLightMediumContrast,
     ),
-    link = vaultLink,
 )
 
 val extendedLightHighContrast = ExtendedColorScheme(
@@ -331,12 +319,10 @@ val extendedLightHighContrast = ExtendedColorScheme(
         successContainerLightHighContrast,
         onSuccessContainerLightHighContrast,
     ),
-    link = vaultLink,
 )
 
 val extendedDark = ExtendedColorScheme(
     success = ColorFamily(successDark, onSuccessDark, successContainerDark, onSuccessContainerDark),
-    link = vaultLink,
 )
 
 val extendedDarkMediumContrast = ExtendedColorScheme(
@@ -346,7 +332,6 @@ val extendedDarkMediumContrast = ExtendedColorScheme(
         successContainerDarkMediumContrast,
         onSuccessContainerDarkMediumContrast,
     ),
-    link = vaultLink,
 )
 
 val extendedDarkHighContrast = ExtendedColorScheme(
@@ -356,14 +341,13 @@ val extendedDarkHighContrast = ExtendedColorScheme(
         successContainerDarkHighContrast,
         onSuccessContainerDarkHighContrast,
     ),
-    link = vaultLink,
 )
 
 /**
  * Extended colors for the surrounding theme. Defaults to the dark set because the
  * app never renders its light scheme today.
  *
- * Usage: `LocalExtendedColors.current.success.color`, `LocalExtendedColors.current.link`
+ * Usage: `LocalExtendedColors.current.success.color`
  */
 val LocalExtendedColors = staticCompositionLocalOf { extendedDark }
 

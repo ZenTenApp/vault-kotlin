@@ -29,19 +29,20 @@ class LocalAccountBackupViewModel @Inject constructor(
         _state.value = LocalAccountBackupState(accountId = accountId, account = accountService.getAccount(accountId))
     }
 
+    /**
+     * Marks the account's mandatory local backup as complete and schedules profile
+     * publication. Called from the Confirm Backup screen, which is only reachable after
+     * the export target accepted the account key, so no separate export flag is needed.
+     */
     fun complete() {
         val accountId = _state.value.accountId ?: return
-        if (!_state.value.exportStarted || _state.value.completing) return
+        if (_state.value.completing) return
         _state.value = _state.value.copy(completing = true)
         viewModelScope.launch {
             appStorage.markAccountLocallyBackedUp(accountId)
             profilePublicationScheduler.scheduleProfilePublication(accountId)
             _state.value = _state.value.copy(completed = true)
         }
-    }
-
-    fun recordExportStarted() {
-        _state.value = _state.value.copy(exportStarted = true)
     }
 
     /**
@@ -78,7 +79,6 @@ enum class AccountBackupConfirmationResult {
 data class LocalAccountBackupState(
     val accountId: Long? = null,
     val account: Account? = null,
-    val exportStarted: Boolean = false,
     val completing: Boolean = false,
     val completed: Boolean = false,
 )

@@ -28,7 +28,7 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.ConfirmCombinationPicker
-import app.zenten.vault.ui.components.SecretCombinationsBackLink
+import app.zenten.vault.ui.components.VaultScreenHeader
 
 /** Step 7: sequentially verify every recovery-code segment before setup can continue. */
 @Composable
@@ -55,15 +55,11 @@ fun CreateVaultKeyConfirmSecretCombinationsScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SecretCombinationsBackLink { navController.popBackStack() }
-            Spacer(Modifier.height(28.dp))
-            Text(
-                text = stringResource(R.string.create_vault_key_confirm_secret_combinations_title),
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
+            VaultScreenHeader(
+                title = stringResource(R.string.create_vault_key_confirm_secret_combinations_title),
+                onBack = navController::popBackStack,
             )
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(20.dp))
             Text(
                 text = stringResource(R.string.create_vault_key_confirm_secret_combinations_body),
                 style = MaterialTheme.typography.bodyLarge,
