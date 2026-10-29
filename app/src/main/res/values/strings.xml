@@ -23,6 +23,28 @@
     <!-- Shared navigation -->
     <string name="navigate_back">Back</string>
 
+    <!--
+        Set up VaultKey flow: import an existing key. Step 1 pastes the encrypted key from
+        the clipboard; step 2 collects its passphrase.
+    -->
+    <string name="ssh_setup_title">Setup VaultKey</string>
+    <string name="ssh_setup_step_progress">STEP %1$d OF %2$d</string>
+    <string name="ssh_setup_paste_body">Copy your VaultKey, then paste it from your clipboard.</string>
+    <string name="ssh_setup_paste_action">Paste VaultKey</string>
+    <string name="ssh_setup_passphrase_body">Enter the passphrase that protects your VaultKey.</string>
+    <string name="ssh_setup_passphrase_placeholder">VaultKey Passphrase</string>
+    <string name="ssh_setup_create_action">Create VaultKey</string>
+    <string name="ssh_setup_retry_action">Retry backup without re-importing</string>
+    <!--
+        Fixed clipboard and key-format errors. They never echo the pasted key or any other
+        secret. The clear-failure and unsupported-container wording matches the Confirm
+        Backup flow, which performs the same clipboard handling.
+    -->
+    <string name="ssh_setup_clipboard_read_error">Vault could not read the clipboard. Copy the private key and try again.</string>
+    <string name="ssh_setup_clipboard_clear_error">Vault could not clear the clipboard. Clear it manually, then try again.</string>
+    <string name="ssh_setup_clipboard_empty_error">The clipboard does not contain a private key. Copy the key and try again.</string>
+    <string name="ssh_setup_clipboard_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
+
     <!-- Create VaultKey flow: step 1, "Getting Started" intro/consent screen -->
     <string name="create_vault_key_intro_icon_description">Pen and paper reminder</string>
     <string name="create_vault_key_intro_title">Getting Started</string>

@@ -103,7 +103,7 @@ flowchart TD
 ### Set up Vault Key
 
 - The screen accepts a passphrase-protected Ed25519 OpenSSH vault key.
-- **Setup VaultKey Account** uses a two-segment progress indicator for its two steps. The first step shows a **Paste VaultKey** action instead of a key text field and an outlined **Cancel** action. It reads the clipboard, clears the current clipboard entry, and validates the encrypted OpenSSH-v1 Ed25519 container without rendering it. PEM, raw Base64, and the supported JSON wrapper are accepted; clipboard or key-format errors remain on the first step with a safe message.
+- **Setup VaultKey** uses the standard page frame — a header row with an icon-only back arrow beside the centered title — and a two-segment progress indicator for its two steps. There is no separate Cancel button: the header back arrow returns from the passphrase step to the paste step, and leaves the flow from the first step. The first step shows a **Paste VaultKey** action instead of a key text field. It reads the clipboard, clears the current clipboard entry, and validates the encrypted OpenSSH-v1 Ed25519 container without rendering it. PEM, raw Base64, and the supported JSON wrapper are accepted; clipboard or key-format errors remain on the first step with a safe message.
 - On remote quorum failure, the imported Vault Key remains securely stored and retry does not require re-entry.
 - Errors distinguish missing relay versus Brave coverage without including secret data.
 - The screen remains protected from screenshots where supported.

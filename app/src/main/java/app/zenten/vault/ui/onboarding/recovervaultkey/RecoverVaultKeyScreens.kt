@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
@@ -98,7 +99,7 @@ fun RecoverVaultKeyCombinationsScreen(
 
             Box(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                contentAlignment = Alignment.Center,
+                contentAlignment = BiasAlignment(horizontalBias = 0f, verticalBias = -0.5f),
             ) {
                 RecoveryCombinationPicker(
                     entries = viewModel.entries,
