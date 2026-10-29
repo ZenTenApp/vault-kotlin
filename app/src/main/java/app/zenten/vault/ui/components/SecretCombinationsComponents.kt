@@ -289,27 +289,46 @@ internal fun ConfirmCombinationPicker(
         }
     }
 
-    LazyColumn(
-        state = listState,
-        userScrollEnabled = false,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(ConfirmSlotHeight * 3),
-        contentPadding = PaddingValues(vertical = ConfirmSlotHeight),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        itemsIndexed(expected.chunked(3), key = { index, _ -> index }) { rowIndex, row ->
-            val positionFromCenter = rowIndex.compareTo(activeRow)
-            ConfirmCombinationRow(
-                label = rowIndex + 1,
-                expected = row,
-                entries = entries.subList(rowIndex * 3, rowIndex * 3 + 3),
-                firstSegmentIndex = rowIndex * 3,
-                activeSegment = activeSegment,
-                positionFromCenter = positionFromCenter,
-                focusRequester = focusRequester,
-                onEntryChanged = onEntryChanged,
-                modifier = Modifier.padding(vertical = ConfirmRowSpacing / 2),
+    // Surface a single error line whenever any already-typed segment diverges from its
+    // expected value. Empty segments are treated as "not yet wrong" (see the helper).
+    val hasIncorrect = expected.indices.any { index ->
+        isCombinationSegmentIncorrect(expected[index], entries.getOrElse(index) { "" })
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        LazyColumn(
+            state = listState,
+            userScrollEnabled = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(ConfirmSlotHeight * 3),
+            contentPadding = PaddingValues(vertical = ConfirmSlotHeight),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            itemsIndexed(expected.chunked(3), key = { index, _ -> index }) { rowIndex, row ->
+                val positionFromCenter = rowIndex.compareTo(activeRow)
+                ConfirmCombinationRow(
+                    label = rowIndex + 1,
+                    expected = row,
+                    entries = entries.subList(rowIndex * 3, rowIndex * 3 + 3),
+                    firstSegmentIndex = rowIndex * 3,
+                    activeSegment = activeSegment,
+                    positionFromCenter = positionFromCenter,
+                    focusRequester = focusRequester,
+                    onEntryChanged = onEntryChanged,
+                    modifier = Modifier.padding(vertical = ConfirmRowSpacing / 2),
+                )
+            }
+        }
+
+        if (hasIncorrect) {
+            Text(
+                text = stringResource(R.string.create_vault_key_confirm_secret_combinations_incorrect),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 12.dp),
             )
         }
     }
@@ -399,7 +418,9 @@ private fun ConfirmCombinationSegment(
 ) {
     val shape = RoundedCornerShape(7.dp)
     val incorrect = isCombinationSegmentIncorrect(expected.toInt(), value)
-    val borderColor = if (incorrect) MaterialTheme.colorScheme.error else Color.Transparent
+    // Invalid input is signalled by the text itself (error color, semi-bold), not a red border.
+    val textColor = if (incorrect) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    val textWeight = if (incorrect) FontWeight.SemiBold else FontWeight.Medium
     val requestModifier = if (focusRequester == null) Modifier else Modifier.focusRequester(focusRequester)
 
     BasicTextField(
@@ -411,9 +432,9 @@ private fun ConfirmCombinationSegment(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         textStyle = TextStyle(
-            color = MaterialTheme.colorScheme.onSurface,
+            color = textColor,
             fontSize = MaterialTheme.typography.titleLarge.fontSize,
-            fontWeight = FontWeight.Medium,
+            fontWeight = textWeight,
             textAlign = TextAlign.Center,
         ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -421,7 +442,7 @@ private fun ConfirmCombinationSegment(
             .height(50.dp)
             .then(requestModifier)
             .background(MaterialTheme.colorScheme.surfaceContainerLowest, shape)
-            .border(2.dp, borderColor, shape),
+            .border(2.dp, Color.Transparent, shape),
         decorationBox = { innerField ->
             Box(contentAlignment = Alignment.Center) { innerField() }
         },

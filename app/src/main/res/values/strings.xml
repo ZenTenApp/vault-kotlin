@@ -231,7 +231,8 @@
 
     <!-- Create VaultKey flow: step 7, verify every secret combination -->
     <string name="create_vault_key_confirm_secret_combinations_title">Secret Combinations</string>
-    <string name="create_vault_key_confirm_secret_combinations_body">Enter your Secret Combinations that you just wrote down accurately or you will not be permitted to continue. Every input has to be correct.</string>
+    <string name="create_vault_key_confirm_secret_combinations_body">Confirm your Secret Combinations accurately. Every input must be correct</string>
+    <string name="create_vault_key_confirm_secret_combinations_incorrect">Incorrect Secret Combination! Please try again.</string>
 
     <!-- Create VaultKey flow: final success screen -->
     <string name="create_vault_key_congratulations_icon_description">VaultKey setup complete</string>

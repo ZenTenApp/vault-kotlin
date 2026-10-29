@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -74,13 +75,14 @@ fun CreateVaultKeySecretCombinationsScreen(
             Spacer(Modifier.height(20.dp))
             SecretCombinationsWarning()
 
-            // This is the only flexible region: it places the compact picker near the
-            // visual center while keeping acknowledgement and actions at the bottom.
+            // This is the only flexible region: it places the compact picker slightly above
+            // the visual center (negative vertical bias) while keeping acknowledgement and
+            // actions at the bottom.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                contentAlignment = Alignment.Center,
+                contentAlignment = BiasAlignment(horizontalBias = 0f, verticalBias = -0.25f),
             ) {
                 if (state.secretCombinationsLoading) {
                     CircularProgressIndicator()
