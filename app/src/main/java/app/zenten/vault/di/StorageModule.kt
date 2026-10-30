@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import app.zenten.vault.crypto.KeystoreCryptoService
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
 import dagger.Module
@@ -19,7 +20,13 @@ private val Context.appDataStore: DataStore<Preferences> by preferencesDataStore
 @InstallIn(SingletonComponent::class)
 object StorageModule {
     @Provides @Singleton
-    fun secureStorage(@ApplicationContext context: Context) = SecureStorageService(context)
+    fun keystoreCryptoService(): KeystoreCryptoService = KeystoreCryptoService()
+
+    @Provides @Singleton
+    fun secureStorage(
+        @ApplicationContext context: Context,
+        crypto: KeystoreCryptoService,
+    ): SecureStorageService = SecureStorageService(context, crypto)
 
     @Provides @Singleton
     fun appDataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.appDataStore

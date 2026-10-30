@@ -25,7 +25,6 @@ updates:
           - "org.bouncycastle:*"
           - "fr.acinq.secp256k1:*"
           - "com.vitorpamplona.quartz:*"
-          - "androidx.security:security-crypto"
         update-types: [ "minor", "patch" ]
     open-pull-requests-limit: 5
 

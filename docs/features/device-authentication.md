@@ -31,7 +31,7 @@ This feature protects the **interactive application surface**.
 - Cryptographic use of the existing storage key without a recent user prompt.
 - A compromised trusted sibling application.
 
-The local `EncryptedSharedPreferences` store is intentionally **not** bound to user authentication. Requiring recent user authentication on that shared key would break unattended background backup and KeyHive access, which are approved requirements. Authentication-bound storage for interactive private-key disclosure remains a separate, tracked design question.
+The local Keystore-backed AES-GCM store (`KeystoreCryptoService` behind `SecureStorageService`) is intentionally **not** bound to user authentication. Requiring recent user authentication on that shared key would break unattended background backup and KeyHive access, which are approved requirements. Authentication-bound storage for interactive private-key disclosure remains a separate, tracked design question.
 
 ## Failure and security expectations
 
@@ -52,7 +52,7 @@ Covered configurations for manual verification: PIN/password only, biometric plu
 
 ## Current limitations
 
-- This is an interactive UI gate. Stored vault data is not yet wrapped in an authentication-required Keystore key.
+- This is an interactive UI gate. Stored vault data uses a Keystore key that is not bound to user authentication.
 - Background workers continue operating because they do not render interactive vault content.
 - The KeyHive provider's IPC contract is unchanged while the UI is locked.
 
