@@ -3,6 +3,8 @@ package app.zenten.vault.ui.onboarding.createvaultkey
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import app.zenten.vault.ui.VaultDestinations
 
@@ -24,13 +26,14 @@ internal fun rememberCreateVaultKeyViewModel(navController: NavHostController): 
 private inline fun <reified VM : androidx.lifecycle.ViewModel> rememberCreateVaultKeyGraphViewModel(
     navController: NavHostController,
 ): VM {
-    // Resolve the graph entry once per composition. The graph entry is stable for the
-    // whole wizard, and the composable is recreated when the graph is re-entered, so a
-    // plain remember is sufficient. Re-resolving on every current-entry change used to
-    // run while the exiting screen was still composing after the graph had been popped
-    // (verification now jumps straight to Accounts), and getBackStackEntry then threw
-    // because the graph was no longer on the back stack.
-    val graphEntry = remember {
+    // Use the current destination's NavBackStackEntry as the remember key. It is stable for
+    // the lifetime of this screen's composition, so the graph entry is resolved once per screen
+    // and never re-resolved during the graph's pop transition (re-resolving on every
+    // current-entry change used to run while the exiting screen was still composing after the
+    // graph had been popped, and getBackStackEntry then threw because the graph was gone).
+    // Keying on a NavBackStackEntry also satisfies the UnrememberedGetBackStackEntry lint check.
+    val backStackEntry = LocalViewModelStoreOwner.current as NavBackStackEntry
+    val graphEntry = remember(backStackEntry) {
         navController.getBackStackEntry(VaultDestinations.CREATE_VAULT_KEY_GRAPH)
     }
     return hiltViewModel(graphEntry)
