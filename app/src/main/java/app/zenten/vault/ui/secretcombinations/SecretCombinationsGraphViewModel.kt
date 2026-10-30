@@ -3,6 +3,8 @@ package app.zenten.vault.ui.secretcombinations
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import app.zenten.vault.ui.VaultDestinations
 
@@ -17,11 +19,14 @@ import app.zenten.vault.ui.VaultDestinations
 internal fun rememberSecretCombinationsViewModel(
     navController: NavHostController,
 ): SecretCombinationsViewModel {
-    // Resolve the graph entry once per composition. The graph entry is stable for the whole flow,
-    // and the composable is recreated when the graph is re-entered. Re-resolving on every
+    // Use the current destination's NavBackStackEntry as the remember key. It is stable for
+    // the lifetime of this screen's composition, so the graph entry is resolved once per screen
+    // and never re-resolved during the graph's pop transition (re-resolving on every
     // current-entry change could run while an exiting screen was still composing after the graph
-    // had been popped, and getBackStackEntry then threw because the graph was already gone.
-    val graphEntry = remember {
+    // had been popped, and getBackStackEntry then threw because the graph was gone). Keying on a
+    // NavBackStackEntry also satisfies the UnrememberedGetBackStackEntry lint check.
+    val backStackEntry = LocalViewModelStoreOwner.current as NavBackStackEntry
+    val graphEntry = remember(backStackEntry) {
         navController.getBackStackEntry(VaultDestinations.VIEW_SECRET_COMBINATIONS_GRAPH)
     }
     return hiltViewModel(graphEntry)
