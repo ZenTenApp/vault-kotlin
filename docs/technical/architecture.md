@@ -36,6 +36,7 @@ flowchart TD
     Workers[Backup workers] --> Engine
     Engine --> Repo[BackupSourceRepository]
     Engine --> Secure[SecureStorageService]
+    Secure --> Crypto[KeystoreCryptoService]
     Engine --> State[AppStorageService]
     Engine --> Factory[DefaultBackupSourceFactory]
     Factory --> Relay[Nostr source + NIP-42 gateway]
@@ -88,7 +89,7 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 
 ## Security boundaries
 
-- Secrets are stored only through `SecureStorageService` or transiently in crypto/network operations.
+- Secrets are stored only through `SecureStorageService`, which encrypts each value with `KeystoreCryptoService` (AES-256-GCM using a non-exportable Android Keystore key), or transiently in crypto/network operations.
 - `AppStorageService`, WorkManager input, checkpoints, status, and diagnostics contain no keys, passphrases, encrypted backup payloads, sync codes, tokens, or NIP-42 challenges.
 - Relay authentication signs kind `22242` on the challenged connection using the Vault Key-derived Nostr identity and does not persist the challenge.
 - Remote payloads are decrypted only to restore an account missing locally.

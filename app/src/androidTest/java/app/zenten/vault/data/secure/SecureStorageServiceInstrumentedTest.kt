@@ -20,6 +20,15 @@ class SecureStorageServiceInstrumentedTest {
     @After fun cleanup() = storage.clearAll()
 
     @Test
+    fun stored_preferences_do_not_expose_plaintext_secrets() {
+        val secret = "very-secret-passphrase"
+        storage.addVaultKey(account(1, passphrase = secret))
+
+        val raw = context.getSharedPreferences("vault_secure_accounts_v2", android.content.Context.MODE_PRIVATE)
+        assertTrue(raw.all.values.none { value -> value is String && value.contains(secret) })
+    }
+
+    @Test
     fun encrypted_accounts_round_trip_across_service_recreation_and_registry_is_ordered() {
         val vaultKey = account(1, passphrase = "secret", nostr = NostrKeyPair("pub", "priv"))
         val second = account(20)

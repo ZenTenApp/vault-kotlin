@@ -49,7 +49,7 @@ Branch protection for `main` (required pull-request review, required status chec
 
 GitHub's built-in code scanning (GitHub Code Security / CodeQL) and secret scanning (GitHub Secret Protection) are paid products and are not available for this private repository on the GitHub Free organization plan. The repository therefore uses free substitutes and records the trade-offs here.
 
-- **Dependabot** is enabled in repository settings for vulnerability alerts and security updates. In addition, `.github/dependabot.yml` opens weekly version-update pull requests: routine Gradle minor/patch bumps are grouped into one PR, while crypto/native/protocol dependencies (BouncyCastle, secp256k1-kmp, Quartz, androidx security-crypto) are deliberately left ungrouped for individual review.
+- **Dependabot** is enabled in repository settings for vulnerability alerts and security updates. In addition, `.github/dependabot.yml` opens weekly version-update pull requests: routine Gradle minor/patch bumps are grouped into one PR, while crypto/native/protocol dependencies (BouncyCastle, secp256k1-kmp, Quartz) are deliberately left ungrouped for individual review.
 - **Gitleaks** (MIT-licensed) scans the full git history for committed secrets. It runs as the `secret-scan` job in `.github/workflows/security.yml` and fails the run on any finding.
 - **Semgrep** (OSS) scans Kotlin/Android sources for high-severity defects. It runs as the `code-scan` job and fails the run only on `ERROR`-severity findings; the SARIF report is uploaded as an artifact.
 
