@@ -64,7 +64,7 @@ NIP-42 auth events use the device wall clock and relays may reject events outsid
 
 ## Brave Sync format
 
-The sync code is derived from the parsed Vault Key seed by `Seedify.toBraveSyncCode`. Consolidation derives it once per in-memory run, fixing the date-derived word for that run, and reuses it across Brave endpoints without persisting or logging it. Each independently configured server still receives its own transport, cached in-memory session, Nigori settings, and operation. Because the engine writes only after a successful source index proves a record absent, that write reuses the indexed result instead of listing records again; the later consolidation read-back remains the authoritative verification.
+The sync code is derived from the parsed Vault Key seed by `Seedify.toBraveSyncCode`. Consolidation derives it once per in-memory run, fixing the date-derived word for that run, and reuses it across Brave endpoints without persisting or logging it. The date-derived 25th word wraps modulo the 2,048-word BIP-39 list, matching Brave, so day indices 2048 and beyond reuse the start of the list instead of failing; this keeps Brave backup and recovery working past 17 December 2027. Each independently configured server still receives its own transport, cached in-memory session, Nigori settings, and operation. Because the engine writes only after a successful source index proves a record absent, that write reuses the indexed result instead of listing records again; the later consolidation read-back remains the authoritative verification.
 
 | Backup | URL | Username | Password |
 | --- | --- | --- | --- |

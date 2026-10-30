@@ -59,14 +59,23 @@ object Seedify {
         return sha256(associatedAccountHash + seed)
     }
 
-    /** Date-derived final word shared by recovery, which already has the first 24 words. */
+    /**
+     * Date-derived final word shared by recovery, which already has the first 24 words.
+     *
+     * The day index wraps modulo the 2,048-word list, mirroring Brave's own
+     * `TimeLimitedWords::GetWordByIndex` (`index = index % BIP39_WORDLIST_LEN`) and its parser.
+     * Without the wrap, every day from day index 2048 onwards (2027-12-18 UTC, but rolling at
+     * noon UTC because both implementations round to the nearest day) would index past the end
+     * of the list and throw, breaking Brave backup and recovery for all users. Brave wraps, so
+     * wrapping also keeps Vault's codes interoperable with real Brave clients. The word is a
+     * freshness token only: it is not an input to the auth-key or Nigori derivations.
+     */
     fun braveSync25thWord(now: Instant = Instant.now()): String {
         val elapsedMillis = now.toEpochMilli() - braveSyncEpoch.toEpochMilli()
         val dayIndex = Math.round(elapsedMillis.toDouble() / MILLIS_PER_DAY).toInt()
         require(dayIndex >= 0) { "Date is before the Brave Sync epoch" }
         val wordlist = Bip39Mnemonics.englishWordlist
-        require(dayIndex < wordlist.size) { "Brave Sync word index is out of bounds: $dayIndex" }
-        return wordlist[dayIndex]
+        return wordlist[dayIndex % wordlist.size]
     }
 
     private fun sha256(input: ByteArray): ByteArray =
