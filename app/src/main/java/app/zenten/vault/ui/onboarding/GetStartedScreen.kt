@@ -150,6 +150,7 @@ fun GetStartedScreen(navController: NavHostController) {
             // Existing-key setup remains available as the alternate path.
             VaultPillButton(
                 label = loginLabel,
+                style = VaultPillButtonStyle.Secondary,
                 onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
             )
 
