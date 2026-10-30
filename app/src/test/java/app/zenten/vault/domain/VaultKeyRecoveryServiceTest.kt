@@ -33,7 +33,19 @@ class VaultKeyRecoveryServiceTest {
 
     @Test
     fun nostr_relay_record_is_recovered_from_the_secret_combinations_and_passphrase() = runTest {
-        val fixture = Fixture()
+        assertNostrRelayRecoverySucceeds(clock)
+    }
+
+    @Test
+    fun nostr_relay_record_is_recovered_after_the_brave_wordlist_horizon() = runTest {
+        // Day 4096 is past the 2,048-word list. The 25th word must wrap instead of throwing so
+        // that relay recovery still runs; this service has no Brave source configured, so a
+        // throw here would previously have blocked the working Nostr path too.
+        assertNostrRelayRecoverySucceeds(Clock.fixed(Instant.parse("2033-07-27T00:00:00Z"), ZoneOffset.UTC))
+    }
+
+    private suspend fun assertNostrRelayRecoverySucceeds(serviceClock: Clock) {
+        val fixture = Fixture(serviceClock)
         val generated = SshKeyCodec.generateEncrypted(clock.millis(), passphrase.toCharArray())
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
         val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
@@ -109,7 +121,7 @@ class VaultKeyRecoveryServiceTest {
         verify(exactly = 0) { fixture.secureStorage.addVaultKey(any()) }
     }
 
-    private inner class Fixture {
+    private inner class Fixture(serviceClock: Clock = clock) {
         val repository: BackupSourceRepository = mockk()
         val secureStorage: SecureStorageService = mockk()
         val appStorage: AppStorageService = mockk()
@@ -122,7 +134,7 @@ class VaultKeyRecoveryServiceTest {
             appStorage = appStorage,
             workScheduler = scheduler,
             relayGateway = gateway,
-            clock = clock,
+            clock = serviceClock,
         )
 
         init {

@@ -115,6 +115,8 @@ The engine derives the Sync code **once per run** in `DefaultBackupSourceFactory
 
 In this implementation, both the auth keypair and the Nigori keys consume **only the first 24 words**. The 25th word is part of the generated Sync code format, but it is not an input to the HKDF or PBKDF2 derivations.
 
+The 25th word's day index wraps modulo the 2,048-word BIP-39 list, matching Brave's own `TimeLimitedWords::GetWordByIndex` (`index = index % BIP39_WORDLIST_LEN`) and its parser. Day index 2048 therefore reuses index 0, day index 4096 does too, and so on. Because Brave and Vault both round elapsed days to the nearest whole day (`std::round` and `Math.round`), the day index advances at noon UTC rather than at midnight, so the first wrap happens at `2027-12-17T12:00:00Z`. The wrap keeps Brave Sync backup and recovery working past the 2,048-day horizon and keeps generated codes interoperable with real Brave clients, instead of failing closed after 17 December 2027.
+
 ## Configured endpoints
 
 Default Brave Sync sources from `domain/BackupSources.kt`:
