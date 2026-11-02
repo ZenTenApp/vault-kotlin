@@ -26,7 +26,7 @@ User-visible backup behavior, source policy, and recovery semantics live in [Enc
 | **Client ID** | Ed25519 public key (hex) derived from the Sync code. Brave uses it to identify the client making a request. |
 | **Auth token** | Bearer credential proving possession of the Client ID's private key for a timestamp. |
 | **Quorum** | The minimum successful destinations required during Vault Key setup: one Nostr relay and one Brave Sync source. |
-| **Consolidation** | The periodic/triggered reconciliation pass that indexes sources, restores missing local accounts, writes missing remote records, and verifies them. |
+| **Consolidation** | The triggered reconciliation pass that indexes sources, restores missing local accounts, writes missing remote records, and verifies them. It runs after an unlocked launch or on user action, not periodically. |
 | **Canonical key form** | The single-line Base64 OpenSSH private-key representation stored in every backup. |
 
 ## Protocol flow
@@ -197,7 +197,7 @@ The engine does not trust the commit acknowledgement alone. After writing, it re
 
 Work is scheduled by `background/BackupWorkers.kt`:
 
-- separate hourly workers for the Vault Key and associated accounts,
+- separate post-unlock one-time workers for the Vault Key and associated accounts (no periodic schedule), which take the passphrase from the in-memory session and fail closed when locked,
 - one-time targeted runs after account creation,
 - manual consolidation that bypasses the freshness threshold,
 - retries for pending `(account, source)` writes.

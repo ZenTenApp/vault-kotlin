@@ -47,7 +47,7 @@ class LocalAccountBackupShareTest {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = encodedKey,
-            zenTenPass = "pass",
+
             nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
             accountName = " Personal account ",
         )
@@ -70,7 +70,7 @@ class LocalAccountBackupShareTest {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = encodedKey,
-            zenTenPass = "pass",
+
             nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )
 
@@ -91,7 +91,7 @@ class LocalAccountBackupShareTest {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = goldenEncryptedKey(),
-            zenTenPass = "pass",
+
             nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
             accountName = "Personal account",
         )

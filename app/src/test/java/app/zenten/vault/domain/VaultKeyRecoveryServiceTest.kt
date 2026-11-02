@@ -55,7 +55,7 @@ class VaultKeyRecoveryServiceTest {
 
         // Publish the Vault Key relay record exactly as the backup path would, under the
         // Vault Key backup (`vkbckp`)-derived identity that the 24 words can reconstruct.
-        val publisher = Account(1, normalized, passphrase, nostr = vaultKeyBackupNostr)
+        val publisher = Account(1, normalized, nostr = vaultKeyBackupNostr)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
@@ -74,7 +74,8 @@ class VaultKeyRecoveryServiceTest {
 
         assertTrue(result.isSuccess)
         assertEquals(normalized, stored.captured.zenTenKey)
-        assertEquals(passphrase, stored.captured.zenTenPass)
+        // Recovery records the validated passphrase in the session so the follow-up backup runs.
+        assertTrue(fixture.session.isUnlocked.value)
         coVerify(exactly = 1) { fixture.appStorage.setSetupComplete() }
         verify(exactly = 1) { fixture.scheduler.scheduleConsolidation() }
     }
@@ -104,7 +105,7 @@ class VaultKeyRecoveryServiceTest {
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
         val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
         val vaultKeyBackupNostr = NostrKeyDerivation.derive(Seedify.toVaultKeyBackupMnemonic(seed)).toPersistedKeyPair()
-        val publisher = Account(1, normalized, passphrase, nostr = vaultKeyBackupNostr)
+        val publisher = Account(1, normalized, nostr = vaultKeyBackupNostr)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
@@ -127,6 +128,7 @@ class VaultKeyRecoveryServiceTest {
         val appStorage: AppStorageService = mockk()
         val scheduler: BackupWorkScheduler = mockk()
         val gateway: NostrRelayGateway = mockk()
+        val session = VaultKeySession(secureStorage)
 
         val service = VaultKeyRecoveryService(
             sourceRepository = repository,
@@ -134,6 +136,7 @@ class VaultKeyRecoveryServiceTest {
             appStorage = appStorage,
             workScheduler = scheduler,
             relayGateway = gateway,
+            vaultKeySession = session,
             clock = serviceClock,
         )
 

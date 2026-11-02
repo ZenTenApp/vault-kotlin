@@ -28,7 +28,7 @@ val mnemonic = Seedify.toMnemonic(parsed.seed)
 val nostr = NostrKeyDerivation.derive(mnemonic)
 ```
 
-The mnemonic exists only as a temporary onboarding value used for Nostr derivation. The resulting Vault Key retains the normalized private key, passphrase, and derived Nostr keys before `SetupService` persists it and makes the required Vault Key backup. The SSH public key is not stored: it is derived on demand from the key container's unencrypted header.
+The mnemonic exists only as a temporary onboarding value used for Nostr derivation. The resulting Vault Key retains the normalized private key and derived Nostr keys before `SetupService` persists it and makes the required Vault Key backup; the passphrase is moved to the in-memory session and is never persisted. The SSH public key is not stored: it is derived on demand from the key container's unencrypted header.
 
 ### Accepted input and OpenSSH-v1 parsing
 
@@ -98,7 +98,7 @@ val seed = private.encoded
 val public = private.generatePublicKey().encoded
 ```
 
-It serializes the generated material into an OpenSSH-v1 container encrypted with the retained vault-key passphrase (`aes256-ctr` and `bcrypt_pbkdf`). The Settings screen stores a non-secret work factor selected from `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`; the default is 128. The selected value applies to newly generated Vault Keys and associated accounts only. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding, with `createdAt` as its comment. The outer public-key blob is written unencrypted, so the public key and its SHA-256 fingerprint are derived on demand without the passphrase rather than stored. Parsing uses the round count stored in each container, so existing keys remain readable regardless of the current setting.
+It serializes the generated material into an OpenSSH-v1 container encrypted with the vault-key passphrase (`aes256-ctr` and `bcrypt_pbkdf`), which is held only in memory for the session. The Settings screen stores a non-secret work factor selected from `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`; the default is 128. The selected value applies to newly generated Vault Keys and associated accounts only. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding, with `createdAt` as its comment. The outer public-key blob is written unencrypted, so the public key and its SHA-256 fingerprint are derived on demand without the passphrase rather than stored. Parsing uses the round count stored in each container, so existing keys remain readable regardless of the current setting.
 
 ### Important distinction
 

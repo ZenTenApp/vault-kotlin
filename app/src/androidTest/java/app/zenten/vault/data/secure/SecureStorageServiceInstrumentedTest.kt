@@ -21,8 +21,8 @@ class SecureStorageServiceInstrumentedTest {
 
     @Test
     fun stored_preferences_do_not_expose_plaintext_secrets() {
-        val secret = "very-secret-passphrase"
-        storage.addVaultKey(account(1, passphrase = secret))
+        val secret = "private-key-secret"
+        storage.addVaultKey(account(1, key = secret))
 
         val raw = context.getSharedPreferences("vault_secure_accounts_v2", android.content.Context.MODE_PRIVATE)
         assertTrue(raw.all.values.none { value -> value is String && value.contains(secret) })
@@ -30,7 +30,7 @@ class SecureStorageServiceInstrumentedTest {
 
     @Test
     fun encrypted_accounts_round_trip_across_service_recreation_and_registry_is_ordered() {
-        val vaultKey = account(1, passphrase = "secret", nostr = NostrKeyPair("pub", "priv"))
+        val vaultKey = account(1, key = "private-key-1", nostr = NostrKeyPair("pub", "priv"))
         val second = account(20)
         val first = account(10)
         storage.addVaultKey(vaultKey)
@@ -48,10 +48,9 @@ class SecureStorageServiceInstrumentedTest {
         assertTrue(reloaded.getAccounts().none { it.createdAt == 20L })
     }
 
-    private fun account(id: Long, passphrase: String = "pass", nostr: NostrKeyPair = NostrKeyPair("00".repeat(32), "01".repeat(32))) = Account(
+    private fun account(id: Long, key: String = "private-key-$id", nostr: NostrKeyPair = NostrKeyPair("00".repeat(32), "01".repeat(32))) = Account(
         createdAt = id,
-        zenTenKey = "private-key-$id",
-        zenTenPass = passphrase,
+        zenTenKey = key,
         nostr = nostr,
     )
 }

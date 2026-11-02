@@ -20,7 +20,7 @@ app.zenten.vault
 ├── data/         Secure account storage and non-secret operational preferences
 ├── network/      Nostr relay transport, event encoding, and NIP-42 authentication
 ├── bravesync/    Brave Sync client, crypto, password records, and transport
-├── background/   WorkManager targeted and all-account consolidation, retry, and periodic work
+├── background/   WorkManager targeted and post-unlock all-account consolidation and retry
 └── di/           Hilt dependency injection
 ```
 
@@ -67,7 +67,7 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 
 ## Device-authentication gate
 
-`MainActivity` applies `FLAG_SECURE` for its full lifetime and renders `AppUnlockCoordinator` as the outermost UI gate. The coordinator checks device-lock capability (the combined `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` query on API 30+, the keyguard's `isDeviceSecure` signal below that), invokes AndroidX `BiometricPrompt`, and keeps successful unlock state only in memory. It records background time with `SystemClock.elapsedRealtime`; a return within 30 seconds retains the session, while the boundary or any later return relocks. Cold/process starts have no timestamp and therefore always authenticate. No configured lock fails closed into a setup screen that opens Android enrollment settings, and prompt errors are classified so capability failures route to enrollment while cancellation and lockout stay on the retryable locked screen. This gate protects interactive UI only: background workers and the signature-protected KeyHive provider retain their existing contracts.
+`MainActivity` applies `FLAG_SECURE` for its full lifetime and renders `AppUnlockCoordinator` as the outermost UI gate. The coordinator checks device-lock capability (the combined `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` query on API 30+, the keyguard's `isDeviceSecure` signal below that), invokes AndroidX `BiometricPrompt`, and keeps successful unlock state only in memory. It records background time with `SystemClock.elapsedRealtime`; a return within 30 seconds retains the session, while the boundary or any later return relocks. Cold/process starts have no timestamp and therefore always authenticate. No configured lock fails closed into a setup screen that opens Android enrollment settings, and prompt errors are classified so capability failures route to enrollment while cancellation and lockout stay on the retryable locked screen. This gate protects interactive UI only. Background consolidation now requires the in-memory passphrase session that the gate unlocks and fails closed when it is locked; the signature-protected KeyHive provider retains its existing contract.
 
 ## App-entry safety gate
 
@@ -80,7 +80,7 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 - One-time targeted work is unique per account.
 - Pending-write retry is unique work.
 - Immediate consolidation is unique work after setup.
-- Periodic consolidation runs every hour with a connected-network constraint, as two independent unique periodic jobs: one for the Vault Key and one for associated accounts.
+- Consolidation has no periodic schedule. Because the VaultKey passphrase is never persisted, two independent one-time jobs (Vault Key and associated accounts) are enqueued after each successful passphrase unlock, and user actions enqueue targeted work. Both carry a connected-network constraint and take the passphrase from the in-memory `VaultKeySession`; they fail closed when it is locked and are never given the passphrase through WorkManager input.
 - Kind `0` profile and kind `10050` DM-relay-list publication are one unique account-keyed work item with a connected-network constraint and exponential backoff. WorkManager input contains only the account ID; the worker reads encrypted account state at execution time and requires acknowledgement of both events from every configured profile relay (`wss://user.kindpag.es`, `wss://purplepag.es`, `wss://directory.yabu.me`, `wss://profiles.nostr1.com`, `wss://relay.primal.net`, `wss://relay.snort.social`, `wss://nos.lol`). The kind `10050` event advertises `wss://dm1.zentext.me`, `wss://dm2.nostr.box`, and `wss://dm3.npub.cx` as NIP-17 delivery relays.
 - `VaultApplication` supplies WorkManager's Hilt worker factory through `Configuration.Provider`; the manifest removes the default WorkManager startup initializer to avoid initializing it without that configuration.
 - A persisted checkpoint describes interrupted progress; operations are idempotent by canonical account ID.

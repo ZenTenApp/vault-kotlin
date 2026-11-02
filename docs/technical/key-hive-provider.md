@@ -46,7 +46,7 @@ Sibling apps query the provider through Android's `ContentResolver`:
    - `zentenKey` — the passphrase-encrypted OpenSSH private key (the same key material used in manual export).
    - `nostrPubkey` — the account's public Nostr identity.
 
-`SharedAssociatedAccount` is deliberately the only record shape exposed to sibling apps. It excludes `Account.zenTenPass` (the passphrase) and the Nostr private key. Only the encrypted key material and public identity cross the boundary.
+`SharedAssociatedAccount` is deliberately the only record shape exposed to sibling apps. It excludes the passphrase (which is no longer a stored field on `Account`) and the Nostr private key. Only the encrypted key material and public identity cross the boundary; sibling apps must obtain the passphrase from the user.
 
 Queries with a `selection`, `selectionArgs`, or `sortOrder` are rejected (return `null`), as are malformed IDs and unmatched URIs. Any exception during a query is caught and surfaced as `null` rather than leaking internal state.
 

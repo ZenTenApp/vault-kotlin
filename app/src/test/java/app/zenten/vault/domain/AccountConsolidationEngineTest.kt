@@ -32,7 +32,7 @@ class AccountConsolidationEngineTest {
             every { storage.getAccounts() } returns emptyList()
             factory.sources.values.forEach { it.writeResult = Result.success(Unit) }
 
-            val result = engine.backupVaultKey(vaultKey)
+            val result = engine.backupVaultKey(vaultKey, passphrase)
 
             assertTrue(result.quorumReached)
             assertEquals(1, factory.runContextCreations)
@@ -46,7 +46,7 @@ class AccountConsolidationEngineTest {
             val first = factory.sources.values.first()
             first.indexResult = Result.failure(java.io.IOException("offline"))
 
-            val result = engine.backupVaultKey(vaultKey)
+            val result = engine.backupVaultKey(vaultKey, passphrase)
 
             assertTrue(first.config.id in result.failedSourceIds)
             assertTrue("write:${first.config.id}:vaultkey" !in factory.calls)
@@ -61,7 +61,7 @@ class AccountConsolidationEngineTest {
                 else Result.failure(IllegalStateException("rejected"))
             }
 
-            val result = engine.backupVaultKey(vaultKey)
+            val result = engine.backupVaultKey(vaultKey, passphrase)
 
             assertTrue(result.relayQuorum)
             assertFalse(result.braveQuorum)
@@ -74,7 +74,7 @@ class AccountConsolidationEngineTest {
         fixture { engine, _, storage, factory ->
             every { storage.getAccounts() } returns listOf(account(10, "local"))
 
-            val result = engine.consolidateVaultKey()!!
+            val result = engine.consolidateVaultKey(passphrase)!!
 
             assertTrue(result.quorumReached)
             // Only the Vault Key record is indexed and written; account IDs are never touched.
@@ -89,13 +89,13 @@ class AccountConsolidationEngineTest {
     fun scheduled_vault_key_consolidation_is_skipped_while_its_own_result_is_fresh() = runTest {
         fixture { engine, _, _, factory ->
             // The first cycle records a completion timestamp at the fixed test clock.
-            assertTrue(engine.consolidateVaultKey() != null)
+            assertTrue(engine.consolidateVaultKey(passphrase) != null)
             val callsAfterFirstRun = factory.calls.size
 
-            assertEquals(null, engine.consolidateVaultKey())
+            assertEquals(null, engine.consolidateVaultKey(passphrase))
             assertEquals(callsAfterFirstRun, factory.calls.size)
             // An explicit user action still bypasses freshness.
-            assertTrue(engine.consolidateVaultKey(force = true) != null)
+            assertTrue(engine.consolidateVaultKey(passphrase, force = true) != null)
             assertTrue(factory.calls.size > callsAfterFirstRun)
         }
     }
@@ -105,12 +105,12 @@ class AccountConsolidationEngineTest {
         fixture { engine, appStorage, _, factory ->
             // Fail every write so the engine records a pending Vault Key retry entry.
             factory.sources.values.forEach { it.writeResult = Result.failure(IllegalStateException("rejected")) }
-            assertFalse(engine.consolidateVaultKey()!!.quorumReached)
+            assertFalse(engine.consolidateVaultKey(passphrase)!!.quorumReached)
             assertTrue(appStorage.pendingSourceWrites.first().any { it.accountId == BackupAccountId.VAULT_KEY_VALUE })
             val callsAfterFirstRun = factory.calls.size
 
             // Freshness must not suppress a cycle that still has queued work.
-            assertTrue(engine.consolidateVaultKey() != null)
+            assertTrue(engine.consolidateVaultKey(passphrase) != null)
             assertTrue(factory.calls.size > callsAfterFirstRun)
         }
     }
@@ -120,7 +120,7 @@ class AccountConsolidationEngineTest {
         fixture { engine, _, storage, factory ->
             every { storage.getVaultKey() } returns null
 
-            assertEquals(null, engine.consolidateVaultKey(force = true))
+            assertEquals(null, engine.consolidateVaultKey(passphrase, force = true))
             assertTrue(factory.calls.isEmpty())
         }
     }
@@ -139,7 +139,7 @@ class AccountConsolidationEngineTest {
                 source.indexes += SourceIndex(verified, emptyMap())
             }
 
-            val result = engine.consolidateAccount(10)
+            val result = engine.consolidateAccount(10, passphrase)
 
             assertEquals(DefaultBackupSources.all.size, result.writes)
             assertTrue(factory.calls.filter { it.startsWith("write:") }.all { it.endsWith(":10") })
@@ -155,7 +155,7 @@ class AccountConsolidationEngineTest {
             val present = setOf(BackupAccountId.associated(10))
             factory.sources.values.forEach { it.indexes += SourceIndex(present, emptyMap()) }
 
-            val result = engine.consolidateAccount(10)
+            val result = engine.consolidateAccount(10, passphrase)
 
             assertEquals(0, result.writes)
             assertTrue(factory.calls.none { it.startsWith("write:") })
@@ -172,7 +172,7 @@ class AccountConsolidationEngineTest {
                 source.indexes += SourceIndex(verified, emptyMap())
             }
 
-            engine.consolidate(ConsolidationTrigger.MANUAL, force = true)!!
+            engine.consolidate(passphrase, ConsolidationTrigger.MANUAL, force = true)!!
 
             assertTrue(factory.calls.filter { it.startsWith("write:") }.none { it.endsWith(":vaultkey") })
             assertTrue(appStorage.accountSourceStatuses.first().none { it.accountId == BackupAccountId.VAULT_KEY_VALUE })
@@ -189,7 +189,7 @@ class AccountConsolidationEngineTest {
                 source.indexes += SourceIndex(allPresent, emptyMap())
             }
 
-            val result = engine.consolidate(ConsolidationTrigger.MANUAL, force = true)!!
+            val result = engine.consolidate(passphrase, ConsolidationTrigger.MANUAL, force = true)!!
 
             assertEquals(0, result.writes)
             assertTrue(factory.calls.none { it.startsWith("write:") })
@@ -217,7 +217,7 @@ class AccountConsolidationEngineTest {
             first.indexes += first.indexes.first()
             first.restored[candidate] = restored
 
-            val result = engine.consolidate(ConsolidationTrigger.MANUAL, force = true)!!
+            val result = engine.consolidate(passphrase, ConsolidationTrigger.MANUAL, force = true)!!
 
             assertEquals(1, result.restored)
             val firstWrite = factory.calls.indexOfFirst { it.startsWith("write:") }
@@ -260,7 +260,7 @@ class AccountConsolidationEngineTest {
         val sources = DefaultBackupSources.all.associate { it.id to FakeSource(it, calls) }
         var runContextCreations = 0
 
-        override fun createRunContext(vaultKey: Account): BackupSourceRunContext =
+        override fun createRunContext(secrets: VaultKeyRunSecrets): BackupSourceRunContext =
             object : BackupSourceRunContext {}.also { runContextCreations++ }
 
         override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): AccountBackupSource =
@@ -277,16 +277,16 @@ class AccountConsolidationEngineTest {
         var indexResult: Result<SourceIndex>? = null
         var indexCount = 0
 
-        override suspend fun index(vaultKey: Account): Result<SourceIndex> {
+        override suspend fun index(secrets: VaultKeyRunSecrets): Result<SourceIndex> {
             indexCount++
             calls += "index:${config.id}:$indexCount"
             return indexResult ?: Result.success(indexes.removeFirstOrNull() ?: SourceIndex(emptySet(), emptyMap()))
         }
 
-        override suspend fun restoreCandidate(vaultKey: Account, candidate: RemoteAccountCandidate): Result<Account> =
+        override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account> =
             restored[candidate]?.let { Result.success(it) } ?: Result.failure(IllegalArgumentException("invalid"))
 
-        override suspend fun write(vaultKey: Account, accountId: BackupAccountId, account: Account): Result<Unit> {
+        override suspend fun write(secrets: VaultKeyRunSecrets, accountId: BackupAccountId, account: Account): Result<Unit> {
             calls += "write:${config.id}:${accountId.value}"
             return writeResult
         }
@@ -302,8 +302,9 @@ class AccountConsolidationEngineTest {
             NostrKeyDerivation.derive("alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady").publicKey.hex(),
             "01".repeat(32),
         )
+        val passphrase = "pass".toCharArray()
         val vaultKey = account(1, "vaultKey")
-        fun account(id: Long, key: String) = Account(id, key, "pass", nostr = nostr)
+        fun account(id: Long, key: String) = Account(id, key, nostr = nostr)
 
         private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
     }

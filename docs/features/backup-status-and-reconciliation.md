@@ -73,9 +73,9 @@ Setup attempts all enabled sources sequentially. It writes the Vault Key only af
 - Associated-account creation saves locally first, then enqueues targeted consolidation for that account.
 - Associated-account details offer **Consolidate backup**, not a direct retry-write action. The targeted cycle indexes every source and reconciles only the selected account: it does not restore, write, or update statuses for unrelated accounts. It writes the selected account only when its canonical ID is absent from a successful source index.
 - The Vault Key screen offers **Consolidate VaultKey backup** after setup. It reconciles the Vault Key record only, because that record is published under a different Nostr identity than associated accounts. Immediate requests use an append-or-replace unique-work policy so account creation during an active targeted cycle queues a follow-up cycle instead of being discarded.
-- Legacy account-backup work left in WorkManager by older app versions is handled as forced consolidation rather than a blind write.
-- Two independent one-hour periodic workers run: `VaultKeyConsolidationWorker` for the Vault Key record and `AccountConsolidationWorker` for associated accounts. Both also run once at app startup.
-- Each cycle applies its own one-hour freshness threshold and its own pending-write check, so a stalled Vault Key backup is retried automatically without waiting on account work. Manual actions bypass freshness.
+- There is no periodic scheduling. Because the VaultKey passphrase is never persisted, consolidation only runs while an in-memory session is unlocked: the passphrase gate enqueues one `VaultKeyConsolidationWorker` and one `AccountConsolidationWorker` after each successful unlock, and user actions enqueue targeted work.
+- The workers read the passphrase from `VaultKeySession` at execution time and never place it in WorkManager input data. If the process was restarted with no unlocked session, they fail closed and the next unlocked launch re-enqueues them.
+- Each cycle applies its own one-hour freshness threshold and its own pending-write check, so a stalled Vault Key backup is retried without waiting on account work. Manual actions bypass freshness.
 - A persisted checkpoint identifies the active cycle, trigger, phase, source, and account without storing secrets.
 - A later run is safe to repeat because presence is determined by canonical IDs.
 

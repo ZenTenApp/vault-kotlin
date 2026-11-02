@@ -26,11 +26,17 @@ class AccountService(
     fun getAccounts(): List<Account> = secureStorage.getAccounts()
     fun getAccount(id: Long): Account? = secureStorage.getAccountById(id)
 
+    /**
+     * Verifies the VaultKey passphrase by decrypting the stored key.
+     *
+     * The passphrase is no longer persisted, so a real decryption replaces the old plaintext
+     * comparison. A wrong passphrase fails the bcrypt container check.
+     */
     fun verifyVaultKeyPassphrase(vaultKeyPassphrase: String): Result<Unit> = runCatching {
         val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
-        val storedPassphrase = vaultKey.zenTenPass
         require(vaultKeyPassphrase.isNotBlank()) { "VaultKey account passphrase is required to create an associated account" }
-        require(vaultKeyPassphrase == storedPassphrase) { "The passphrase does not match the vaultKey account" }
+        runCatching { SshKeyCodec.parse(vaultKey.zenTenKey, vaultKeyPassphrase.toCharArray()) }
+            .getOrElse { throw IllegalArgumentException("The passphrase does not match the vaultKey account") }
     }
 
     /**
@@ -43,7 +49,8 @@ class AccountService(
     fun verifyAccountPassphrase(accountId: Long, passphrase: String): Result<Unit> = runCatching {
         val account = requireNotNull(secureStorage.getAccountById(accountId)) { "Account is unavailable" }
         require(passphrase.isNotBlank()) { "The account passphrase is required to export the account" }
-        require(passphrase == account.zenTenPass) { "The passphrase does not match this account" }
+        runCatching { SshKeyCodec.parse(account.zenTenKey, passphrase.toCharArray()) }
+            .getOrElse { throw IllegalArgumentException("The passphrase does not match this account") }
     }
 
     suspend fun createAssociatedAccount(vaultKeyPassphrase: String, accountName: String): Result<Account> = withContext(Dispatchers.Default) { runCatching {
@@ -67,7 +74,6 @@ class AccountService(
         val account = Account(
             createdAt = createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
-            zenTenPass = vaultKeyPassphrase,
             nostr = NostrKeyDerivation.derive(
                 Seedify.fromSshKey(generated.privateKeyPem, vaultKeyPassphrase.toCharArray()),
             ).toPersistedKeyPair(),

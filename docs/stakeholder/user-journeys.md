@@ -76,7 +76,7 @@ flowchart LR
 
 1. The user opens an account, or opens **Settings** and selects **Vault Key**.
 2. The app lists each configured destination and its current status.
-3. From an associated-account screen, the user selects **Consolidate backup** to reconcile only that account. From the Vault Key screen, the user selects **Consolidate VaultKey backup** to reconcile only the Vault Key record. Associated accounts are reconciled automatically at app startup and hourly.
+3. From an associated-account screen, the user selects **Consolidate backup** to reconcile only that account. From the Vault Key screen, the user selects **Consolidate VaultKey backup** to reconcile only the Vault Key record. Associated accounts are reconciled automatically once after each passphrase-unlocked launch; there is no hourly background schedule.
 4. The app checks every source before writing and does not push an account to a source that already reports its canonical ID. Full-vault consolidation can also restore valid missing local accounts; targeted consolidation does not process unrelated accounts.
 5. The user sees whether each destination is backed up, missing, unknown, or needs attention.
 

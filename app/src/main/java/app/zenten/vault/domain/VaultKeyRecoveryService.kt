@@ -41,6 +41,7 @@ class VaultKeyRecoveryService(
     private val appStorage: AppStorageService,
     private val workScheduler: BackupWorkScheduler,
     private val relayGateway: NostrRelayGateway,
+    private val vaultKeySession: VaultKeySession,
     private val clock: Clock,
 ) {
     suspend fun recover(indices: List<Int>, passphrase: String): Result<Unit> = withContext(Dispatchers.IO) {
@@ -77,10 +78,12 @@ class VaultKeyRecoveryService(
                 Account(
                     createdAt = clock.millis() * 1_000L,
                     zenTenKey = normalized,
-                    zenTenPass = passphrase,
                     nostr = nostr,
                 ),
             )
+            // The passphrase was just used to decrypt the recovered key, so record it in the
+            // session without repeating the bcrypt decryption. It is never persisted.
+            vaultKeySession.establish(passphrase.toCharArray())
             appStorage.setSetupComplete()
             workScheduler.scheduleConsolidation()
         }

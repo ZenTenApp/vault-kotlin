@@ -25,10 +25,24 @@ class SecureStorageService(
     private val _accounts = MutableStateFlow(readAccounts())
     val accountUpdates: StateFlow<List<Account>> = _accounts.asStateFlow()
 
-    fun addVaultKey(account: Account) = write(VAULT_KEY, account)
+    /**
+     * Decrypted VaultKey record, used by the launch gate to know whether to ask for a passphrase.
+     * Holds only the passphrase-encrypted key, never the passphrase itself.
+     */
+    private val _vaultKey = MutableStateFlow(read(VAULT_KEY))
+    val vaultKeyUpdates: StateFlow<Account?> = _vaultKey.asStateFlow()
+
+    fun addVaultKey(account: Account) {
+        write(VAULT_KEY, account)
+        _vaultKey.value = account
+    }
 
     fun getVaultKey(): Account? = read(VAULT_KEY)
-    fun removeVaultKey() = preferences.edit { remove(VAULT_KEY) }
+
+    fun removeVaultKey() {
+        preferences.edit { remove(VAULT_KEY) }
+        _vaultKey.value = null
+    }
 
     /** Adds/replaces an account and appends its ID only once, preserving registry order. */
     fun addAccount(account: Account) {

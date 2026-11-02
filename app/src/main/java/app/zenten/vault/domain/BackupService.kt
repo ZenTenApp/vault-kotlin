@@ -48,11 +48,12 @@ class BackupService(
     }
 
     private fun requireEncryptedAssociatedKey(account: Account) {
-        val passphrase = account.zenTenPass
-        require(passphrase.isNotBlank()) { "Associated-account passphrase is required" }
-        require(app.zenten.vault.crypto.SshKeyCodec.parse(account.zenTenKey, passphrase.toCharArray()).encrypted) {
-            "Associated-account SSH key must be passphrase-encrypted"
-        }
+        // Validate the encrypted-container metadata without needing the passphrase: the
+        // passphrase is no longer stored, and the key was already validated when it was
+        // generated or restored.
+        require(
+            runCatching { app.zenten.vault.crypto.SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(account.zenTenKey) }.isSuccess,
+        ) { "Associated-account SSH key must be passphrase-encrypted" }
     }
 
     private fun validateContract(account: Account, dTag: String, kind: Int) = when (kind) {

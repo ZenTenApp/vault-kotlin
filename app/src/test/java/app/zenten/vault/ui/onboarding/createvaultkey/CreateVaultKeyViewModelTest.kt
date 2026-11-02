@@ -4,6 +4,7 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
+import app.zenten.vault.domain.VaultKeySession
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import app.zenten.vault.ui.availability.RemoteOperationReadiness
@@ -84,14 +85,16 @@ class CreateVaultKeyViewModelTest {
         coJustRun { appStorage.clearSetupComplete() }
         coJustRun { appStorage.setCreateVaultKeyStep(any()) }
         coJustRun { appStorage.setVaultKeyPasteGuard(any(), any()) }
-        coEvery { engine.backupVaultKey(any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { engine.backupVaultKey(any(), any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
         )
+        val vaultKeySession = VaultKeySession(secureStorage)
         return CreateVaultKeyViewModel(
             clockOverride,
-            SetupService(secureStorage, appStorage, engine, remoteOperationPrecondition),
+            SetupService(secureStorage, appStorage, engine, remoteOperationPrecondition, vaultKeySession),
             secureStorage,
             appStorage,
+            vaultKeySession,
             passphraseStrengthChecker,
         )
     }
@@ -278,7 +281,7 @@ class CreateVaultKeyViewModelTest {
         val engine = mockk<AccountConsolidationEngine>()
         val viewModel = viewModel(secureStorage, engine)
         val passphrase = "Correct1 horse!"
-        coEvery { engine.backupVaultKey(capture(backedUpVaultKey), any()) } returns
+        coEvery { engine.backupVaultKey(capture(backedUpVaultKey), any(), any()) } returns
             AccountConsolidationEngine.VaultKeyBackupResult(true, true, emptySet(), emptySet())
 
         viewModel.choosePassphrase(passphrase)
@@ -293,7 +296,7 @@ class CreateVaultKeyViewModelTest {
         val expectedStored = NostrKeyDerivation.derive(Seedify.toMnemonic(seed))
         assertEquals(expectedStored.publicKey.joinToString("") { "%02x".format(it) }, storedVaultKey.captured.nostr.pubkey)
         assertTrue(storedVaultKey.captured.nostr != backedUpVaultKey.captured.nostr)
-        coVerify(exactly = 1) { engine.backupVaultKey(any(), any()) }
+        coVerify(exactly = 1) { engine.backupVaultKey(any(), any(), any()) }
     }
 
     @Test

@@ -58,7 +58,7 @@ class LocalAccountBackupViewModelTest {
         return Account(
             createdAt = generated.createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
-            zenTenPass = passphrase,
+
             nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
             accountName = "Work account",
         )
