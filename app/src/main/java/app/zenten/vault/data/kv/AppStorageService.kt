@@ -299,7 +299,7 @@ data class ConsolidationCheckpoint(
 )
 
 @Serializable
-enum class ConsolidationTrigger { VAULT_KEY_IMPORT, STARTUP, PERIODIC, MANUAL, SOURCE_CHANGED }
+enum class ConsolidationTrigger { VAULT_KEY_IMPORT, STARTUP, MANUAL, SOURCE_CHANGED }
 
 @Serializable
 enum class ConsolidationPhase { RESTORE, BACKUP }

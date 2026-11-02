@@ -120,18 +120,30 @@ data class SourceIndex(
     val invalidRecordCount: Int = 0,
 )
 
+/**
+ * Secret run-scoped inputs for one consolidation operation.
+ *
+ * Carries the passphrase obtained from [VaultKeySession] so that restore and write can decrypt
+ * or re-derive account material. This object is never persisted; the caller zeroes
+ * [passphrase] when the run finishes.
+ */
+class VaultKeyRunSecrets(
+    val vaultKey: Account,
+    val passphrase: CharArray,
+)
+
 interface AccountBackupSource {
     val config: BackupSourceConfig
-    suspend fun index(vaultKey: Account): Result<SourceIndex>
-    suspend fun restoreCandidate(vaultKey: Account, candidate: RemoteAccountCandidate): Result<Account>
-    suspend fun write(vaultKey: Account, accountId: BackupAccountId, account: Account): Result<Unit>
+    suspend fun index(secrets: VaultKeyRunSecrets): Result<SourceIndex>
+    suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account>
+    suspend fun write(secrets: VaultKeyRunSecrets, accountId: BackupAccountId, account: Account): Result<Unit>
 }
 
 interface BackupSourceRunContext
 
 interface BackupSourceFactory {
     /** Derives run-scoped credentials once; implementations must not persist this context. */
-    fun createRunContext(vaultKey: Account): BackupSourceRunContext? = null
+    fun createRunContext(secrets: VaultKeyRunSecrets): BackupSourceRunContext? = null
     fun create(config: BackupSourceConfig, context: BackupSourceRunContext? = null): AccountBackupSource
 }
 

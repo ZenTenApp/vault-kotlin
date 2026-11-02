@@ -12,7 +12,11 @@ flowchart TD
     DeviceLock -->|Yes| Authenticate["System prompt: strong biometric or device PIN / pattern / password"]
     Authenticate -->|Cancelled / failed| Locked["Locked screen: retry or leave app"]
     Locked --> Authenticate
-    Authenticate -->|Success| Prerequisites{"Verified internet and device time within 2 min of HTTPS server time?"}
+    Authenticate -->|Success| VaultStored{"VaultKey stored?"}
+    VaultStored -->|No| Prerequisites
+    VaultStored -->|Yes| PassphraseGate["VaultKey passphrase screen: verify by decrypting stored key, keep in memory"]
+    PassphraseGate -->|"Wrong / blank"| PassphraseGate
+    PassphraseGate -->|Verified| Prerequisites{"Verified internet and device time within 2 min of HTTPS server time?"}
     Prerequisites -->|No| Blocked["Unavailable screen: explain errors/warnings and offer a recheck"]
     Blocked --> Prerequisites
     Prerequisites -->|Yes| Root["Root checks persisted state"]
@@ -33,7 +37,8 @@ flowchart TD
     RecoverSources -->|Missing / network / invalid passphrase| RecoverError["Show safe error and allow retry"]
     RecoverError --> RecoverPassphrase
     RecoverSources -->|Recovered and decrypted| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
-    RecoverStore --> Accounts
+    RecoverStore --> RecoverSession["Establish in-memory passphrase session"]
+    RecoverSession --> Accounts
     Welcome -->|"Create VaultKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
     CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["Create Passphrase: met length requirement disappears after 2-second success feedback"]
@@ -93,7 +98,7 @@ flowchart TD
     Vault Key -->|"Back"| Settings
 ```
 
-The interactive app relocks on cold start, process restart, or after it has remained in the background for 30 seconds. Returning sooner keeps the in-memory session unlocked. Removing the device lock causes the next foreground check to show the mandatory setup warning. The whole activity blocks screenshots, screen recording, and sensitive Recents previews where Android supports it. This UI gate does not change trusted sibling-app access through the signature-protected KeyHive provider or background worker operation.
+The interactive app relocks on cold start, process restart, or after it has remained in the background for 30 seconds. Returning sooner keeps the in-memory session unlocked. When a VaultKey is stored, passing device authentication is followed by a **VaultKey passphrase** screen; the passphrase is verified by decrypting the stored key, held only in memory, and dropped when the session relocks, so it is re-entered each session. Removing the device lock causes the next foreground check to show the mandatory setup warning. The whole activity blocks screenshots, screen recording, and sensitive Recents previews where Android supports it. This UI gate does not change trusted sibling-app access through the signature-protected KeyHive provider, but background consolidation now requires the unlocked in-memory passphrase and fails closed otherwise.
 
 After passphrase verification, the dedicated **Creating VaultKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. Vault Key backup and consolidation use the Nostr identity derived from the 24-word `vkbckp` (Vault Key BacKup) associated-account mnemonic for relay operations; Brave Sync uses those same 24 words plus its daily 25th word. General associated-account consolidation uses the Vault Key Nostr identity on relays and the Vault Key backup seed on Brave Sync. The two record classes remain separate, so account consolidation cannot create a duplicate Vault Key relay copy under the Vault Key identity. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-VaultKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, or at **Save your Secret Combinations** after the pasted key matched. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. A wrong **Confirm Backup** paste (unsupported or non-matching) is rate-limited: the first three failures block the wizard for one, two, and then three minutes behind a non-dismissible countdown, and the fourth returns to **Create Backup** and resets the counter; clipboard and storage errors are not counted. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. After all segments match, Vault marks setup complete and replaces the wizard with the account list directly.
 
@@ -154,7 +159,7 @@ Launching the selected app is recorded, but Android cannot confirm that the rece
 
 ```mermaid
 flowchart TD
-    Trigger["Successful setup, account action, app startup, or hourly account work"] --> Phase1["Phase 1: build a remote inventory and restore missing local accounts"]
+    Trigger["Successful setup, account action, or the post-unlock account worker"] --> Phase1["Phase 1: build a remote inventory and restore missing local accounts"]
     Phase1 --> Index["For each enabled source, retrieve stored associated-account IDs"]
     Index --> IndexOK{"Could the app retrieve that source's stored ID list?"}
     IndexOK -->|No| Unknown["Mark the source unavailable or unknown and exclude it from this run's repair"]
@@ -265,7 +270,7 @@ The review flow is entered from **Settings** and is gated by the VaultKey passph
 
 ```mermaid
 flowchart TD
-    Trigger["App startup, hourly Vault Key work, or Consolidate VaultKey backup"] --> Stored{"Vault Key stored locally?"}
+    Trigger["Post-unlock Vault Key worker or Consolidate VaultKey backup"] --> Stored{"Vault Key stored locally?"}
     Stored -->|No| Skip["Do nothing"]
     Stored -->|Yes| Fresh{"Manual request, or last cycle older than one hour, or a Vault Key write pending?"}
     Fresh -->|No| Skip
@@ -286,6 +291,6 @@ flowchart TD
     Complete -->|Yes| Result["Report relay and Brave quorum"]
 ```
 
-Vault Key consolidation never restores, writes, or changes status for associated accounts, and the Vault Key is never restored from a remote copy. It runs on its own hourly schedule so a failed Vault Key backup is retried without depending on account consolidation.
+Vault Key consolidation never restores, writes, or changes status for associated accounts, and the Vault Key is never restored from a remote copy. It runs on its own post-unlock schedule so a failed Vault Key backup is retried without depending on account consolidation. Both consolidation workers take the passphrase from the in-memory session and fail closed when it is locked; the passphrase is never stored or passed through WorkManager input.
 
 Per-source statuses are `Backed up`, `Missing`, `Checking`, `Backing up`, `Backup failed`, or `Unavailable / unknown`. The status reflects the latest completed or active operation; it is not a guarantee that a remote service remains reachable.

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class AccountProfileRepositoryTest {
-    private val account = Account(10L, "key", "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+    private val account = Account(10L, "key", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
 
     @Test
     fun emits_cached_profile_then_persists_each_newer_relay_result() = runTest {

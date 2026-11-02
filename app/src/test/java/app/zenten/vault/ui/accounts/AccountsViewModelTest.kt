@@ -32,7 +32,7 @@ class AccountsViewModelTest {
 
     @Test
     fun displays_cached_profiles_and_retries_network_on_refresh() = runTest(dispatcher) {
-        val account = Account(10L, "key", "pass", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+        val account = Account(10L, "key", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
         val accountService = mockk<AccountService>()
         val accounts = MutableStateFlow(listOf(account))
         every { accountService.accountUpdates } returns accounts
@@ -51,7 +51,7 @@ class AccountsViewModelTest {
 
     @Test
     fun displays_accounts_restored_after_the_list_is_already_visible() = runTest(dispatcher) {
-        val restored = Account(20L, "restored", "pass", nostr = NostrKeyPair("02".repeat(32), "03".repeat(32)))
+        val restored = Account(20L, "restored", nostr = NostrKeyPair("02".repeat(32), "03".repeat(32)))
         val accountService = mockk<AccountService>()
         val accounts = MutableStateFlow<List<Account>>(emptyList())
         every { accountService.accountUpdates } returns accounts

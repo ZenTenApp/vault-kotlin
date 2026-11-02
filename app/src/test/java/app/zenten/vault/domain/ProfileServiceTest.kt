@@ -156,7 +156,6 @@ class ProfileServiceTest {
     private fun account(keys: KeyPair, accountId: Long = 1_700_000_012_345_678L) = Account(
         createdAt = accountId,
         zenTenKey = "key",
-        zenTenPass = "pass",
         nostr = NostrKeyPair(keys.pubKey.hex(), keys.privKey!!.hex()),
     )
 

@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -33,6 +35,9 @@ import app.zenten.vault.ui.auth.AppUnlockCoordinator
 import app.zenten.vault.ui.auth.AppUnlockState
 import app.zenten.vault.ui.auth.DeviceLockRequiredScreen
 import app.zenten.vault.ui.auth.VAULT_AUTHENTICATORS
+import app.zenten.vault.ui.auth.VaultPassphraseScreen
+import app.zenten.vault.ui.auth.VaultUnlockGateState
+import app.zenten.vault.ui.auth.VaultUnlockGateViewModel
 import app.zenten.vault.ui.availability.AppAccessGuard
 import app.zenten.vault.ui.availability.AppBlockedScreen
 import app.zenten.vault.ui.theme.ZenTenVaultTheme
@@ -61,6 +66,14 @@ private fun VaultApp() {
                 AppUnlockCoordinator(activity, ContextCompat.getMainExecutor(activity))
             }
             val unlockState by unlockCoordinator.state.collectAsState()
+            val gateViewModel: VaultUnlockGateViewModel = hiltViewModel()
+            val gateState by gateViewModel.state.collectAsState()
+
+            // The passphrase is memory-only, so any transition away from the unlocked device
+            // state drops it. Re-entering the app then requires the passphrase again.
+            LaunchedEffect(unlockState) {
+                if (unlockState !is AppUnlockState.Unlocked) gateViewModel.lockSession()
+            }
 
             DisposableEffect(lifecycleOwner, unlockCoordinator) {
                 val observer = object : DefaultLifecycleObserver {
@@ -84,7 +97,19 @@ private fun VaultApp() {
                     isAuthenticating = unlockState == AppUnlockState.Authenticating,
                     onUnlock = unlockCoordinator::authenticate,
                 )
-                AppUnlockState.Unlocked -> AvailableVaultApp()
+                AppUnlockState.Unlocked -> when (val gate = gateState) {
+                    // A stored VaultKey requires the passphrase before the vault opens; a fresh
+                    // install goes straight to onboarding, which collects it itself.
+                    VaultUnlockGateState.Loading -> AppLockedScreen(isAuthenticating = true, onUnlock = {})
+                    VaultUnlockGateState.Onboarding,
+                    VaultUnlockGateState.Unlocked -> AvailableVaultApp()
+                    is VaultUnlockGateState.PassphraseRequired -> VaultPassphraseScreen(
+                        isVerifying = gate.verifying,
+                        hasError = gate.error,
+                        onPassphraseChanged = gateViewModel::clearError,
+                        onSubmit = gateViewModel::submitPassphrase,
+                    )
+                }
             }
         }
     }

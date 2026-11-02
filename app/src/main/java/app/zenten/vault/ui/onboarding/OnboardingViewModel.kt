@@ -9,6 +9,7 @@ import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.domain.SetupService
+import app.zenten.vault.domain.VaultKeySession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val setupService: SetupService,
+    private val vaultKeySession: VaultKeySession,
     private val clock: Clock,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingState())
@@ -39,9 +41,11 @@ class OnboardingViewModel @Inject constructor(
                 val account = Account(
                     createdAt = createdAt,
                     zenTenKey = key,
-                    zenTenPass = passphrase,
                     nostr = nostr.toPersistedKeyPair(),
                 )
+                // The passphrase was just used to parse the key, so remember it in the session
+                // (never on disk) before backing up and any retry needs it.
+                vaultKeySession.establish(passphrase.toCharArray())
                 _state.value = _state.value.copy(stage = "Backing up VaultKey account…")
                 setupService.performSetup(account).getOrThrow()
             }.onSuccess {

@@ -8,6 +8,7 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountService
+import app.zenten.vault.domain.VaultKeySession
 import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.every
@@ -41,6 +42,7 @@ class SecretCombinationsViewModelTest {
     private lateinit var secureStorage: SecureStorageService
     private lateinit var appStorage: AppStorageService
     private lateinit var accountService: AccountService
+    private lateinit var vaultKeySession: VaultKeySession
     private lateinit var expectedIndices: List<Int>
 
     @BeforeEach
@@ -57,7 +59,7 @@ class SecretCombinationsViewModelTest {
         every { secureStorage.getVaultKey() } returns Account(
             createdAt = generated.createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
-            zenTenPass = passphrase,
+
             nostr = NostrKeyPair(pubkey = "", privkey = ""),
         )
         appStorage = mockk()
@@ -68,12 +70,13 @@ class SecretCombinationsViewModelTest {
             if (firstArg<String>() == passphrase) Result.success(Unit)
             else Result.failure(IllegalArgumentException())
         }
+        vaultKeySession = VaultKeySession(secureStorage)
     }
 
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = SecretCombinationsViewModel(secureStorage, appStorage, accountService)
+    private fun viewModel() = SecretCombinationsViewModel(secureStorage, appStorage, accountService, vaultKeySession)
 
     @Test
     fun wrongPassphrase_reportsAnErrorWithoutEnteringTheFlow() = runTest(dispatcher) {
@@ -100,6 +103,8 @@ class SecretCombinationsViewModelTest {
     @Test
     fun loadSecretCombinationIndices_derivesTheStoredVaultKeyPositions() = runTest(dispatcher) {
         val viewModel = viewModel()
+        // The displayed positions are derived from the session passphrase, so simulate the gate.
+        vaultKeySession.establish(passphrase.toCharArray())
         viewModel.loadSecretCombinationIndices()
         // Derivation runs on Dispatchers.Default, which the test scheduler cannot fast-forward.
         viewModel.state.first { !it.secretCombinationsLoading }

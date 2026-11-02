@@ -17,14 +17,14 @@ class BraveSyncBackupService(
     private val passwordService: BravePasswordService = BravePasswordService(),
     private val runSyncCode: String? = null,
 ) {
-    suspend fun backupVaultKey(vaultKey: Account): Result<Unit> = backup(vaultKey, VAULT_KEY_ID)
+    suspend fun backupVaultKey(vaultKey: Account, passphrase: CharArray): Result<Unit> = backup(vaultKey, VAULT_KEY_ID, passphrase)
 
-    suspend fun backupAssociatedAccount(vaultKey: Account, account: Account): Result<Unit> =
-        backup(vaultKey, account.createdAt.toString(), account)
+    suspend fun backupAssociatedAccount(vaultKey: Account, account: Account, passphrase: CharArray): Result<Unit> =
+        backup(vaultKey, account.createdAt.toString(), passphrase, account)
 
     /** Lists decrypted record metadata/payloads. SSH key parsing remains deferred to restoration. */
-    suspend fun listRecords(vaultKey: Account): Result<BravePasswordService.ListResult> = withContext(Dispatchers.IO) {
-        runCatching { passwordService.list(syncCode(vaultKey)) }
+    suspend fun listRecords(vaultKey: Account, passphrase: CharArray): Result<BravePasswordService.ListResult> = withContext(Dispatchers.IO) {
+        runCatching { passwordService.list(syncCode(vaultKey, passphrase)) }
     }
 
     fun accountId(entry: BravePasswordService.Password): String? = when {
@@ -33,27 +33,26 @@ class BraveSyncBackupService(
         else -> null
     }
 
-    fun decodeAssociatedAccount(vaultKey: Account, entry: BravePasswordService.Password): Account? = runCatching {
+    fun decodeAssociatedAccount(vaultKey: Account, entry: BravePasswordService.Password, passphrase: CharArray): Account? = runCatching {
         // The vaultkey record has no numeric ID, so it is rejected here: normal recovery
         // deliberately restores associated accounts only.
         val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
-        val passphrase = vaultKey.zenTenPass
         accountFromSshKey(accountId, entry.password, passphrase)
     }.getOrNull()
 
     /** Checks the vaultKey record separately because normal recovery deliberately restores associated accounts only. */
-    suspend fun hasVaultKeyBackup(vaultKey: Account): Result<Boolean> = withContext(Dispatchers.IO) {
+    suspend fun hasVaultKeyBackup(vaultKey: Account, passphrase: CharArray): Result<Boolean> = withContext(Dispatchers.IO) {
         runCatching {
-            passwordService.list(syncCode(vaultKey)).passwords.any { entry ->
+            passwordService.list(syncCode(vaultKey, passphrase)).passwords.any { entry ->
                 entry.username == VAULT_KEY_ID && entry.url == accountUrl(VAULT_KEY_ID) &&
                     entry.notes.isEmpty() &&
-                    runCatching { canonicalKey(entry.password, vaultKey.zenTenPass.toCharArray()) }.isSuccess
+                    runCatching { canonicalKey(entry.password, passphrase) }.isSuccess
             }
         }
     }
 
-    suspend fun discoverAssociatedAccounts(vaultKey: Account): RecoveryResult = withContext(Dispatchers.IO) {
-        val syncCode = syncCode(vaultKey)
+    suspend fun discoverAssociatedAccounts(vaultKey: Account, passphrase: CharArray): RecoveryResult = withContext(Dispatchers.IO) {
+        val syncCode = syncCode(vaultKey, passphrase)
         val discovered = passwordService.list(syncCode)
         val valid = mutableListOf<Account>()
         val skipped = mutableListOf<String>()
@@ -63,19 +62,18 @@ class BraveSyncBackupService(
                 skipped += entry.id
                 return@forEach
             }
-            val account = decodeAssociatedAccount(vaultKey, entry)
+            val account = decodeAssociatedAccount(vaultKey, entry, passphrase)
             if (account == null) skipped += entry.id else valid += account
         }
         RecoveryResult(valid, skipped, discovered.decryptionFailures, discovered.passwords.size)
     }
 
-    private suspend fun backup(vaultKey: Account, accountId: String, account: Account = vaultKey): Result<Unit> =
+    private suspend fun backup(vaultKey: Account, accountId: String, passphrase: CharArray, account: Account = vaultKey): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val syncCode = syncCode(vaultKey)
+                val syncCode = syncCode(vaultKey, passphrase)
                 val url = accountUrl(accountId)
-                val passphrase = account.zenTenPass
-                val key = canonicalKey(account.zenTenKey, passphrase.toCharArray())
+                val key = canonicalKey(account.zenTenKey, passphrase)
                 if (runSyncCode != null) {
                     // The engine invokes write only after this source's index proved the ID
                     // absent, so another list/refetch would duplicate network work.
@@ -94,12 +92,11 @@ class BraveSyncBackupService(
             }
         }
 
-    private fun syncCode(vaultKey: Account): String {
+    private fun syncCode(vaultKey: Account, passphrase: CharArray): String {
         // Consolidation supplies a run-scoped code so all endpoints reuse one SSH
         // decryption and one date-derived 25th word. Standalone callers still derive it.
         runSyncCode?.let { return it }
-        val passphrase = vaultKey.zenTenPass
-        val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
+        val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
         return Seedify.toBraveSyncCode(seed)
     }
 

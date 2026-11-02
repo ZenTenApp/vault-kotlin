@@ -66,9 +66,10 @@ class AccountConsolidationEngine(
      */
     suspend fun backupVaultKey(
         vaultKey: Account,
+        passphrase: CharArray,
         onProgress: suspend (VaultKeyBackupProgress) -> Unit = {},
     ): VaultKeyBackupResult = operationMutex.withLock {
-        runVaultKeyBackup(vaultKey, onProgress)
+        runVaultKeyBackup(VaultKeyRunSecrets(vaultKey, passphrase), onProgress)
     }
 
     /**
@@ -77,10 +78,10 @@ class AccountConsolidationEngine(
      * Returns `null` when no Vault Key is stored yet or the previous cycle is still fresh and
      * nothing is queued for retry. Unlike [consolidate] this never touches associated accounts.
      */
-    suspend fun consolidateVaultKey(force: Boolean = false): VaultKeyBackupResult? = operationMutex.withLock {
+    suspend fun consolidateVaultKey(passphrase: CharArray, force: Boolean = false): VaultKeyBackupResult? = operationMutex.withLock {
         if (!force && isVaultKeyResultStillFresh()) return@withLock null
         val vaultKey = secureStorage.getVaultKey() ?: return@withLock null
-        runVaultKeyBackup(vaultKey)
+        runVaultKeyBackup(VaultKeyRunSecrets(vaultKey, passphrase))
     }
 
     /**
@@ -92,12 +93,12 @@ class AccountConsolidationEngine(
      * cycle, and this single-record pass has no phase to resume.
      */
     private suspend fun runVaultKeyBackup(
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
         onProgress: suspend (VaultKeyBackupProgress) -> Unit = {},
     ): VaultKeyBackupResult {
         val sources = enabledSources()
         val progressSources = sources.map { VaultKeyBackupSource(it.label, it.type) }
-        val runContext = sourceFactory.createRunContext(vaultKey)
+        val runContext = sourceFactory.createRunContext(secrets)
         val successes = mutableSetOf<String>()
         val failures = mutableSetOf<String>()
 
@@ -106,7 +107,7 @@ class AccountConsolidationEngine(
             // destination as well as progress that advances after it finishes.
             onProgress(VaultKeyBackupProgress(progressSources, position, position))
             val source = sourceFactory.create(config, runContext)
-            if (ensureVaultKeyAtSource(source, config, vaultKey)) successes += config.id else failures += config.id
+            if (ensureVaultKeyAtSource(source, config, secrets)) successes += config.id else failures += config.id
             onProgress(VaultKeyBackupProgress(progressSources, position, position + 1))
         }
 
@@ -139,11 +140,11 @@ class AccountConsolidationEngine(
     private suspend fun ensureVaultKeyAtSource(
         source: AccountBackupSource,
         config: BackupSourceConfig,
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
     ): Boolean {
         val id = BackupAccountId.VaultKey
         markChecking(id, config)
-        val remote = source.index(vaultKey).getOrElse { error ->
+        val remote = source.index(secrets).getOrElse { error ->
             markUnknown(id, config, error)
             markPendingRetry(id, config, PendingWriteReason.VAULT_KEY_QUORUM)
             return false
@@ -153,7 +154,7 @@ class AccountConsolidationEngine(
             return true
         }
         markBackingUp(id, config)
-        return source.write(vaultKey, id, vaultKey).fold(
+        return source.write(secrets, id, secrets.vaultKey).fold(
             onSuccess = {
                 markWriteConfirmed(id, config)
                 true
@@ -173,6 +174,7 @@ class AccountConsolidationEngine(
     /** Reconciles one associated account without restoring, writing, or changing statuses for other accounts. */
     suspend fun consolidateAccount(
         accountId: Long,
+        passphrase: CharArray,
         trigger: ConsolidationTrigger = ConsolidationTrigger.MANUAL,
     ): ConsolidationResult = operationMutex.withLock {
         // The Vault Key is only a credential source here; its own backup is never touched.
@@ -181,12 +183,13 @@ class AccountConsolidationEngine(
         val id = BackupAccountId.associated(accountId)
         val cycle = newCycle(trigger)
         val tally = Tally()
-        val runContext = sourceFactory.createRunContext(vaultKey)
+        val secrets = VaultKeyRunSecrets(vaultKey, passphrase)
+        val runContext = sourceFactory.createRunContext(secrets)
 
         enabledSources().forEach { config ->
             checkpoint(cycle, ConsolidationPhase.RESTORE, config.id, id.value)
             val source = sourceFactory.create(config, runContext)
-            ensureAccountAtSource(source, config, vaultKey, id, account, cycle, tally)
+            ensureAccountAtSource(source, config, secrets, id, account, cycle, tally)
         }
         tally.toResult()
     }
@@ -195,14 +198,14 @@ class AccountConsolidationEngine(
     private suspend fun ensureAccountAtSource(
         source: AccountBackupSource,
         config: BackupSourceConfig,
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
         id: BackupAccountId,
         account: Account,
         cycle: ConsolidationCycle,
         tally: Tally,
     ) {
         markChecking(id, config)
-        val remote = source.index(vaultKey).getOrElse { error ->
+        val remote = source.index(secrets).getOrElse { error ->
             // No pending entry is recorded: the account may already be backed up here, and the
             // next full consolidation re-checks this source anyway.
             tally.failures++
@@ -216,11 +219,11 @@ class AccountConsolidationEngine(
 
         checkpoint(cycle, ConsolidationPhase.BACKUP, config.id, id.value)
         markBackingUp(id, config, checked = true)
-        source.write(vaultKey, id, account).fold(
+        source.write(secrets, id, account).fold(
             onSuccess = {
                 tally.writes++
                 markWriteConfirmed(id, config)
-                verifyAccountWrite(source, config, vaultKey, id, tally)
+                verifyAccountWrite(source, config, secrets, id, tally)
             },
             onFailure = { error ->
                 tally.failures++
@@ -234,10 +237,10 @@ class AccountConsolidationEngine(
     private suspend fun verifyAccountWrite(
         source: AccountBackupSource,
         config: BackupSourceConfig,
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
         id: BackupAccountId,
         tally: Tally,
-    ) = source.index(vaultKey).fold(
+    ) = source.index(secrets).fold(
         onSuccess = { verified ->
             if (id in verified.ids) {
                 markPresent(id, config)
@@ -267,7 +270,7 @@ class AccountConsolidationEngine(
      * The phases never interleave, so an account recovered from one source is also repaired on
      * the others during the same run. Returns `null` when the run was skipped as unnecessary.
      */
-    suspend fun consolidate(trigger: ConsolidationTrigger, force: Boolean = false): ConsolidationResult? = operationMutex.withLock {
+    suspend fun consolidate(passphrase: CharArray, trigger: ConsolidationTrigger, force: Boolean = false): ConsolidationResult? = operationMutex.withLock {
         if (!force && isResultStillFresh()) return@withLock null
         // The Vault Key supplies credentials for associated-account sources, but is
         // reconciled only by backupVaultKey so the two identities cannot be mixed.
@@ -275,18 +278,19 @@ class AccountConsolidationEngine(
 
         val cycle = newCycle(trigger)
         val sources = enabledSources()
-        val runContext = sourceFactory.createRunContext(vaultKey)
+        val secrets = VaultKeyRunSecrets(vaultKey, passphrase)
+        val runContext = sourceFactory.createRunContext(secrets)
         // Reuse one instance per source so source-specific sessions/caches can span the index
         // and repair phases without ever crossing endpoint boundaries.
         val sourceInstances = sources.associate { it.id to sourceFactory.create(it, runContext) }
         val tally = Tally()
 
-        val snapshots = indexAndRestore(sources, sourceInstances, vaultKey, cycle, tally)
+        val snapshots = indexAndRestore(sources, sourceInstances, secrets, cycle, tally)
         refreshStatusesAfterRestores(sources, snapshots)
         sources.forEach { config ->
             // Sources whose index failed are skipped: absence could not be proven for them.
             val snapshot = snapshots[config.id]?.index ?: return@forEach
-            repairSource(sourceInstances.getValue(config.id), config, snapshot, vaultKey, cycle, tally)
+            repairSource(sourceInstances.getValue(config.id), config, snapshot, secrets, cycle, tally)
         }
 
         appStorage.markConsolidationCompleted(clock.millis())
@@ -304,7 +308,7 @@ class AccountConsolidationEngine(
     private suspend fun indexAndRestore(
         sources: List<BackupSourceConfig>,
         sourceInstances: Map<String, AccountBackupSource>,
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
         cycle: ConsolidationCycle,
         tally: Tally,
     ): Map<String, SourceSnapshot> {
@@ -314,12 +318,12 @@ class AccountConsolidationEngine(
             val source = sourceInstances.getValue(config.id)
             val knownBefore = associatedAccountInventory().keys
             knownBefore.forEach { markChecking(it, config) }
-            source.index(vaultKey).fold(
+            source.index(secrets).fold(
                 onSuccess = { remote ->
                     snapshots[config.id] = SourceSnapshot(index = remote)
                     knownBefore.forEach { markIndexed(it, config, present = it in remote.ids) }
                     if (config.restoreEnabled && config.trustedForRestore) {
-                        restoreMissingAccounts(source, config, remote, knownBefore, vaultKey, tally)
+                        restoreMissingAccounts(source, config, remote, knownBefore, secrets, tally)
                     }
                 },
                 onFailure = { error ->
@@ -343,14 +347,14 @@ class AccountConsolidationEngine(
         config: BackupSourceConfig,
         remote: SourceIndex,
         knownIds: Set<BackupAccountId>,
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
         tally: Tally,
     ) = remote.ids
         .filterNot { it.isVaultKey || it in knownIds }
         .forEach { id ->
             val candidates = remote.candidates[id].orEmpty().sortedByDescending { it.sortOrder }
             val recovered = candidates.firstNotNullOfOrNull { candidate ->
-                source.restoreCandidate(vaultKey, candidate).getOrNull()
+                source.restoreCandidate(secrets, candidate).getOrNull()
             }
             if (recovered != null) {
                 secureStorage.addAccount(recovered)
@@ -386,7 +390,7 @@ class AccountConsolidationEngine(
         source: AccountBackupSource,
         config: BackupSourceConfig,
         snapshot: SourceIndex,
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
         cycle: ConsolidationCycle,
         tally: Tally,
     ) {
@@ -398,7 +402,7 @@ class AccountConsolidationEngine(
             if (id in known) return@forEach
             checkpoint(cycle, ConsolidationPhase.BACKUP, config.id, id.value)
             markBackingUp(id, config)
-            source.write(vaultKey, id, account).fold(
+            source.write(secrets, id, account).fold(
                 onSuccess = {
                     tally.writes++
                     known += id
@@ -413,18 +417,18 @@ class AccountConsolidationEngine(
                 },
             )
         }
-        verifySourceAfterWrites(source, config, vaultKey, acknowledgedWrites, failedWrites, tally)
+        verifySourceAfterWrites(source, config, secrets, acknowledgedWrites, failedWrites, tally)
     }
 
     /** Single read-back per source that turns acknowledged writes into confirmed backups. */
     private suspend fun verifySourceAfterWrites(
         source: AccountBackupSource,
         config: BackupSourceConfig,
-        vaultKey: Account,
+        secrets: VaultKeyRunSecrets,
         acknowledgedWrites: Set<BackupAccountId>,
         failedWrites: Set<BackupAccountId>,
         tally: Tally,
-    ) = source.index(vaultKey).fold(
+    ) = source.index(secrets).fold(
         onSuccess = { verified ->
             associatedAccountInventory().keys.forEach { id ->
                 when {

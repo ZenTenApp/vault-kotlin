@@ -8,8 +8,8 @@ Interactive vault screens are only reachable by someone who can unlock the Andro
 
 1. A cold start checks whether Android has an accepted secure lock configured: a strong biometric or a device PIN, pattern, or password.
 2. When available, the app presents Android's system authentication prompt.
-3. Successful authentication exposes the existing internet/time gate and then normal navigation.
-4. When the app leaves the foreground, the unlocked session remains valid for 30 seconds. Returning at or after that boundary requires authentication again. Process death always locks the app.
+3. After successful device authentication, if a VaultKey is stored, the app shows a **VaultKey passphrase** screen. The passphrase is verified by decrypting the stored VaultKey and is kept only in memory (`VaultKeySession`) for the session; a fresh install with no stored VaultKey skips straight to onboarding, which collects the passphrase itself. The internet/time gate and normal navigation follow only after the passphrase gate is passed.
+4. When the app leaves the foreground, the device-unlocked session remains valid for 30 seconds. Returning at or after that boundary requires authentication again and drops the in-memory passphrase, so the passphrase screen reappears. Process death always clears the passphrase and relocks the app.
 5. If no accepted device lock is configured, a blocking screen directs the user to Android security enrollment and offers a recheck. There is no bypass.
 6. The whole activity uses Android's secure-window flag to prevent screenshots, screen recording, and sensitive Recents previews where the platform supports it.
 
@@ -26,7 +26,7 @@ This feature protects the **interactive application surface**.
 ### Does not protect against
 
 - Root, forensic extraction, or a compromised OS/process running under the app's UID.
-- Background backup work, which must continue while the user is absent.
+- Background backup work while the user is absent: the passphrase is never persisted, so consolidation can only run while an in-memory session is unlocked.
 - The signature-protected KeyHive `AssociatedAccountsProvider`, which must keep serving authorized sibling apps unattended.
 - Cryptographic use of the existing storage key without a recent user prompt.
 - A compromised trusted sibling application.
@@ -53,11 +53,13 @@ Covered configurations for manual verification: PIN/password only, biometric plu
 ## Current limitations
 
 - This is an interactive UI gate. Stored vault data uses a Keystore key that is not bound to user authentication.
-- Background workers continue operating because they do not render interactive vault content.
+- Background consolidation fails closed when the in-memory passphrase session is locked; it is re-enqueued on the next unlocked launch.
 - The KeyHive provider's IPC contract is unchanged while the UI is locked.
 
 ## Primary implementation locations
 
 - Coordinator, policy, and error classification: `app/src/main/java/app/zenten/vault/ui/auth/AppUnlockCoordinator.kt`
 - Blocking UI: `app/src/main/java/app/zenten/vault/ui/auth/AppUnlockScreen.kt`
+- Passphrase gate state and screen: `app/src/main/java/app/zenten/vault/ui/auth/VaultUnlockGateViewModel.kt`, `app/src/main/java/app/zenten/vault/ui/auth/VaultPassphraseScreen.kt`
+- In-memory passphrase holder: `app/src/main/java/app/zenten/vault/domain/VaultKeySession.kt`
 - Activity-level gate and secure window: `app/src/main/java/app/zenten/vault/MainActivity.kt`

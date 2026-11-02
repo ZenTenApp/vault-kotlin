@@ -16,6 +16,7 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
+import app.zenten.vault.domain.VaultKeySession
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ class CreateVaultKeyViewModel @Inject constructor(
     private val setupService: SetupService,
     private val secureStorage: SecureStorageService,
     private val appStorage: AppStorageService,
+    private val vaultKeySession: VaultKeySession,
     private val passphraseStrengthChecker: PassphraseStrengthChecker,
 ) : ViewModel() {
     /**
@@ -218,7 +220,6 @@ class CreateVaultKeyViewModel @Inject constructor(
                         // Associated-account exports use canonical base64 without PEM wrappers
                         // or line breaks; store generated Vault Keys in that same format.
                         zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
-                        zenTenPass = passphrase,
                         nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
                     )
                     val createFlowRelayIdentity = NostrKeyDerivation.derive(
@@ -233,6 +234,9 @@ class CreateVaultKeyViewModel @Inject constructor(
                 Triple(vaultKey, createFlowRelayIdentity, secretCombinationIndices)
             }.mapCatching { (vaultKey, createFlowRelayIdentity, secretCombinationIndices) ->
                 _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.SYNCING_BACKUPS)
+                // The new key was just parsed with this passphrase, so remember it in the session
+                // (never on disk) before the backup and the later secret-combination steps.
+                vaultKeySession.establish(passphrase.toCharArray())
                 // Local commit happens before any network call. The setup service records
                 // BACKUP_INTRO even if one or more configured sources are unavailable.
                 setupService.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity) { progress ->
@@ -348,9 +352,13 @@ class CreateVaultKeyViewModel @Inject constructor(
             val indices = withContext(Dispatchers.Default) {
                 secureStorage.getVaultKey()?.let { vaultKey ->
                     runCatching {
-                        val passphrase = vaultKey.zenTenPass
-                        val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase.toCharArray()).seed
-                        Seedify.toVaultKeyBackupWordIndices(seed)
+                        val passphrase = vaultKeySession.snapshot() ?: return@let null
+                        try {
+                            val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
+                            Seedify.toVaultKeyBackupWordIndices(seed)
+                        } finally {
+                            passphrase.fill('\u0000')
+                        }
                     }.getOrNull()
                 }
             }

@@ -16,7 +16,7 @@ class RecoveryService(
     private val secureStorage: SecureStorageService,
     private val braveSyncBackupService: BraveSyncBackupService? = null,
 ) {
-    suspend fun discoverAssociatedAccounts(vaultKey: Account): RecoveryResult {
+    suspend fun discoverAssociatedAccounts(vaultKey: Account, passphrase: CharArray): RecoveryResult {
         val nostr = vaultKey.nostr
         val events = relayGateway.fetchAuthenticatedByAuthorAndKind(
             nostr.pubkey,
@@ -27,14 +27,14 @@ class RecoveryService(
         val skipped = mutableListOf<String>()
         val knownAccountIds = secureStorage.getAccounts().mapTo(mutableSetOf()) { it.createdAt }
         events.forEach { event ->
-            val account = decodeAssociatedAccount(event, vaultKey)
+            val account = decodeAssociatedAccount(event, vaultKey, passphrase)
             if (account == null) skipped += event.id
             else if (knownAccountIds.add(account.createdAt)) {
                 secureStorage.addAccount(account)
                 recovered += account
             }
         }
-        val brave = braveSyncBackupService?.let { service -> runCatching { service.discoverAssociatedAccounts(vaultKey) }.getOrNull() }
+        val brave = braveSyncBackupService?.let { service -> runCatching { service.discoverAssociatedAccounts(vaultKey, passphrase) }.getOrNull() }
         brave?.accounts.orEmpty().forEach { account ->
             if (knownAccountIds.add(account.createdAt)) {
                 secureStorage.addAccount(account)
@@ -45,7 +45,7 @@ class RecoveryService(
         return RecoveryResult(recovered, skipped, events.size, brave?.discoveredEntryCount ?: 0, brave?.decryptionFailures ?: 0)
     }
 
-    fun decodeAssociatedAccount(event: NostrEvent, vaultKey: Account): Account? = runCatching {
+    fun decodeAssociatedAccount(event: NostrEvent, vaultKey: Account, passphrase: CharArray): Account? = runCatching {
         val nostr = vaultKey.nostr
         require(NostrEventCodec.isValid(event))
         require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
@@ -54,13 +54,11 @@ class RecoveryService(
         val createdAt = dTag.toLong()
         val sshPrivateKey = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
         require(sshPrivateKey.isNotBlank())
-        val passphrase = vaultKey.zenTenPass
         Account(
             createdAt = createdAt,
             zenTenKey = app.zenten.vault.crypto.SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
-            zenTenPass = passphrase,
             nostr = NostrKeyDerivation.derive(
-                Seedify.fromSshKey(sshPrivateKey, passphrase.toCharArray()),
+                Seedify.fromSshKey(sshPrivateKey, passphrase),
             ).toPersistedKeyPair(),
         )
     }.getOrNull()

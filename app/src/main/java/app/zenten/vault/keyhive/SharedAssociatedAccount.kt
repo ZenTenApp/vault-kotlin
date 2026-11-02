@@ -8,7 +8,8 @@ import kotlinx.serialization.Serializable
  *
  * Alongside the passphrase-protected SSH private key, sibling apps receive the account's public
  * Nostr key so they can address or display the account. Only public key material is exposed:
- * [Account.zenTenPass] and the Nostr private key are never serialized.
+ * sibling apps must obtain the passphrase from the user, and the Nostr private key is never
+ * serialized.
  */
 @Serializable
 data class SharedAssociatedAccount(

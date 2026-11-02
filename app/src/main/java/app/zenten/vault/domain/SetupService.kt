@@ -15,6 +15,7 @@ class SetupService(
     private val appStorage: AppStorageService,
     private val consolidationEngine: AccountConsolidationEngine,
     private val remoteOperationPrecondition: RemoteOperationPrecondition,
+    private val vaultKeySession: VaultKeySession,
     private val workScheduler: BackupWorkScheduler? = null,
 ) {
     suspend fun performSetup(vaultKey: Account): Result<Unit> = runCatching {
@@ -22,7 +23,9 @@ class SetupService(
         // The local commit happens first, so a prerequisite failure still leaves a retryable
         // Vault Key instead of sending the user back to key derivation.
         throwIfRemoteOperationBlocked()
-        val result = consolidationEngine.backupVaultKey(vaultKey)
+        val result = withVaultPassphrase { passphrase ->
+            consolidationEngine.backupVaultKey(vaultKey, passphrase)
+        }
         check(result.quorumReached) {
             when {
                 !result.relayQuorum && !result.braveQuorum -> "VaultKey backup needs at least one relay and one Brave Sync server"
@@ -53,14 +56,20 @@ class SetupService(
         // undo the irreversible local commit or send the user back to key generation, so a
         // blocked prerequisite is treated like any other source failure and skipped.
         if (blockedRemoteOperation() == null) {
-            runCatching { consolidationEngine.backupVaultKey(createFlowVaultKey, onProgress) }
+            runCatching {
+                withVaultPassphrase { passphrase ->
+                    consolidationEngine.backupVaultKey(createFlowVaultKey, passphrase, onProgress)
+                }
+            }
         }
     }
 
     suspend fun retryVaultKeyBackup(): Result<Unit> = runCatching {
         val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
         throwIfRemoteOperationBlocked()
-        val result = consolidationEngine.backupVaultKey(vaultKey)
+        val result = withVaultPassphrase { passphrase ->
+            consolidationEngine.backupVaultKey(vaultKey, passphrase)
+        }
         check(result.quorumReached) { "VaultKey backup quorum is still unavailable" }
         appStorage.setSetupComplete()
         workScheduler?.scheduleConsolidation()
@@ -81,6 +90,22 @@ class SetupService(
         // Keep the vaultKey on backup failure so setup can resume without generating another key.
         secureStorage.addVaultKey(vaultKey)
         appStorage.clearSetupComplete()
+    }
+
+    /**
+     * Runs [block] with a copy of the session passphrase, zeroing it afterwards.
+     *
+     * The passphrase is never persisted; callers must have unlocked the session first (after
+     * setup, creation, or recovery, or via the launch gate).
+     */
+    private suspend fun <T> withVaultPassphrase(block: suspend (CharArray) -> T): T {
+        val passphrase = vaultKeySession.snapshot()
+            ?: error("VaultKey passphrase is not available")
+        return try {
+            block(passphrase)
+        } finally {
+            passphrase.fill('\u0000')
+        }
     }
 
     /**
@@ -114,6 +139,9 @@ class SetupService(
 }
 
 interface BackupWorkScheduler {
+    /** Enqueues the post-unlock Vault Key and account cycles; the engine still applies freshness. */
+    fun scheduleStartupConsolidation()
+
     /** Enqueues a full associated-account consolidation cycle. */
     fun scheduleConsolidation()
 

@@ -6,16 +6,15 @@ import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.BackupWorkScheduler
+import app.zenten.vault.domain.VaultKeySession
 import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import app.zenten.vault.ui.availability.RemoteOperationReadiness
 import dagger.assisted.Assisted
@@ -31,7 +30,12 @@ import javax.inject.Singleton
  * The optional account ID selects targeted work. Without it, this worker runs a full
  * associated-account cycle, using the optional trigger to record why that cycle started.
  * Neither path touches the Vault Key record, which has its own flow in
- * [AccountConsolidationEngine.backupVaultKey].
+ * [AccountConsolidationEngine.consolidateVaultKey].
+ *
+ * The VaultKey passphrase is read from the in-memory [VaultKeySession] at the start of the
+ * run. It is never placed in the worker's input data, which WorkManager persists to disk.
+ * If the process was restarted by WorkManager, the session is empty and the job fails closed;
+ * the next unlocked app launch re-enqueues it.
  */
 @HiltWorker
 class AccountConsolidationWorker @AssistedInject constructor(
@@ -39,8 +43,10 @@ class AccountConsolidationWorker @AssistedInject constructor(
     @Assisted parameters: WorkerParameters,
     private val engine: AccountConsolidationEngine,
     private val remoteOperationPrecondition: RemoteOperationPrecondition,
+    private val vaultKeySession: VaultKeySession,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
+        val passphrase = vaultKeySession.snapshot() ?: return Result.failure()
         return try {
             when (remoteOperationPrecondition.check()) {
                 RemoteOperationReadiness.READY,
@@ -54,13 +60,13 @@ class AccountConsolidationWorker @AssistedInject constructor(
             val accountId = inputData.getLong(ACCOUNT_ID, NO_ACCOUNT_ID)
             if (accountId != NO_ACCOUNT_ID) {
                 // Targeted cycles avoid changing statuses or records for unrelated accounts.
-                engine.consolidateAccount(accountId)
+                engine.consolidateAccount(accountId, passphrase)
             } else {
                 val trigger = inputData.getString(TRIGGER)
                     ?.let { triggerName -> runCatching { ConsolidationTrigger.valueOf(triggerName) }.getOrNull() }
-                    ?: ConsolidationTrigger.PERIODIC
+                    ?: ConsolidationTrigger.STARTUP
                 // A manual request is an explicit user action, so it bypasses the freshness check.
-                engine.consolidate(trigger, force = trigger == ConsolidationTrigger.MANUAL)
+                engine.consolidate(passphrase, trigger, force = trigger == ConsolidationTrigger.MANUAL)
             }
             Result.success()
         } catch (exception: CancellationException) {
@@ -70,6 +76,8 @@ class AccountConsolidationWorker @AssistedInject constructor(
             // The engine records recoverable source-level failures itself; an escaped exception
             // means this whole request did not finish and should be retried with backoff.
             Result.retry()
+        } finally {
+            passphrase.fill('\u0000')
         }
     }
 
@@ -85,7 +93,8 @@ class AccountConsolidationWorker @AssistedInject constructor(
  *
  * This is a separate worker from [AccountConsolidationWorker] because the Vault Key is published
  * under a different Nostr identity and must be retried on its own schedule. It does nothing when
- * no Vault Key is stored yet.
+ * no Vault Key is stored yet. Like the account worker, it takes its passphrase from the
+ * in-memory session and fails closed when the session is locked.
  */
 @HiltWorker
 class VaultKeyConsolidationWorker @AssistedInject constructor(
@@ -93,8 +102,10 @@ class VaultKeyConsolidationWorker @AssistedInject constructor(
     @Assisted parameters: WorkerParameters,
     private val engine: AccountConsolidationEngine,
     private val remoteOperationPrecondition: RemoteOperationPrecondition,
+    private val vaultKeySession: VaultKeySession,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
+        val passphrase = vaultKeySession.snapshot() ?: return Result.failure()
         return try {
             when (remoteOperationPrecondition.check()) {
                 RemoteOperationReadiness.READY,
@@ -104,7 +115,7 @@ class VaultKeyConsolidationWorker @AssistedInject constructor(
                 // Never generate timestamped backup/authentication data with known bad time.
                 RemoteOperationReadiness.DEVICE_TIME_INCORRECT -> return Result.retry()
             }
-            engine.consolidateVaultKey(force = inputData.getBoolean(FORCE, false))
+            engine.consolidateVaultKey(passphrase, force = inputData.getBoolean(FORCE, false))
             Result.success()
         } catch (exception: CancellationException) {
             // WorkManager deliberately stops work when replacing or cancelling it.
@@ -113,6 +124,8 @@ class VaultKeyConsolidationWorker @AssistedInject constructor(
             // The engine records recoverable source-level failures itself; an escaped exception
             // means this whole request did not finish and should be retried with backoff.
             Result.retry()
+        } finally {
+            passphrase.fill('\u0000')
         }
     }
 
@@ -121,11 +134,33 @@ class VaultKeyConsolidationWorker @AssistedInject constructor(
     }
 }
 
+/**
+ * Enqueues one-time consolidation jobs.
+ *
+ * There is deliberately no periodic scheduling: without a stored passphrase, background work
+ * can only run while an in-memory session is unlocked, so the app triggers a cycle after each
+ * successful unlock and on explicit user actions.
+ */
 @Singleton
 class WorkManagerBackupWorkScheduler @Inject constructor(
     private val workManager: WorkManager,
+    private val vaultKeySession: VaultKeySession,
 ) : BackupWorkScheduler {
     private val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+    /** Runs the Vault Key and account cycles once after an unlock; freshness still applies. */
+    override fun scheduleStartupConsolidation() {
+        if (!vaultKeySession.isUnlocked.value) return
+        val accountRequest = oneTimeRequest(
+            Data.Builder().putString(AccountConsolidationWorker.TRIGGER, ConsolidationTrigger.STARTUP.name).build(),
+        )
+        workManager.enqueueUniqueWork(IMMEDIATE_CONSOLIDATION, ExistingWorkPolicy.APPEND_OR_REPLACE, accountRequest)
+        workManager.enqueueUniqueWork(
+            IMMEDIATE_VAULT_KEY_CONSOLIDATION,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            vaultKeyRequest(force = false),
+        )
+    }
 
     override fun scheduleConsolidation() {
         val request = oneTimeRequest(
@@ -149,37 +184,12 @@ class WorkManagerBackupWorkScheduler @Inject constructor(
 
     /** Runs a Vault Key cycle now, bypassing freshness because the user asked for it. */
     override fun scheduleVaultKeyConsolidation() {
-        val request = OneTimeWorkRequestBuilder<VaultKeyConsolidationWorker>()
-            .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .setInputData(Data.Builder().putBoolean(VaultKeyConsolidationWorker.FORCE, true).build())
-            .build()
         workManager.enqueueUniqueWork(
             IMMEDIATE_VAULT_KEY_CONSOLIDATION,
             ExistingWorkPolicy.APPEND_OR_REPLACE,
-            request,
+            vaultKeyRequest(force = true),
         )
     }
-
-    /** Registers both hourly cycles. The Vault Key and account cycles are scheduled apart. */
-    fun schedulePeriodic() {
-        workManager.enqueueUniquePeriodicWork(
-            PERIODIC_CONSOLIDATION,
-            ExistingPeriodicWorkPolicy.KEEP,
-            periodicRequest<AccountConsolidationWorker>(),
-        )
-        workManager.enqueueUniquePeriodicWork(
-            PERIODIC_VAULT_KEY_CONSOLIDATION,
-            ExistingPeriodicWorkPolicy.KEEP,
-            periodicRequest<VaultKeyConsolidationWorker>(),
-        )
-    }
-
-    private inline fun <reified W : CoroutineWorker> periodicRequest() =
-        PeriodicWorkRequestBuilder<W>(1, TimeUnit.HOURS)
-            .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .build()
 
     private fun oneTimeRequest(inputData: Data) = OneTimeWorkRequestBuilder<AccountConsolidationWorker>()
         .setConstraints(constraints)
@@ -187,11 +197,15 @@ class WorkManagerBackupWorkScheduler @Inject constructor(
         .setInputData(inputData)
         .build()
 
+    private fun vaultKeyRequest(force: Boolean) = OneTimeWorkRequestBuilder<VaultKeyConsolidationWorker>()
+        .setConstraints(constraints)
+        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+        .setInputData(Data.Builder().putBoolean(VaultKeyConsolidationWorker.FORCE, force).build())
+        .build()
+
     companion object {
         const val IMMEDIATE_CONSOLIDATION = "account-consolidation-immediate"
-        const val PERIODIC_CONSOLIDATION = "account-consolidation-periodic"
         const val ACCOUNT_CONSOLIDATION_PREFIX = "account-consolidation-"
         const val IMMEDIATE_VAULT_KEY_CONSOLIDATION = "vault-key-consolidation-immediate"
-        const val PERIODIC_VAULT_KEY_CONSOLIDATION = "vault-key-consolidation-periodic"
     }
 }

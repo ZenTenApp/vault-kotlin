@@ -15,7 +15,7 @@ The default source list and consolidation behavior are documented in [Backup sta
 3. `AccountConsolidationEngine.backupVaultKey` checks and, where absent, writes every enabled source sequentially.
 4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the Vault Key.
 5. If quorum fails, the Vault Key remains securely stored, setup remains incomplete, and retry does not require reimport.
-6. After setup, `AccountConsolidationEngine.consolidateVaultKey` keeps that record reconciled from app startup, an hourly `VaultKeyConsolidationWorker`, and the **Consolidate VaultKey backup** action on the Vault Key screen. It applies a one-hour freshness threshold and its own pending-write check; manual requests bypass freshness.
+6. After setup, `AccountConsolidationEngine.consolidateVaultKey` keeps that record reconciled from the post-unlock `VaultKeyConsolidationWorker` and the **Consolidate VaultKey backup** action on the Vault Key screen. It applies a one-hour freshness threshold and its own pending-write check; manual requests bypass freshness. There is no periodic schedule.
 
 ### Associated-account creation
 
@@ -77,11 +77,11 @@ For the protocol-level walkthrough (Nigori encryption, credential derivation, tr
 
 ## Retry and consolidation
 
-Account backup, pending retry, and two-phase consolidation are implemented by `AccountConsolidationEngine` and `background/BackupWorkers.kt`. Work is constrained to a connected network, all remote operations are serialized, and periodic consolidation runs hourly.
+Account backup, pending retry, and two-phase consolidation are implemented by `AccountConsolidationEngine` and `background/BackupWorkers.kt`. Work is constrained to a connected network, all remote operations are serialized, and consolidation is enqueued after each unlocked launch instead of on a periodic schedule. The workers take the VaultKey passphrase from the in-memory `VaultKeySession` and fail closed when it is locked; the passphrase is never placed in WorkManager input data.
 
 ## Secret handling
 
-Secure storage contains account private keys and passphrases. Non-secret DataStore state may contain canonical account IDs, source IDs, status/error categories, timestamps, pending-write counters, and checkpoints. It must not contain private keys, passphrases, payloads, sync codes, authentication tokens, or NIP-42 challenges.
+Secure storage contains passphrase-encrypted account private keys only; the passphrase itself is never persisted. Non-secret DataStore state may contain canonical account IDs, source IDs, status/error categories, timestamps, pending-write counters, and checkpoints. It must not contain private keys, passphrases, payloads, sync codes, authentication tokens, or NIP-42 challenges.
 
 Errors, logs, analytics, WorkManager input, and UI status must follow the same restriction.
 
