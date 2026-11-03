@@ -295,6 +295,6 @@ flowchart TD
     Complete -->|Yes| Result["Report relay and Brave quorum"]
 ```
 
-Vault Key consolidation never restores, writes, or changes status for associated accounts, and the Vault Key is never restored from a remote copy. It runs on its own post-unlock schedule so a failed Vault Key backup is retried without depending on account consolidation. Both consolidation workers take the passphrase from the in-memory session and fail closed when it is locked; the passphrase is never stored or passed through WorkManager input.
+Vault Key consolidation never restores, writes, or changes status for associated accounts, and consolidation itself never restores a Vault Key from a remote copy — it only repairs a device that is already set up. Reading a remote Vault Key copy back into the app is the separate **Recover VaultKey** flow, which needs the 24 Secret Combinations and the passphrase. Consolidation runs on its own post-unlock schedule so a failed Vault Key backup is retried without depending on account consolidation. Both consolidation workers take the passphrase from the in-memory session and fail closed when it is locked; the passphrase is never stored or passed through WorkManager input.
 
 Per-source statuses are `Backed up`, `Missing`, `Checking`, `Backing up`, `Backup failed`, or `Unavailable / unknown`. The status reflects the latest completed or active operation; it is not a guarantee that a remote service remains reachable.

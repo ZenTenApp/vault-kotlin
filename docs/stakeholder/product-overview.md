@@ -34,7 +34,7 @@ A user who still has their Vault Key private key **and** its passphrase can set 
 
 ## Product boundaries
 
-ZenTen Vault is not an SSH terminal, SSH agent, Git client, general password manager, or account-registration service. It does not recover a lost Vault Key private key or a forgotten passphrase. The current app does not provide account deletion or vault-reset actions.
+ZenTen Vault is not an SSH terminal, SSH agent, Git client, general password manager, or account-registration service. It does not reset or recover a forgotten Vault Key passphrase, and it cannot recreate a Vault Key for which the user holds neither the private key nor the 24 Secret Combinations. It *can* restore a lost Vault Key private key from backup when the user still has the Secret Combinations and passphrase; see [what users must retain](backup-and-recovery.md#what-users-must-retain). The current app does not provide account deletion or vault-reset actions.
 
 ## Current maturity
 

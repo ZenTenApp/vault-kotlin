@@ -8,7 +8,7 @@ After the user imports or recovers the same Vault Key, source consolidation rest
 
 A successful Vault Key-quorum setup schedules immediate consolidation. Consolidation also runs once after each unlocked app launch (the passphrase gate enqueues it) and can be invoked manually; there is no periodic schedule. It requires the in-memory VaultKey passphrase, so it cannot run while the passphrase gate is locked. `AccountConsolidationEngine` serializes all remote work and completes its restore phase across all sources before starting any backup repair.
 
-This account cycle is scheduled independently of the Vault Key cycle, which has its own post-unlock worker and is never restored remotely.
+This account cycle is scheduled independently of the Vault Key cycle, which has its own post-unlock worker. Consolidation never restores the Vault Key remotely; only the separate **Recover VaultKey** flow reads a remote Vault Key copy back, using the Secret Combinations and passphrase.
 
 For each enabled source in stable order:
 

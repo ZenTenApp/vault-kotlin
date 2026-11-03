@@ -8,12 +8,19 @@ Remote work is sequential rather than simultaneous. One unavailable service does
 
 ## What users must retain
 
-Recovery requires both:
+Recovery needs one of two *material* sets, and **always** the passphrase:
 
-1. the Vault Key private key used during setup; and
-2. its passphrase.
+- the **Vault Key private key** the user supplied or exported at setup; or
+- the 24 **Secret Combinations** written down during in-app generation.
 
-The app cannot replace these with email, a device PIN, biometrics, or customer support. Losing either means this recovery method cannot recreate the vault.
+| What the user still has | What the app can do |
+| --- | --- |
+| Private key + passphrase | Re-import the key directly on **Login with VaultKey**. No remote copy or Secret Combinations are needed. |
+| Secret Combinations + passphrase | **Recover VaultKey** derives the recovery addresses from the 24 positions and reads the encrypted Vault Key back from an enabled relay or Brave Sync source. It requires at least one valid earlier backup copy. |
+| Secret Combinations only (passphrase forgotten) | Nothing. The remote copies stay encrypted; the app makes no attempt to guess or reset the passphrase. |
+| Private key only (passphrase forgotten) | Nothing. There is no second way into the stored key. |
+
+So the private key is not strictly required — the Secret Combinations plus a remote copy substitute for it. The passphrase is strictly required: it is never stored, reset, or derivable by the app, and every path above needs it. The app cannot replace either with email, a device PIN, biometrics, or customer support. When both material sets are gone, the Vault Key cannot be recreated.
 
 ## Setup protection level
 
@@ -26,7 +33,7 @@ If that minimum is unavailable, the app keeps the validated Vault Key securely o
 
 ## Recovery expectation
 
-On a new device, the user either re-imports the same vault key and passphrase or recovers the Vault Key from the eight saved Secret Combinations plus its passphrase. **Recover VaultKey** derives the Vault Key's two recovery addresses from the 24 saved words and checks every enabled Nostr relay and Brave Sync source for the `vaultkey` record, accepting the first copy the passphrase decrypts. After the Vault Key is available, the app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
+On a new device, the user either re-imports the same Vault Key and passphrase or recovers the Vault Key from the eight saved Secret Combinations plus its passphrase — the two rows of the [retention matrix](#what-users-must-retain) that lead to a working vault. **Recover VaultKey** derives the Vault Key's two recovery addresses from the 24 saved words and checks every enabled Nostr relay and Brave Sync source for the `vaultkey` record, accepting the first copy the passphrase decrypts. After the Vault Key is available, the app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
 
 Recovery availability depends on network and service availability and whether at least one valid copy was previously created. It is not an unconditional guarantee.
 
@@ -55,4 +62,4 @@ Profile publication is separate from backup and is deliberately public. Once the
 - Default sources cannot be removed or disabled.
 - The current app exposes no custom backup-source management UI. The underlying source configuration and processing capability is retained for future use.
 - The app does not currently provide account deletion or vault reset; remote deletion/retention is therefore not a user-facing flow.
-- Remote backup cannot recover lost Vault Key material.
+- Remote backup cannot recover lost Vault Key material on its own. A remote copy only helps when the user still holds the Secret Combinations and the passphrase; without those, the stored copy is unreadable.
