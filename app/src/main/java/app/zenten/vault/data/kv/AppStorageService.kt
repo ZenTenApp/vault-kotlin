@@ -79,18 +79,40 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
      */
     val vaultKeyQuorumReached: Flow<Boolean> = dataStore.data.map { it[VAULT_KEY_QUORUM_REACHED] ?: false }
 
+    /**
+     * Whether an imported Vault Key is stored locally while its backup still owes quorum.
+     *
+     * Set once an import has committed the validated key to secure storage, and cleared when
+     * setup completes or is restarted. Keeping it durable is what lets the launch router send
+     * the user back to the backup retry instead of Get Started after a process death, and it
+     * distinguishes this state from the generated-key create wizard, which owns
+     * [createVaultKeyStep] instead.
+     */
+    val importedVaultKeySetupPending: Flow<Boolean> =
+        dataStore.data.map { it[IMPORTED_VAULT_KEY_SETUP_PENDING] ?: false }
+
     suspend fun setSetupComplete() = dataStore.edit {
         it[SETUP_COMPLETE] = true
         it.remove(CREATE_VAULT_KEY_STEP)
+        // A completed setup no longer has a backup to resume.
+        it.remove(IMPORTED_VAULT_KEY_SETUP_PENDING)
     }
 
     /**
      * Clears completed setup together with its quorum evidence: setup that has to be
      * established again must not inherit a backup claim from the previous attempt.
+     * A previous attempt's pending-import state is cleared too; the caller records the new
+     * attempt with [requireImportedVaultKeyBackup] when it committed an imported key.
      */
     suspend fun clearSetupComplete() = dataStore.edit {
         it.remove(SETUP_COMPLETE)
         it.remove(VAULT_KEY_QUORUM_REACHED)
+        it.remove(IMPORTED_VAULT_KEY_SETUP_PENDING)
+    }
+
+    /** Records that an imported Vault Key is stored but setup is still waiting for quorum. */
+    suspend fun requireImportedVaultKeyBackup() = dataStore.edit {
+        it[IMPORTED_VAULT_KEY_SETUP_PENDING] = true
     }
 
     /** Records the remote-backup quorum outcome of the latest Vault Key backup attempt. */
@@ -230,6 +252,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     companion object {
         val SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
         val VAULT_KEY_QUORUM_REACHED = booleanPreferencesKey("vault_key_quorum_reached_v1")
+        val IMPORTED_VAULT_KEY_SETUP_PENDING = booleanPreferencesKey("imported_vault_key_setup_pending_v1")
         val SSH_KDF_ROUNDS = intPreferencesKey("ssh_kdf_rounds_v1")
         val CREATE_VAULT_KEY_STEP = stringPreferencesKey("create_vault_key_step_v1")
         val SECRET_COMBINATIONS_VIEW_STEP = stringPreferencesKey("secret_combinations_view_step_v1")

@@ -12,11 +12,11 @@ User-visible backup behavior, source policy, and recovery semantics live in [Enc
 | --- | --- |
 | **Sync chain** | One server-side encrypted dataset, identified by a Sync code. All records in a chain share the same encryption keys. |
 | **Sync code** | Brave's 25-word BIP-39-style recovery phrase. Vault derives it from the Vault Key seed. |
-| **Nigori** | Chromium Sync's encryption layer and the special synced record that stores its key metadata (keybag, KDF method, salt). The server stores it but cannot decrypt it alone. |
-| **Keybag** | The container inside Nigori holding the symmetric encryption key and MAC key, itself encrypted with a key derived from the Sync code. |
-| **Key name** | A fingerprint of the active key set. Every encrypted record names the key that locked it, which allows key rotation. |
-| **KDF** | Key derivation function. Turns a passphrase into key bytes. This implementation supports PBKDF2-SHA1 and scrypt. |
-| **Salt** | Random per-chain input to the KDF, so the same passphrase yields different keys in different chains. |
+| **Nigori** | Chromium Sync's encryption layer and the special synced record that stores its key metadata (keybag, KDF method, and, for scrypt, a salt). The server stores it but cannot decrypt it alone. |
+| **Keybag** | The container inside Nigori holding the symmetric encryption key, MAC key, and PBKDF2 user key, itself encrypted with the same keys derived from the Sync code. |
+| **Key name** | A fingerprint of one derived key set (`NigoriCrypto.computeKeyName`). The app writes a key name into every encrypted payload it creates, but never reads it to choose keys — see [Compatibility scope](#compatibility-scope-and-known-limitations). |
+| **KDF** | Key derivation function. Turns a passphrase into key bytes. This implementation supports PBKDF2-SHA1 (fixed salt) and scrypt (salt read from the chain's Nigori). |
+| **Salt** | KDF input. Brave's PBKDF2 path uses a fixed 16-byte protocol constant (`NigoriCrypto.pbkdf2Salt`, Chromium's custom-passphrase salt) that is identical in every chain; only scrypt uses a chain-specific salt recorded in Nigori. |
 | **PBKDF2 / scrypt** | Deliberately slow KDFs. Slowness makes offline guessing of the Sync code expensive. |
 | **AES-CBC** | Symmetric block cipher mode used to encrypt record payloads. |
 | **HMAC-SHA256** | Message authentication code appended to ciphertext to detect tampering. |
@@ -81,7 +81,12 @@ Backups are stored as **password records**, the same entity type Brave's passwor
 
 The password field holds the SSH key text, not JSON or an app-specific blob. The key remains passphrase-protected: the account passphrase is **never** uploaded. The Vault Key's own passphrase is also never stored remotely, which is why the Vault Key only re-enters the app through onboarding.
 
-A record is recognized by URL **and** username matching its canonical backup ID (`vaultkey` or a decimal `createdAt`), with an empty notes list. Presence checks therefore do not decrypt or compare payloads; decryption and OpenSSH validation happen only when a record is restored.
+A record is recognized by URL **and** username matching its canonical backup ID (`vaultkey` or a decimal `createdAt`), with an empty notes list.
+
+Two encryption/validation layers must be distinguished:
+
+- **Outer layer — always done during indexing.** `PasswordReader.read` decrypts the Nigori payload of every non-deleted entity (`IV || AES-CBC ciphertext || HMAC-SHA256`), verifies the MAC, and parses URL/username/notes for each record. This is how presence is established, so a chain's record payloads are decrypted on every index pass; presence is not determined from ciphertext alone.
+- **Inner layer — deferred to restoration.** Parsing the SSH private key, checking that it decrypts with the account passphrase, and comparing it to the local key happen only when a candidate is restored (`accountFromSshKey`), or for the Vault Key in the narrower `hasVaultKeyBackup` check. A record whose outer payload decrypts and whose URL/username match the backup contract still counts as present even if its SSH key later fails to restore.
 
 Before any write, `canonicalKey` normalizes the value to the single-line Base64 form and parses it as an Ed25519 OpenSSH key. Malformed keys never reach the server.
 
@@ -100,9 +105,9 @@ Sync code (first 24 words)
   │    └─ HKDF-SHA512(salt, info="sync-auth-key") → 32-byte Ed25519 private key
   │         ├─ Client ID = public key hex
   │         └─ Bearer token = Base64(timestamp | signature | public key)
-  └─ Nigori keys
-       ├─ PBKDF2-SHA1 iterations 1003 / 1004 (or scrypt if the chain says so)
-       └─ → AES encryption key + HMAC key
+  └─ Nigori keys (one key set per chain)
+       ├─ PBKDF2-SHA1, fixed Chromium custom-passphrase salt, 1003 / 1004 iterations → AES key + HMAC key
+       └─ scrypt (N=8192, r=8, p=11) only when the chain's Nigori says so, using the salt Nigori records
 ```
 
 Relevant code:
@@ -149,11 +154,12 @@ Responses are protobuf and may be gzip-compressed. A non-2xx HTTP status or a no
 
 1. Derive the Ed25519 keypair from the Sync code and mint a time-stamped Bearer token.
 2. Send `GET_UPDATES` for `NIGORI_TYPE_ID` (`47745`).
-3. Read the returned Nigori settings and derive the encryption/MAC keys using the chain's KDF method and salt.
-4. If the chain has no Nigori record (a fresh server or chain), commit a Nigori entity via `NigoriInitializer`:
-   - PBKDF2 keybag derived from the Sync code,
-   - `CUSTOM_PASSPHRASE` type,
-   - `encrypt_everything` enabled.
+3. Read the returned Nigori settings and derive **exactly one key set** from the Sync code, the chain's `key_derivation_method`, and its salt. PBKDF2 (method 1) ignores the salt and uses `NigoriCrypto.pbkdf2Salt`, the fixed Chromium custom-passphrase salt. Scrypt (method 2) requires a salt and fails if the Nigori has none. Any other method fails the session. The Nigori's passphrase type and keybag `key_name` are parsed but do not affect key selection.
+4. If the chain has no Nigori record (a fresh server or chain), derive the same PBKDF2 keys and commit a Nigori entity via `NigoriInitializer`:
+   - KDF method PBKDF2 (field 45), no salt,
+   - keybag holding the key name, PBKDF2 user key (1002 iterations), encryption key, and MAC key, encrypted with that same key set,
+   - `CUSTOM_PASSPHRASE` passphrase type (field 30),
+   - `encrypt_everything` enabled (field 24).
 
 The server never receives the Sync code or the derived keys. It stores only the encrypted keybag and the KDF metadata.
 
@@ -185,7 +191,7 @@ The service also exposes `update` and `delete`, but the backup flow only ever cr
 
 ### Verify
 
-The engine does not trust the commit acknowledgement alone. After writing, it re-indexes the source and requires the record ID to appear. An acknowledged-but-absent write is recorded as a failure and queued for retry.
+The engine does not trust the commit acknowledgement alone. After writing, it re-indexes the source and requires the record ID to appear. This applies to **both** record classes: `verifyVaultKeyWrite` confirms each Vault Key write before the source counts toward quorum, and `verifyAccountWrite` (single account) and `verifySourceAfterWrites` (full consolidation) confirm associated-account writes. An acknowledged-but-absent write is recorded as a failure and queued for retry.
 
 ## Orchestration and quorum
 
@@ -211,9 +217,11 @@ Both workers require a connected network and refuse to produce timestamped token
 | Chain has no Nigori record | Commit a Nigori entity first, then write the password record |
 | Source index fails | Mark the source `UNKNOWN`; never infer absence and never write that source in the cycle |
 | Commit rejected / entry result not success | Source write fails and is queued for retry |
-| Write acknowledged but not visible on read-back | Treated as failure and queued for retry |
+| Write acknowledged but not visible on read-back | Treated as failure and queued for retry (both Vault Key and associated-account writes) |
 | Existing record with a different payload | Fail the source; never overwrite |
-| Record fails decryption | Counted as invalid and skipped |
+| Record fails outer decryption or URL/username contract | Counted as invalid and skipped |
+| Record uses a key name this implementation does not hold | Its outer decryption fails, so it is counted as invalid and skipped |
+| Record decrypts but its SSH key fails inner validation | Still counted as present by the index; invalid only at restoration |
 | Device clock known incorrect | Worker retries without touching remote state |
 | Sync code cannot be derived | Operation fails before any network call |
 
@@ -223,12 +231,21 @@ Both workers require a connected network and refuse to produce timestamped token
 - The 24-word mnemonic provides the entropy behind the Sync code; the slow KDF raises the cost of offline guessing.
 - Account passphrases and Vault Key passphrases are never uploaded.
 - The Sync code, derived keys, auth tokens, and decrypted payloads stay in memory. Persisted state contains only IDs, statuses, timestamps, and coarse error categories.
-- Each endpoint receives its own transport and session; credentials and sessions never cross server boundaries.
+- Each endpoint gets its own transport object and its own in-memory `BravePasswordService` session, and per-source state (statuses, pending retries) is tracked independently. The *derived identity* is nevertheless the same at every Brave-compatible endpoint: one run-scoped Sync code produces the same mnemonic entropy, Ed25519 keypair, Client ID, and Nigori keys everywhere (`DefaultBackupSourceFactory` creates one run context and passes the same code to every `BraveSyncBackupService`). The boundary that holds is that no request is sent to one endpoint using another endpoint's transport or token: each session mints its own token and talks only through its own `BraveSyncTransport`.
+
+## Compatibility scope and known limitations
+
+Key handling is intentionally a **restricted contract**, not general Brave Nigori support: the app interoperates with chains whose encryption matches a single derived key set, and does not implement Nigori key management beyond that.
+
+- **Single key set per chain.** `BravePasswordService.resolveKeys` derives one key set per endpoint per session from the Sync code and the chain's KDF method. `PasswordReader` never inspects `EncryptedData.key_name` to select a key; `BraveSyncConfig` and the service never rotate keys, and no code reads the Nigori keybag to derive alternate keys.
+- **Keybag rotation chains are not supported.** If a chain's keybag was rotated (for example by a Brave client changing the passphrase) so the active key differs from the one derived here, records it wrote after rotation cannot be decrypted. This is a deliberate scope decision, not an untested path.
+- **Foreign key names surface as invalid records.** A record encrypted under a key name this implementation does not hold simply fails `NigoriCrypto.decrypt` (MAC check), is caught in `PasswordReader.read`, and increments `decryptionFailures`. The index counts it as invalid, so its backup ID does not appear as present and is never restored from it; if no other decryptable record supplies that ID, a later write is attempted under the key set this implementation holds.
+- **What a future implementation would need:** read the Nigori keybag and decrypt it with the passphrase-derived user key, maintain a map from key name to key set, select keys per record by `key_name`, follow rotation chains through keybag history, and persist or re-derive keys across sessions.
 
 ## Primary implementation locations
 
 - Record contract and Sync code usage: `domain/BraveSyncBackupService.kt`
-- Source adapter and run context: `domain/BackupSourceAdapters.kt`
+- Source adapter, run context, and per-endpoint transport/session creation: `domain/BackupSourceAdapters.kt`
 - Orchestration, quorum, retries: `domain/AccountConsolidationEngine.kt`
 - Session and record API: `bravesync/BravePasswordService.kt`
 - Auth derivation: `bravesync/auth/BraveSyncAuth.kt`

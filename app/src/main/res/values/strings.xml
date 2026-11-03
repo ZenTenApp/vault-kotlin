@@ -35,6 +35,7 @@
     <string name="ssh_setup_passphrase_placeholder">VaultKey Passphrase</string>
     <string name="ssh_setup_create_action">Create VaultKey</string>
     <string name="ssh_setup_retry_action">Retry backup without re-importing</string>
+    <string name="ssh_setup_pending_backup_body">Your VaultKey is saved on this device, but its backup did not reach quorum. Retry the backup to finish setup.</string>
     <!--
         Fixed clipboard and key-format errors. They never echo the pasted key or any other
         secret. The clear-failure and unsupported-container wording matches the Confirm

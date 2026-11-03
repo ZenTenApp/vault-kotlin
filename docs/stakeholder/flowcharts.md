@@ -124,9 +124,10 @@ flowchart TD
     Quorum -->|Yes| Complete["Mark setup complete"]
     Complete --> Schedule["Schedule associated-account consolidation"]
     Schedule --> Accounts["Open My Accounts"]
-    Quorum -->|No| Incomplete["Keep Vault Key stored and leave setup incomplete"]
+    Quorum -->|No| Incomplete["Keep Vault Key stored, record pending backup state, and leave setup incomplete"]
     Incomplete --> Retry["Retry backup without re-importing"]
     Retry --> Sources
+    Resume["App relaunch: imported Vault Key stored and backup still pending"] --> Retry
 ```
 
 The setup screen never renders the supplied key and does not show secret material in errors. Vault clears the current Android clipboard entry before opening the passphrase step, but operating-system or third-party clipboard history can remain outside its control. A failed source check is treated as unknown, not as permission to write another backup.
