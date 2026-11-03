@@ -67,9 +67,10 @@ class SetupService(
     ): Result<VaultKeySetupState> = runCatching {
         persistVaultKey(vaultKey)
         appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
-        // Only the create-flow relay operation uses the recoverable Vault Key backup (`vkbckp`)
-        // associated-account identity. The stored vaultKey keeps its normal identity for later
-        // consolidation.
+        // Address the Vault Key record under the recoverable `vkbckp` identity. The factory would
+        // derive that same identity from this key's seed anyway; passing it explicitly keeps the
+        // create flow correct even if the stored key's own `nostr` value ever differs from the
+        // one this run was created with.
         val createFlowVaultKey = vaultKey.copy(nostr = createFlowRelayIdentity)
         // Source-level state records failures for later retries, so a blocked prerequisite is
         // treated like any other source failure: it records no quorum and is retried later.

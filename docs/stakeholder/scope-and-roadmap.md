@@ -16,14 +16,14 @@
 | Vault Key-account validation and deterministic vault identity | Implemented | Technical behavior is covered by automated tests; production security review is still a release gate. |
 | Generate associated Ed25519 SSH accounts | Implemented | Created accounts appear in the account list using creation IDs. |
 | View public key and fingerprint | Implemented | Available on associated-account detail. |
-| Confirm before showing/copying private key | Implemented | Sensitive-view safeguards are present; expiry/export polish is still needed. |
+| Passphrase-gated encrypted-key export | Implemented | Account details offer **Export Account to Notes** and **Export Account to Clipboard**, each requiring the account passphrase first. The private key is never shown in plain text, and screens are screenshot-protected. |
 | Re-display and verify VaultKey Secret Combinations | Implemented | Reachable from **Settings**. Passphrase-gated, non-cancellable once entered, and resumes after a restart until verification completes. |
 | Encrypted Nostr relay backup | Implemented | Requires operational validation and production hardening. |
 | Brave Sync backup and discovery | Implemented | Requires end-to-end interoperability and release validation. |
 | Backup status and manual sync | Partial | Current UI shows destination markers; richer plain-language status, timestamps, and recovery guidance remain. |
 | Automatically discover and restore associated accounts | Partial | Recovery services exist; validate the end-to-end automatic restoration experience. |
 | File import and QR key intake | Planned | Archived product specification describes these options; current UI is paste-oriented. |
-| Key export/share workflow | Planned | The current app provides reveal/copy, not a complete export/share flow. |
+| Key export/share workflow | Partial | Passphrase-gated export to installed notes-capable apps and clipboard copy are implemented for associated accounts and for the Vault Key. File export, QR, and a complete share flow are not. |
 | Rename or rotate associated accounts | Out of scope | Creation ID is currently the stable account label. |
 | Delete an associated account or reset the vault | Not available | The current app provides neither action. |
 | SSH agent, terminal, or Git client | Out of scope | ZenTen Vault manages credentials; it does not use them to log into servers. |

@@ -123,7 +123,7 @@ flowchart TD
     Missing --> Quorum{"Eligible Nostr and Brave backups confirmed?"}
     Quorum -->|Yes| Complete["Mark setup complete"]
     Complete --> Schedule["Schedule associated-account consolidation"]
-    Schedule --> Accounts["Open My Accounts"]
+    Schedule --> Accounts["Open Accounts"]
     Quorum -->|No| Incomplete["Keep Vault Key stored, record pending backup state, and leave setup incomplete"]
     Incomplete --> Retry["Retry backup without re-importing"]
     Retry --> Sources
@@ -158,7 +158,7 @@ flowchart TD
     QueueProfile --> ProfileWorker["Background publish both events to all profile relays with retry"]
 ```
 
-Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key; the paste-back check only proves the user kept a readable copy, not that it stays durable or private. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. The exported text uses OpenSSH PEM markers around a single-line Base64 body, then adds the account `npub`, raw creation ID/timestamp, display name, and the account-detail card's full human-readable `Created on ...` date and time on separate lines. Back navigation is blocked on the export screen until the pasted key matches the stored account, which clears the current clipboard entry as part of the check. Confirmation removes the completed export screen from navigation history, so Back from **My Accounts** cannot reopen it. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **My Accounts**. It is mandatory and public: the account name becomes the kind 0 `display_name` and the creation ID its `name` on seven public relays, and the creation screen does not disclose this (D4). Relay copies can be replicated and cannot be recalled.
+Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key; the paste-back check only proves the user kept a readable copy, not that it stays durable or private. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. The exported text uses OpenSSH PEM markers around a single-line Base64 body, then adds the account `npub`, raw creation ID/timestamp, display name, and the account-detail card's full human-readable `Created on ...` date and time on separate lines. Back navigation is blocked on the export screen until the pasted key matches the stored account, which clears the current clipboard entry as part of the check. Confirmation removes the completed export screen from navigation history, so Back from **Accounts** cannot reopen it. Profile publication runs as account-keyed unique WorkManager work, so relay latency or failure does not prevent navigation to **Accounts**. It is mandatory and public: the account name becomes the kind 0 `display_name` and the creation ID its `name` on seven public relays, and the creation screen does not disclose this (D4). Relay copies can be replicated and cannot be recalled.
 
 ## Associated-account consolidation and automatic recovery
 
