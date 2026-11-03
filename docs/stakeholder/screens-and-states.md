@@ -28,7 +28,7 @@ The former global **Backup Status** screen and navigation destination have been 
 
 ## Vault lock
 
-A cold start or process restart always requires Android's system authentication prompt. Strong biometrics and the device PIN, pattern, or password are accepted. Cancelling or failing leaves a stable locked screen with an **Unlock** action; navigation is never rendered behind it. An unlocked session has a 30-second background grace period, measured with monotonic elapsed time. Returning after that interval requires authentication again and drops the in-memory passphrase.
+A cold start or process restart always requires Android's system authentication prompt. Strong biometrics and the device PIN, pattern, or password are accepted. Cancelling or failing leaves a stable locked screen with an **Unlock** action; navigation is never rendered behind it. Returning to the foreground after more than 30 seconds in the background requires authentication again and drops the foreground passphrase session. The boundary is measured with monotonic elapsed time and evaluated on return, not by a timer, so a continuously foregrounded app is not locked for inactivity.
 
 When a VaultKey is stored, device authentication is followed by a **VaultKey passphrase** screen. The passphrase is verified by decrypting the stored VaultKey, kept only in memory for the session, and re-entered after each relock or process restart; it is never written to disk. The input is masked by default with a trailing eye icon that toggles between **Show passphrase** and **Hide passphrase**, and the reveal state is never persisted. A fresh install with no stored VaultKey skips the screen and gets the passphrase during onboarding.
 

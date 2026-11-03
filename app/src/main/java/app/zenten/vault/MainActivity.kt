@@ -1,13 +1,17 @@
 package app.zenten.vault
 
+import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +47,17 @@ import app.zenten.vault.ui.availability.AppBlockedScreen
 import app.zenten.vault.ui.theme.ZenTenVaultTheme
 import dagger.hilt.android.AndroidEntryPoint
 
+/**
+ * The deprecated keyguard intent is the only credential fallback on API 28-29, where AndroidX
+ * Biometric rejects the combined `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` prompt.
+ */
+@Suppress("DEPRECATION")
+private fun deviceCredentialIntent(keyguardManager: KeyguardManager?): Intent? =
+    keyguardManager?.createConfirmDeviceCredentialIntent(
+        "Unlock ZenTen Vault",
+        "Confirm your identity to continue",
+    )
+
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +81,28 @@ private fun VaultApp() {
                 AppUnlockCoordinator(activity, ContextCompat.getMainExecutor(activity))
             }
             val unlockState by unlockCoordinator.state.collectAsState()
+
+            // API 28-29 cannot combine strong biometric and device credential in one prompt, so
+            // the coordinator asks the activity to run the keyguard credential confirmation.
+            val credentialLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.StartActivityForResult(),
+            ) { result ->
+                unlockCoordinator.onDeviceCredentialResult(result.resultCode == Activity.RESULT_OK)
+            }
+            val keyguardManager = remember(activity) {
+                activity.getSystemService(KeyguardManager::class.java)
+            }
+            LaunchedEffect(unlockCoordinator, keyguardManager) {
+                unlockCoordinator.deviceCredentialRequests.collect {
+                    val intent = deviceCredentialIntent(keyguardManager)
+                    if (intent != null) {
+                        credentialLauncher.launch(intent)
+                    } else {
+                        unlockCoordinator.onDeviceCredentialResult(false)
+                    }
+                }
+            }
+
             val gateViewModel: VaultUnlockGateViewModel = hiltViewModel()
             val gateState by gateViewModel.state.collectAsState()
 

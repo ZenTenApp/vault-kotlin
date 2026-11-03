@@ -6,7 +6,9 @@ import android.os.SystemClock
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.Executor
 
@@ -17,6 +19,15 @@ import java.util.concurrent.Executor
 internal const val VAULT_AUTHENTICATORS =
     BiometricManager.Authenticators.BIOMETRIC_STRONG or
         BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+/** The authenticator set a single prompt may request on the running API level. */
+internal enum class UnlockPromptKind {
+    /** One prompt may accept a strong biometric or the device credential (API 26-27, 30+). */
+    Combined,
+
+    /** The platform rejects combining both, so the prompt is strong-biometric-only (API 28-29). */
+    StrongBiometricOnly,
+}
 
 sealed interface AppUnlockState {
     data object Checking : AppUnlockState
@@ -35,6 +46,33 @@ internal object DeviceLockPolicy {
         if (!wasUnlocked || backgroundAt == null) return true
         return now - backgroundAt >= GRACE_PERIOD_MILLIS
     }
+
+    /**
+     * AndroidX Biometric 1.1.0 rejects `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` on API 28-29 and
+     * accepts it on API 26-27 and 30+. Only the middle band needs a separate credential prompt.
+     */
+    fun promptKind(sdkInt: Int): UnlockPromptKind = when {
+        sdkInt < Build.VERSION_CODES.P -> UnlockPromptKind.Combined
+        sdkInt <= Build.VERSION_CODES.Q -> UnlockPromptKind.StrongBiometricOnly
+        else -> UnlockPromptKind.Combined
+    }
+
+    /**
+     * Errors that mean the strong-biometric prompt cannot complete. On API 28-29 these hand off
+     * to the keyguard credential prompt instead of being treated as a cancellation.
+     */
+    fun isCredentialFallbackError(errorCode: Int): Boolean =
+        errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+            errorCode == BiometricPrompt.ERROR_NO_BIOMETRICS ||
+            errorCode == BiometricPrompt.ERROR_HW_NOT_PRESENT
+
+    /**
+     * API 28-29 can only check strong-biometric availability approximately. Anything other than
+     * success or "unknown" means the credential prompt is the only usable path.
+     */
+    fun strongBiometricUnavailable(status: Int): Boolean =
+        status != BiometricManager.BIOMETRIC_SUCCESS &&
+            status != BiometricManager.BIOMETRIC_STATUS_UNKNOWN
 
     const val GRACE_PERIOD_MILLIS = 30_000L
 }
@@ -60,6 +98,10 @@ internal object AuthErrorPolicy {
 /**
  * Owns the in-memory foreground session. No unlock status or timestamp is persisted, so process
  * death always returns the vault to a locked state.
+ *
+ * The prompt always names its authenticator set explicitly. Leaving the set unset is what made
+ * AndroidX Biometric 1.1.0 default a non-crypto prompt to `BIOMETRIC_WEAK | DEVICE_CREDENTIAL`,
+ * which admitted Class 2 biometrics despite the strong-biometric policy.
  */
 class AppUnlockCoordinator(
     private val activity: FragmentActivity,
@@ -68,12 +110,21 @@ class AppUnlockCoordinator(
 ) {
     private val biometricManager = BiometricManager.from(activity)
     private val keyguardManager = activity.getSystemService(KeyguardManager::class.java)
+    private val promptKind = DeviceLockPolicy.promptKind(Build.VERSION.SDK_INT)
     private val _state = MutableStateFlow<AppUnlockState>(AppUnlockState.Checking)
     val state: StateFlow<AppUnlockState> = _state
+
+    /**
+     * Emits when the host activity must launch the keyguard device-credential prompt. Only used
+     * on API 28-29, where the strong biometric and the credential cannot share one prompt.
+     */
+    private val _deviceCredentialRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val deviceCredentialRequests: SharedFlow<Unit> = _deviceCredentialRequests
 
     private var wasUnlocked = false
     private var backgroundAt: Long? = null
     private var promptRequested = false
+    private var credentialRequestInFlight = false
 
     private val prompt = BiometricPrompt(
         activity,
@@ -88,6 +139,12 @@ class AppUnlockCoordinator(
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 promptRequested = false
+                if (promptKind == UnlockPromptKind.StrongBiometricOnly &&
+                    DeviceLockPolicy.isCredentialFallbackError(errorCode)
+                ) {
+                    requestDeviceCredential()
+                    return
+                }
                 val next = AuthErrorPolicy.stateFor(errorCode, canAuthenticate())
                 if (next == AppUnlockState.DeviceLockRequired) wasUnlocked = false
                 _state.value = next
@@ -103,6 +160,10 @@ class AppUnlockCoordinator(
             return
         }
 
+        // Returning from the keyguard credential activity: its result callback settles the state,
+        // so evaluating the boundary here would race it and prompt twice.
+        if (credentialRequestInFlight) return
+
         val mustAuthenticate = DeviceLockPolicy.requiresAuthentication(
             wasUnlocked = wasUnlocked,
             backgroundAt = backgroundAt,
@@ -112,7 +173,11 @@ class AppUnlockCoordinator(
         if (mustAuthenticate) {
             wasUnlocked = false
             _state.value = AppUnlockState.Locked
-            authenticate()
+            // On API 28-29 the credential fallback must stay an explicit user action. Auto-launching
+            // it on every foreground would trap a user who cancels in a prompt loop.
+            if (promptKind == UnlockPromptKind.Combined || strongBiometricAvailable()) {
+                authenticate()
+            }
         } else {
             _state.value = AppUnlockState.Unlocked
         }
@@ -127,10 +192,31 @@ class AppUnlockCoordinator(
             _state.value = AppUnlockState.DeviceLockRequired
             return
         }
-        if (promptRequested) return
+        if (promptRequested || credentialRequestInFlight) return
+        if (promptKind == UnlockPromptKind.StrongBiometricOnly && !strongBiometricAvailable()) {
+            requestDeviceCredential()
+            return
+        }
         promptRequested = true
         _state.value = AppUnlockState.Authenticating
         prompt.authenticate(buildPromptInfo())
+    }
+
+    /** Called by the host activity with the result of the keyguard credential prompt. */
+    fun onDeviceCredentialResult(succeeded: Boolean) {
+        credentialRequestInFlight = false
+        promptRequested = false
+        if (succeeded) {
+            // Record the return as the start of a fresh grace window so the ON_START foreground
+            // check does not immediately relock the session this prompt just unlocked.
+            wasUnlocked = true
+            backgroundAt = elapsedRealtime()
+            _state.value = AppUnlockState.Unlocked
+        } else {
+            wasUnlocked = false
+            backgroundAt = null
+            _state.value = AppUnlockState.Locked
+        }
     }
 
     fun recheckDeviceLock() {
@@ -140,28 +226,49 @@ class AppUnlockCoordinator(
     }
 
     /**
-     * `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` is unsupported by `canAuthenticate` before API 30,
-     * so older devices fall back to the keyguard's own "device is secure" signal. A secure
-     * keyguard is a prerequisite for biometric enrollment, so it covers both authenticators.
+     * API 28-29 cannot ask `canAuthenticate` for the combined set. A secure keyguard proves the
+     * device credential exists; whether a strong biometric is also enrolled is decided separately
+     * because either factor may open the vault on those versions.
      */
-    private fun canAuthenticate(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return biometricManager.canAuthenticate(VAULT_AUTHENTICATORS) ==
+    private fun canAuthenticate(): Boolean = when (promptKind) {
+        UnlockPromptKind.Combined ->
+            biometricManager.canAuthenticate(VAULT_AUTHENTICATORS) ==
                 BiometricManager.BIOMETRIC_SUCCESS
-        }
-        return keyguardManager?.isDeviceSecure == true
+
+        UnlockPromptKind.StrongBiometricOnly ->
+            keyguardManager?.isDeviceSecure == true
     }
 
-    /** Matches the prompt policy to the running API level so `build()` never throws. */
+    private fun strongBiometricAvailable(): Boolean =
+        !DeviceLockPolicy.strongBiometricUnavailable(
+            biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG),
+        )
+
+    private fun requestDeviceCredential() {
+        if (!canAuthenticate()) {
+            _state.value = AppUnlockState.DeviceLockRequired
+            return
+        }
+        if (credentialRequestInFlight) return
+        credentialRequestInFlight = true
+        promptRequested = false
+        _state.value = AppUnlockState.Authenticating
+        if (!_deviceCredentialRequests.tryEmit(Unit)) {
+            credentialRequestInFlight = false
+            _state.value = AppUnlockState.Locked
+        }
+    }
+
+    /** Builds a prompt that always names an explicit authenticator set; see the class KDoc. */
     private fun buildPromptInfo(): BiometricPrompt.PromptInfo {
         val builder = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock ZenTen Vault")
             .setSubtitle("Confirm your identity to continue")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            builder.setAllowedAuthenticators(VAULT_AUTHENTICATORS)
-        } else {
-            @Suppress("DEPRECATION")
-            builder.setDeviceCredentialAllowed(true)
+        when (promptKind) {
+            UnlockPromptKind.Combined -> builder.setAllowedAuthenticators(VAULT_AUTHENTICATORS)
+            UnlockPromptKind.StrongBiometricOnly -> builder
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                .setNegativeButtonText("Use device PIN")
         }
         return builder.build()
     }

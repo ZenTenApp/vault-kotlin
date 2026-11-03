@@ -1,5 +1,7 @@
 package app.zenten.vault.ui.auth
 
+import android.os.Build
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -77,6 +79,73 @@ class DeviceLockPolicyTest {
         assertEquals(
             AppUnlockState.DeviceLockRequired,
             AuthErrorPolicy.stateFor(BiometricPrompt.ERROR_CANCELED, canAuthenticate = false),
+        )
+    }
+
+    @Test
+    fun `api 26 and 27 use one combined strong biometric and credential prompt`() {
+        assertEquals(
+            UnlockPromptKind.Combined,
+            DeviceLockPolicy.promptKind(Build.VERSION_CODES.O),
+        )
+        assertEquals(
+            UnlockPromptKind.Combined,
+            DeviceLockPolicy.promptKind(Build.VERSION_CODES.O_MR1),
+        )
+    }
+
+    @Test
+    fun `api 28 and 29 use the strong-only prompt with a credential fallback`() {
+        assertEquals(
+            UnlockPromptKind.StrongBiometricOnly,
+            DeviceLockPolicy.promptKind(Build.VERSION_CODES.P),
+        )
+        assertEquals(
+            UnlockPromptKind.StrongBiometricOnly,
+            DeviceLockPolicy.promptKind(Build.VERSION_CODES.Q),
+        )
+    }
+
+    @Test
+    fun `api 30 and later use the combined prompt`() {
+        assertEquals(
+            UnlockPromptKind.Combined,
+            DeviceLockPolicy.promptKind(Build.VERSION_CODES.R),
+        )
+        assertEquals(UnlockPromptKind.Combined, DeviceLockPolicy.promptKind(36))
+    }
+
+    @Test
+    fun `credential fallback covers prompt errors that cannot complete`() {
+        listOf(
+            BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+            BiometricPrompt.ERROR_NO_BIOMETRICS,
+            BiometricPrompt.ERROR_HW_NOT_PRESENT,
+        ).forEach { errorCode ->
+            assertTrue(
+                DeviceLockPolicy.isCredentialFallbackError(errorCode),
+                "errorCode=$errorCode",
+            )
+        }
+        assertFalse(
+            DeviceLockPolicy.isCredentialFallbackError(BiometricPrompt.ERROR_USER_CANCELED),
+        )
+        assertFalse(DeviceLockPolicy.isCredentialFallbackError(BiometricPrompt.ERROR_LOCKOUT))
+    }
+
+    @Test
+    fun `strong biometric availability accepts success and unknown only`() {
+        assertFalse(
+            DeviceLockPolicy.strongBiometricUnavailable(BiometricManager.BIOMETRIC_SUCCESS),
+        )
+        assertFalse(
+            DeviceLockPolicy.strongBiometricUnavailable(BiometricManager.BIOMETRIC_STATUS_UNKNOWN),
+        )
+        assertTrue(
+            DeviceLockPolicy.strongBiometricUnavailable(BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED),
+        )
+        assertTrue(
+            DeviceLockPolicy.strongBiometricUnavailable(BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE),
         )
     }
 }
