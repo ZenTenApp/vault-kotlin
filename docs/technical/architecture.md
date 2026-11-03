@@ -59,7 +59,7 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 
 ## Core lifecycle
 
-1. **Vault Key setup:** persist Vault Key locally, inspect/write all sources sequentially, and complete setup only with one eligible Nostr plus one eligible Brave success. Retain the local Vault Key on quorum failure.
+1. **Vault Key setup:** persist Vault Key locally, inspect/write all sources sequentially, and complete setup only with one eligible Nostr plus one eligible Brave success. Retain the local Vault Key on quorum failure. Both entry paths honour this: the imported-key path throws on quorum failure and stays retryable, while the generated-VaultKey path stores the outcome in `AppStorageService.vaultKeyQuorumReached` and `SetupService.completeGeneratedVaultKeySetup` refuses completion until that flag is set, so the wizard's later export/transcription steps cannot complete setup on a key that never reached a remote source.
 2. **Associated creation:** generate and save locally, then enqueue background backup; failed sources are persisted as pending IDs.
 3. **Consolidation restore:** index every source and restore missing valid associated accounts from trusted sources.
 4. **Consolidation backup:** use retained phase-1 indexes to fill gaps, then perform one final read-back per successfully indexed source.

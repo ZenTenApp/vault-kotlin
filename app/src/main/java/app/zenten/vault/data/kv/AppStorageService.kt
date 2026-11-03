@@ -70,11 +70,33 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     val vaultKeyPasteAttempts: Flow<Int> = dataStore.data.map { it[VAULT_KEY_PASTE_ATTEMPTS] ?: 0 }
     val vaultKeyPasteBlockedUntilMillis: Flow<Long?> = dataStore.data.map { it[VAULT_KEY_PASTE_BLOCKED_UNTIL] }
 
+    /**
+     * Whether the last Vault Key backup satisfied one relay plus one Brave Sync quorum.
+     *
+     * Kept apart from [setupComplete] because the generated-VaultKey wizard finishes its local
+     * export and transcription steps after the backup attempt, so the two facts can diverge.
+     * Persisted so the last wizard step and a process restart cannot disagree about it.
+     */
+    val vaultKeyQuorumReached: Flow<Boolean> = dataStore.data.map { it[VAULT_KEY_QUORUM_REACHED] ?: false }
+
     suspend fun setSetupComplete() = dataStore.edit {
         it[SETUP_COMPLETE] = true
         it.remove(CREATE_VAULT_KEY_STEP)
     }
-    suspend fun clearSetupComplete() = dataStore.edit { it.remove(SETUP_COMPLETE) }
+
+    /**
+     * Clears completed setup together with its quorum evidence: setup that has to be
+     * established again must not inherit a backup claim from the previous attempt.
+     */
+    suspend fun clearSetupComplete() = dataStore.edit {
+        it.remove(SETUP_COMPLETE)
+        it.remove(VAULT_KEY_QUORUM_REACHED)
+    }
+
+    /** Records the remote-backup quorum outcome of the latest Vault Key backup attempt. */
+    suspend fun setVaultKeyQuorumReached(reached: Boolean) = dataStore.edit {
+        it[VAULT_KEY_QUORUM_REACHED] = reached
+    }
 
     suspend fun setSshKdfRounds(rounds: Int) {
         require(rounds in SshKeyCodec.SUPPORTED_BCRYPT_PBKDF_ROUNDS) { "Unsupported bcrypt KDF round count: $rounds" }
@@ -207,6 +229,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
 
     companion object {
         val SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
+        val VAULT_KEY_QUORUM_REACHED = booleanPreferencesKey("vault_key_quorum_reached_v1")
         val SSH_KDF_ROUNDS = intPreferencesKey("ssh_kdf_rounds_v1")
         val CREATE_VAULT_KEY_STEP = stringPreferencesKey("create_vault_key_step_v1")
         val SECRET_COMBINATIONS_VIEW_STEP = stringPreferencesKey("secret_combinations_view_step_v1")

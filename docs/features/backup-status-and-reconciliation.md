@@ -66,7 +66,7 @@ Persisted status contains account IDs, source IDs, state, coarse error category,
 
 ## Vault Key setup quorum
 
-Setup attempts all enabled sources sequentially. It writes the Vault Key only after a successful source index proves that the canonical Vault Key ID is absent; an index failure remains unknown and is never treated as permission to push another entry. The Vault Key is retained in secure local storage even when remote quorum fails. Setup completes only when at least one quorum-eligible Nostr source and at least one quorum-eligible Brave Sync source already contain or successfully accept the Vault Key. The user can retry without reimporting the Vault Key.
+Setup attempts all enabled sources sequentially. It writes the Vault Key only after a successful source index proves that the canonical Vault Key ID is absent; an index failure remains unknown and is never treated as permission to push another entry. The Vault Key is retained in secure local storage even when remote quorum fails. Setup completes only when at least one quorum-eligible Nostr source and at least one quorum-eligible Brave Sync source already contain or successfully accept the Vault Key. The user can retry without reimporting the Vault Key. The in-app generation wizard enforces the same rule at its final step: it persists the create-flow backup outcome and refuses to complete setup until that outcome shows quorum, offering **Retry VaultKey backup** on the verification screen instead.
 
 ## Scheduling and interruption
 

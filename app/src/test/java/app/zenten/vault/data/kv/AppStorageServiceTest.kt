@@ -38,6 +38,7 @@ class AppStorageServiceTest {
             assertEquals(CreateVaultKeyStep.CONFIRM_BACKUP, service.createVaultKeyStep.first())
             service.setCreateVaultKeyStep(CreateVaultKeyStep.SECRET_COMBINATIONS)
             assertEquals(CreateVaultKeyStep.SECRET_COMBINATIONS, service.createVaultKeyStep.first())
+            service.setVaultKeyQuorumReached(true)
             service.setSetupComplete()
             service.setCustomBackupSources(listOf(source))
             service.upsertPendingSourceWrite(PendingSourceWrite("10", "custom", PendingWriteReason.DIRECT_BACKUP))
@@ -47,6 +48,7 @@ class AppStorageServiceTest {
             service.upsertCachedAccountProfiles(listOf(CachedAccountProfile(10L, "Profile", 100L)))
 
             assertTrue(service.setupComplete.first())
+            assertTrue(service.vaultKeyQuorumReached.first())
             assertEquals(null, service.createVaultKeyStep.first())
             assertEquals(listOf(source), service.customBackupSources.first())
             assertEquals(1, service.pendingSourceWrites.first().size)
@@ -59,6 +61,10 @@ class AppStorageServiceTest {
 
             service.clearPendingSourceWrite("10", "custom")
             assertTrue(service.pendingSourceWrites.first().isEmpty())
+
+            // Restarting setup must not inherit the previous attempt's backup claim.
+            service.clearSetupComplete()
+            assertFalse(service.vaultKeyQuorumReached.first())
         } finally {
             directory.deleteRecursively()
         }
