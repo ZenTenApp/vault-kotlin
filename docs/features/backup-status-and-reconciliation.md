@@ -87,5 +87,5 @@ Setup attempts all enabled sources sequentially. It writes the Vault Key only af
 - Orchestration: `domain/AccountConsolidationEngine.kt`
 - Worker: `background/BackupWorkers.kt` (`AccountConsolidationWorker` handles targeted and all-account cycles)
 - Status persistence: `data/kv/AppStorageService.kt`
-- UI: `ui/accounts/AccountDetailScreen.kt`, `ui/Vault Key/VaultKeyDetailScreen.kt`
+- UI: `ui/accounts/AccountDetailScreen.kt`, `ui/vaultkey/VaultKeyDetailScreen.kt`
 - Core tests: `domain/AccountConsolidationEngineTest.kt`, `domain/BackupSourceRepositoryTest.kt`, `data/kv/AppStorageServiceTest.kt`

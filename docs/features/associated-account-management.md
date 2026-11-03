@@ -2,7 +2,7 @@
 
 ## User outcome
 
-After setup has satisfied the Vault Key backup quorum, a user can generate a separate Ed25519 SSH account for another service, project, or environment and find it in **My Accounts**.
+After setup has satisfied the Vault Key backup quorum, a user can generate a separate Ed25519 SSH account for another service, project, or environment and find it in **Accounts**.
 
 ## Current behavior
 

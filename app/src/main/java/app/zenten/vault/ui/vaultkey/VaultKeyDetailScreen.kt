@@ -130,7 +130,7 @@ fun VaultKeyDetailScreen(
                     }
                 } else {
                     Button(onClick = viewModel::retryVaultKey, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                        Text("Retry vaultKey setup")
+                        Text("Retry Vault Key setup")
                     }
                 }
             }
