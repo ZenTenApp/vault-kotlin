@@ -87,14 +87,14 @@ flowchart LR
 **User goal:** Rebuild access to previously generated associated accounts after losing or replacing a device.
 
 1. The user installs the app on a new device.
-2. The user completes setup using the same Vault Key private key and passphrase.
+2. The user completes setup using the same Vault Key private key and passphrase, or by recovering it with the 24 saved Secret Combinations and passphrase.
 3. The app uses that identity to look for protected backup copies.
 4. Every valid discovered associated account is restored automatically.
 5. Restored accounts appear in **Accounts** and are available locally.
 
 **Success:** The user regains all valid discovered associated accounts when usable remote backups can be found.
 
-**Important limitation:** The app cannot recover the Vault Key private key or its passphrase. If either is unavailable, this recovery path is unavailable.
+**Important limitation:** This journey restores associated accounts, not Vault Key material. The Vault Key itself is rebuilt only if the user still has one of two things — the private key, or the 24 Secret Combinations plus a remote copy — *and* the passphrase on every path. A forgotten passphrase cannot be reset or recovered; see [what users must retain](backup-and-recovery.md#what-users-must-retain).
 
 ## 6. Rewrite and verify the VaultKey Secret Combinations
 

@@ -31,7 +31,7 @@ For every enabled source:
 5. For an associated ID missing locally, candidates are tried newest-first until one decrypts and validates.
 6. A valid recovered account is saved immediately and becomes part of the inventory considered for later sources.
 
-The Vault Key is indexed but never restored remotely. The user must retain and import the Vault Key private key and passphrase.
+The Vault Key is indexed but this reconciliation pass never restores it remotely. A remote Vault Key copy is read back only by the separate **Recover VaultKey** flow, which needs the 24 Secret Combinations and the passphrase; the user must otherwise retain and import the Vault Key private key and passphrase.
 
 Custom-source restoration requires both `restoreEnabled` and `trustedForRestore`; untrusted sources can still be indexed for status and backup repair.
 

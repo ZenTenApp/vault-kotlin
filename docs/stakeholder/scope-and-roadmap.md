@@ -27,7 +27,8 @@
 | Rename or rotate associated accounts | Out of scope | Creation ID is currently the stable account label. |
 | Delete an associated account or reset the vault | Not available | The current app provides neither action. |
 | SSH agent, terminal, or Git client | Out of scope | ZenTen Vault manages credentials; it does not use them to log into servers. |
-| Recover a lost Vault Key private key or passphrase | Out of scope | User-held Vault Key material is required. |
+| Recover a forgotten Vault Key passphrase | Out of scope | The passphrase is never stored and has no reset path; the user must be able to decrypt the key. |
+| Recover a lost Vault Key private key | Implemented, conditional | **Recover VaultKey** restores the key from an enabled relay or Brave Sync copy when the user still holds the 24 Secret Combinations and passphrase. Without those, the key cannot be recreated. |
 
 ## Release gates before production use
 
