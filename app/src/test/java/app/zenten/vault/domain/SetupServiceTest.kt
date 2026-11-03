@@ -53,14 +53,81 @@ class SetupServiceTest {
             failedSourceIds = setOf("relay", "brave"),
         )
 
-        assertTrue(fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity).isSuccess)
+        val result = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity)
 
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrThrow().quorumReached)
         verify(exactly = 1) { fixture.secureStorage.addVaultKey(vaultKey) }
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
         coVerify(exactly = 1) { fixture.appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO) }
         coVerify(exactly = 1) {
             fixture.engine.backupVaultKey(vaultKey.copy(nostr = createFlowRelayIdentity), any(), any())
         }
+        // The quorum outcome is recorded even when it is negative, so the last wizard step
+        // cannot complete setup on a backup that never landed.
+        coVerify(exactly = 1) { fixture.appStorage.setVaultKeyQuorumReached(false) }
+        coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
+    }
+
+    @Test
+    fun generated_backup_records_a_reached_quorum_for_the_final_wizard_step() = runTest {
+        val fixture = Fixture()
+        // The create flow backs up under the `vkbckp` identity, not the stored key's own.
+        coEvery {
+            fixture.engine.backupVaultKey(vaultKey.copy(nostr = createFlowRelayIdentity), any(), any())
+        } returns AccountConsolidationEngine.VaultKeyBackupResult(
+            relayQuorum = true,
+            braveQuorum = true,
+            successfulSourceIds = setOf("relay", "brave"),
+            failedSourceIds = emptySet(),
+        )
+
+        val state = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity).getOrThrow()
+
+        assertTrue(state.quorumReached)
+        coVerify(exactly = 1) { fixture.appStorage.setVaultKeyQuorumReached(true) }
+        // Completion itself belongs to the last wizard step, not the backup attempt.
+        coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
+    }
+
+    @Test
+    fun generated_setup_completion_is_refused_when_no_quorum_was_reached() = runTest {
+        val fixture = Fixture()
+        every { fixture.appStorage.vaultKeyQuorumReached } returns flowOf(false)
+
+        val result = fixture.service.completeGeneratedVaultKeySetup()
+
+        assertFalse(result.isSuccess)
+        assertTrue(result.exceptionOrNull()?.message?.contains("quorum") == true)
+        coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
+    }
+
+    @Test
+    fun generated_setup_completion_succeeds_only_after_a_recorded_quorum() = runTest {
+        val fixture = Fixture()
+        every { fixture.appStorage.vaultKeyQuorumReached } returns flowOf(true)
+
+        assertTrue(fixture.service.completeGeneratedVaultKeySetup().isSuccess)
+
+        coVerify(exactly = 1) { fixture.appStorage.setSetupComplete() }
+    }
+
+    @Test
+    fun retrying_the_generated_backup_records_the_new_quorum_and_leaves_completion_to_the_wizard() = runTest {
+        val fixture = Fixture()
+        every { fixture.secureStorage.getVaultKey() } returns vaultKey
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+            relayQuorum = true,
+            braveQuorum = false,
+            successfulSourceIds = setOf("relay"),
+            failedSourceIds = setOf("brave"),
+        )
+
+        val result = fixture.service.retryGeneratedVaultKeyBackup()
+
+        assertFalse(result.isSuccess)
+        assertTrue(result.exceptionOrNull()?.message?.contains("Brave") == true)
+        coVerify(exactly = 1) { fixture.appStorage.setVaultKeyQuorumReached(false) }
         coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
     }
 
@@ -142,10 +209,14 @@ class SetupServiceTest {
         val fixture = Fixture()
         coEvery { fixture.precondition.check() } returns RemoteOperationReadiness.DEVICE_TIME_INCORRECT
 
-        assertTrue(fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity).isSuccess)
+        val result = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity)
 
+        assertTrue(result.isSuccess)
+        // A skipped backup is no evidence of coverage, so it clears any earlier quorum claim.
+        assertFalse(result.getOrThrow().quorumReached)
         verify(exactly = 1) { fixture.secureStorage.addVaultKey(vaultKey) }
         coVerify(exactly = 1) { fixture.appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO) }
+        coVerify(exactly = 1) { fixture.appStorage.setVaultKeyQuorumReached(false) }
         coVerify(exactly = 0) { fixture.engine.backupVaultKey(any(), any(), any()) }
     }
 
@@ -187,6 +258,7 @@ class SetupServiceTest {
             coJustRun { appStorage.clearSetupComplete() }
             coJustRun { appStorage.setSetupComplete() }
             coJustRun { appStorage.setCreateVaultKeyStep(any()) }
+            coJustRun { appStorage.setVaultKeyQuorumReached(any()) }
         }
     }
 

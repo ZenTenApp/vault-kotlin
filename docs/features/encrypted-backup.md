@@ -13,8 +13,8 @@ The default source list and consolidation behavior are documented in [Backup sta
 1. Setup validates and derives the Vault Key.
 2. `SetupService` stores it using `SecureStorageService`.
 3. `AccountConsolidationEngine.backupVaultKey` checks and, where absent, writes every enabled source sequentially.
-4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the Vault Key.
-5. If quorum fails, the Vault Key remains securely stored, setup remains incomplete, and retry does not require reimport.
+4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the Vault Key. The generated-VaultKey wizard applies the same rule at its final step: the backup outcome is persisted, and setup completion reads it back rather than assuming the backup succeeded.
+5. If quorum fails, the Vault Key remains securely stored, setup remains incomplete, and retry does not require reimport. For the generated wizard the retry is offered on the final Secret Combinations screen, which stays open until quorum is reached.
 6. After setup, `AccountConsolidationEngine.consolidateVaultKey` keeps that record reconciled from the post-unlock `VaultKeyConsolidationWorker` and the **Consolidate VaultKey backup** action on the Vault Key screen. It applies a one-hour freshness threshold and its own pending-write check; manual requests bypass freshness. There is no periodic schedule.
 
 ### Associated-account creation

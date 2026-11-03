@@ -85,6 +85,10 @@ class CreateVaultKeyViewModelTest {
         coJustRun { appStorage.clearSetupComplete() }
         coJustRun { appStorage.setCreateVaultKeyStep(any()) }
         coJustRun { appStorage.setVaultKeyPasteGuard(any(), any()) }
+        coJustRun { appStorage.setSetupComplete() }
+        coJustRun { appStorage.setVaultKeyQuorumReached(any()) }
+        // A generated backup that reached quorum is the default; individual tests override it.
+        every { appStorage.vaultKeyQuorumReached } returns flowOf(true)
         coEvery { engine.backupVaultKey(any(), any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
         )
@@ -297,6 +301,56 @@ class CreateVaultKeyViewModelTest {
         assertEquals(expectedStored.publicKey.joinToString("") { "%02x".format(it) }, storedVaultKey.captured.nostr.pubkey)
         assertTrue(storedVaultKey.captured.nostr != backedUpVaultKey.captured.nostr)
         coVerify(exactly = 1) { engine.backupVaultKey(any(), any(), any()) }
+    }
+
+    @Test
+    fun completing_setup_requires_a_reached_backup_quorum() = runTest(dispatcher) {
+        val appStorage = mockk<AppStorageService>(relaxed = false)
+        val secureStorage = mockk<SecureStorageService>()
+        val engine = mockk<AccountConsolidationEngine>()
+        val remoteOperationPrecondition = mockk<RemoteOperationPrecondition>()
+        coEvery { remoteOperationPrecondition.check() } returns RemoteOperationReadiness.READY
+        every { appStorage.sshKdfRounds } returns flowOf(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS)
+        every { appStorage.vaultKeyPasteAttempts } returns flowOf(0)
+        every { appStorage.vaultKeyPasteBlockedUntilMillis } returns flowOf(null)
+        coJustRun { appStorage.clearSetupComplete() }
+        coJustRun { appStorage.setCreateVaultKeyStep(any()) }
+        coJustRun { appStorage.setSetupComplete() }
+        coJustRun { appStorage.setVaultKeyQuorumReached(any()) }
+        // The create-flow backup never landed, so setup completion must be refused.
+        every { appStorage.vaultKeyQuorumReached } returns flowOf(false)
+        coEvery { engine.backupVaultKey(any(), any(), any()) } returns
+            AccountConsolidationEngine.VaultKeyBackupResult(true, true, emptySet(), emptySet())
+        val vaultKeySession = VaultKeySession(secureStorage)
+        val viewModel = CreateVaultKeyViewModel(
+            clock,
+            SetupService(secureStorage, appStorage, engine, remoteOperationPrecondition, vaultKeySession),
+            secureStorage,
+            appStorage,
+            vaultKeySession,
+            FakePassphraseStrengthChecker(),
+        )
+        var completed = false
+
+        viewModel.completeGeneratedVaultKeySetup { completed = true }
+        advanceUntilIdle()
+
+        assertFalse(completed)
+        assertTrue(viewModel.state.value.setupBlocked)
+        assertFalse(viewModel.state.value.advancing)
+        coVerify(exactly = 0) { appStorage.setSetupComplete() }
+    }
+
+    @Test
+    fun completing_setup_after_a_recorded_quorum_opens_the_accounts_step() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        var completed = false
+
+        viewModel.completeGeneratedVaultKeySetup { completed = true }
+        advanceUntilIdle()
+
+        assertTrue(completed)
+        assertFalse(viewModel.state.value.setupBlocked)
     }
 
     @Test

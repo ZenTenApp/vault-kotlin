@@ -26,42 +26,48 @@ class SetupService(
         val result = withVaultPassphrase { passphrase ->
             consolidationEngine.backupVaultKey(vaultKey, passphrase)
         }
-        check(result.quorumReached) {
-            when {
-                !result.relayQuorum && !result.braveQuorum -> "VaultKey backup needs at least one relay and one Brave Sync server"
-                !result.relayQuorum -> "VaultKey backup did not reach relay quorum"
-                else -> "VaultKey backup did not reach Brave Sync quorum"
-            }
-        }
+        check(result.quorumReached) { result.quorumFailureMessage() }
         appStorage.setSetupComplete()
+        // Record the evidence that justified completion, so every setup-complete state in the app
+        // also carries the backup fact it depends on.
+        appStorage.setVaultKeyQuorumReached(true)
         workScheduler?.scheduleConsolidation()
     }
 
     /**
      * Commits a generated key before the wizard advances and attempts every configured source.
      * Setup intentionally remains incomplete because later wizard steps are still mandatory.
+     *
+     * The quorum outcome is returned instead of thrown: a network problem must not undo the
+     * irreversible local commit or send the user back to key generation. Only the final
+     * [completeGeneratedVaultKeySetup] step turns a reached quorum into completed setup.
      */
     suspend fun persistGeneratedVaultKeyAndBackup(
         vaultKey: Account,
         createFlowRelayIdentity: NostrKeyPair,
         onProgress: suspend (AccountConsolidationEngine.VaultKeyBackupProgress) -> Unit = {},
-    ): Result<Unit> = runCatching {
+    ): Result<VaultKeySetupState> = runCatching {
         persistVaultKey(vaultKey)
         appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
         // Only the create-flow relay operation uses the recoverable Vault Key backup (`vkbckp`)
         // associated-account identity. The stored vaultKey keeps its normal identity for later
         // consolidation.
         val createFlowVaultKey = vaultKey.copy(nostr = createFlowRelayIdentity)
-        // Source-level state records failures for later retries. A network problem must not
-        // undo the irreversible local commit or send the user back to key generation, so a
-        // blocked prerequisite is treated like any other source failure and skipped.
-        if (blockedRemoteOperation() == null) {
+        // Source-level state records failures for later retries, so a blocked prerequisite is
+        // treated like any other source failure: it records no quorum and is retried later.
+        val result = if (blockedRemoteOperation() == null) {
             runCatching {
                 withVaultPassphrase { passphrase ->
                     consolidationEngine.backupVaultKey(createFlowVaultKey, passphrase, onProgress)
                 }
-            }
+            }.getOrNull()
+        } else {
+            null
         }
+        val state = VaultKeySetupState.of(result)
+        // Durable so the last wizard step and a process restart agree on whether quorum holds.
+        appStorage.setVaultKeyQuorumReached(state.quorumReached)
+        state
     }
 
     suspend fun retryVaultKeyBackup(): Result<Unit> = runCatching {
@@ -72,7 +78,34 @@ class SetupService(
         }
         check(result.quorumReached) { "VaultKey backup quorum is still unavailable" }
         appStorage.setSetupComplete()
+        appStorage.setVaultKeyQuorumReached(true)
         workScheduler?.scheduleConsolidation()
+    }
+
+    /**
+     * Marks generated-VaultKey setup complete, but only when a remote backup quorum is known.
+     *
+     * This is the final wizard step, so it is the last point at which the documented invariant
+     * can be enforced. The check reads the persisted flag rather than a caller-supplied value so
+     * a process restart cannot complete setup that the backup never satisfied. On failure the
+     * caller is expected to offer [retryGeneratedVaultKeyBackup] on the same screen.
+     */
+    suspend fun completeGeneratedVaultKeySetup(): Result<Unit> = runCatching {
+        check(appStorage.vaultKeyQuorumReached.first()) {
+            "VaultKey backup quorum is still unavailable"
+        }
+        appStorage.setSetupComplete()
+    }
+
+    /** Re-attempts the Vault Key backup and records whether it now satisfies quorum. */
+    suspend fun retryGeneratedVaultKeyBackup(): Result<Unit> = runCatching {
+        val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
+        throwIfRemoteOperationBlocked()
+        val result = withVaultPassphrase { passphrase ->
+            consolidationEngine.backupVaultKey(vaultKey, passphrase)
+        }
+        appStorage.setVaultKeyQuorumReached(result.quorumReached)
+        check(result.quorumReached) { result.quorumFailureMessage() }
     }
 
     suspend fun addAccount(vaultKey: Account, account: Account): Result<Unit> = runCatching {
@@ -150,4 +183,37 @@ interface BackupWorkScheduler {
 
     /** Enqueues a Vault Key-only cycle, which uses its own Nostr identity. */
     fun scheduleVaultKeyConsolidation()
+}
+
+/**
+ * Remote-backup outcome of one Vault Key backup attempt.
+ *
+ * The generated-VaultKey wizard keeps this instead of a plain failure so it can distinguish
+ * "the backup could not reach quorum" from "key generation failed": the first is retryable on
+ * the final wizard step, the second sends the user back to passphrase verification.
+ */
+data class VaultKeySetupState(
+    val quorumReached: Boolean,
+    val relayQuorum: Boolean,
+    val braveQuorum: Boolean,
+) {
+    companion object {
+        /** A blocked prerequisite or thrown source error reports no coverage at all. */
+        fun of(result: AccountConsolidationEngine.VaultKeyBackupResult?): VaultKeySetupState =
+            VaultKeySetupState(
+                quorumReached = result?.quorumReached == true,
+                relayQuorum = result?.relayQuorum == true,
+                braveQuorum = result?.braveQuorum == true,
+            )
+    }
+}
+
+/**
+ * Explains which part of the two-type Vault Key quorum is missing, without naming a source
+ * credential or implying that a partially successful backup is a usable one.
+ */
+internal fun AccountConsolidationEngine.VaultKeyBackupResult.quorumFailureMessage(): String = when {
+    !relayQuorum && !braveQuorum -> "VaultKey backup needs at least one relay and one Brave Sync server"
+    !relayQuorum -> "VaultKey backup did not reach relay quorum"
+    else -> "VaultKey backup did not reach Brave Sync quorum"
 }

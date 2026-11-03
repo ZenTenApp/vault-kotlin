@@ -238,7 +238,8 @@ class CreateVaultKeyViewModel @Inject constructor(
                 // (never on disk) before the backup and the later secret-combination steps.
                 vaultKeySession.establish(passphrase.toCharArray())
                 // Local commit happens before any network call. The setup service records
-                // BACKUP_INTRO even if one or more configured sources are unavailable.
+                // BACKUP_INTRO even if one or more configured sources are unavailable, and
+                // reports the quorum outcome rather than failing the wizard for it.
                 setupService.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity) { progress ->
                     _state.value = _state.value.copy(
                         progressStage = VaultKeyCreationStage.SYNCING_BACKUPS,
@@ -325,18 +326,52 @@ class CreateVaultKeyViewModel @Inject constructor(
         }
     }
 
-    /** Finishes onboarding before opening Accounts so app restart follows the same destination. */
+    /**
+     * Finishes onboarding before opening Accounts so app restart follows the same destination.
+     *
+     * Completion requires a remote Vault Key backup quorum. The wizard's earlier steps only
+     * proved the key was stored locally, exported, and transcribed, so this is the last point at
+     * which the documented invariant can be enforced; when it is missing, [setupBlocked] stays
+     * true and the screen offers [retryGeneratedVaultKeyBackup] instead of opening Accounts.
+     */
     fun completeGeneratedVaultKeySetup(onCompleted: () -> Unit) {
         if (_state.value.advancing) return
-        _state.value = _state.value.copy(advancing = true)
+        _state.value = _state.value.copy(advancing = true, setupBlocked = false)
         viewModelScope.launch {
-            appStorage.setSetupComplete()
-            secretCombinationEntries.fill("")
-            _state.value = _state.value.copy(
-                advancing = false,
-                secretCombinationIndices = null,
-            )
-            onCompleted()
+            runCatching { setupService.completeGeneratedVaultKeySetup().getOrThrow() }
+                .onSuccess {
+                    secretCombinationEntries.fill("")
+                    _state.value = _state.value.copy(
+                        advancing = false,
+                        secretCombinationIndices = null,
+                    )
+                    onCompleted()
+                }
+                .onFailure {
+                    // No message is carried: the only cause is an unmet backup quorum, and the
+                    // screen states that in its own fixed copy.
+                    _state.value = _state.value.copy(advancing = false, setupBlocked = true)
+                }
+        }
+    }
+
+    /**
+     * Retries the remote Vault Key backup from the final wizard step.
+     *
+     * The user already verified every Secret Combination, so a retry that reaches quorum
+     * finishes setup immediately; a retry that still has no quorum keeps the blocked screen (and
+     * its retry action) in place rather than sending the user back through verification.
+     */
+    fun retryGeneratedVaultKeyBackup(onCompleted: () -> Unit) {
+        if (_state.value.advancing) return
+        _state.value = _state.value.copy(advancing = true, setupBlocked = false)
+        viewModelScope.launch {
+            setupService.retryGeneratedVaultKeyBackup()
+                .onSuccess {
+                    _state.value = _state.value.copy(advancing = false)
+                    completeGeneratedVaultKeySetup(onCompleted)
+                }
+                .onFailure { _state.value = _state.value.copy(advancing = false, setupBlocked = true) }
         }
     }
 
@@ -487,6 +522,11 @@ data class CreateVaultKeyState(
     /** Cached only in memory; null after loading means derivation failed. */
     val secretCombinationIndices: List<Int>? = null,
     val secretCombinationsLoading: Boolean = true,
+    /**
+     * True when the final step could not complete setup because the Vault Key has no remote
+     * backup quorum. The screen then explains the missing coverage and offers a retry.
+     */
+    val setupBlocked: Boolean = false,
 )
 
 enum class VaultKeyCreationStage {

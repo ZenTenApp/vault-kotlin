@@ -84,6 +84,9 @@ class VaultKeyRecoveryService(
             // The passphrase was just used to decrypt the recovered key, so record it in the
             // session without repeating the bcrypt decryption. It is never persisted.
             vaultKeySession.establish(passphrase.toCharArray())
+            // A recovered Vault Key exists remotely by definition: the copy was just read and
+            // decrypted from a source, so the setup-completion quorum check is satisfied.
+            appStorage.setVaultKeyQuorumReached(true)
             appStorage.setSetupComplete()
             workScheduler.scheduleConsolidation()
         }

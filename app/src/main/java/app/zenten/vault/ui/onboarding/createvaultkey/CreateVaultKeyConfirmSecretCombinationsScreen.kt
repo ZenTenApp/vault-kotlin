@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.ConfirmCombinationPicker
+import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.components.VaultScreenHeader
 
 /** Step 7: sequentially verify every recovery-code segment before setup can continue. */
@@ -76,6 +77,31 @@ fun CreateVaultKeyConfirmSecretCombinationsScreen(
                     text = stringResource(R.string.create_vault_key_secret_combinations_unavailable),
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
+                )
+            } else if (state.setupBlocked) {
+                // Every index is verified but the remote backup quorum is missing. Setup must not
+                // complete without it, so this screen stays and offers the retry instead of
+                // sending the user to Accounts with no remote copy of the Vault Key.
+                Text(
+                    text = stringResource(R.string.create_vault_key_setup_blocked_body),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(24.dp))
+                VaultPillButton(
+                    label = stringResource(R.string.create_vault_key_setup_blocked_retry),
+                    onClick = {
+                        viewModel.retryGeneratedVaultKeyBackup {
+                            onCompleted()
+                            navController.navigate(VaultDestinations.ACCOUNTS) {
+                                popUpTo(VaultDestinations.CREATE_VAULT_KEY_GRAPH) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    enabled = !state.advancing,
                 )
             } else {
                 ConfirmCombinationPicker(

@@ -77,6 +77,8 @@ class VaultKeyRecoveryServiceTest {
         // Recovery records the validated passphrase in the session so the follow-up backup runs.
         assertTrue(fixture.session.isUnlocked.value)
         coVerify(exactly = 1) { fixture.appStorage.setSetupComplete() }
+        // The copy was just read back from a source, so the completion quorum check is satisfied.
+        coVerify(exactly = 1) { fixture.appStorage.setVaultKeyQuorumReached(true) }
         verify(exactly = 1) { fixture.scheduler.scheduleConsolidation() }
     }
 
@@ -142,6 +144,7 @@ class VaultKeyRecoveryServiceTest {
 
         init {
             coJustRun { appStorage.setSetupComplete() }
+            coJustRun { appStorage.setVaultKeyQuorumReached(any()) }
             every { scheduler.scheduleConsolidation() } just runs
         }
     }

@@ -29,7 +29,7 @@ flowchart LR
 
 **Starting point:** The app is new.
 
-1. The user selects **Login with VaultKey** on **Get started**, copies the Ed25519 OpenSSH private key, selects **Paste VaultKey**, and then enters its passphrase in step two. The key is not displayed, and the app clears the current clipboard entry before advancing. **Create VaultKey** opens a wizard that collects consent and a passphrase, verifies the re-entered passphrase, generates and stores an encrypted VaultKey, exports it through an installed text-capable app, asks the user to paste it back to confirm the stored backup, and presents the `vkbckp` (Vault Key BacKup) recovery mnemonic as grouped BIP-39 indices for offline transcription, then requires each index to be re-entered sequentially to verify the copy. Setup still cannot complete because the post-verification step is not implemented. The federated options (Google, Apple, Microsoft) are not implemented and report "coming soon".
+1. The user selects **Login with VaultKey** on **Get started**, copies the Ed25519 OpenSSH private key, selects **Paste VaultKey**, and then enters its passphrase in step two. The key is not displayed, and the app clears the current clipboard entry before advancing. **Create VaultKey** opens a wizard that collects consent and a passphrase, verifies the re-entered passphrase, generates and stores an encrypted VaultKey, exports it through an installed text-capable app, asks the user to paste it back to confirm the stored backup, and presents the `vkbckp` (Vault Key BacKup) recovery mnemonic as grouped BIP-39 indices for offline transcription, then requires each index to be re-entered sequentially to verify the copy. Setup completes after that verification only when the VaultKey also reached its remote backup quorum, meaning at least one relay and one Brave Sync server hold a copy; otherwise the final screen explains the missing remote copy and offers a retry. The federated options (Google, Apple, Microsoft) are not implemented and report "coming soon".
 2. The app validates the material locally and prepares the vault identity.
 3. The app creates the required initial protected backup and reports progress.
 4. When setup succeeds, the user reaches **Accounts**.
@@ -37,7 +37,7 @@ flowchart LR
 
 **Success:** The vault is ready for use, and any valid discovered associated accounts are added to **Accounts**.
 
-**Important failure behavior:** An invalid key or wrong passphrase is explained without displaying the supplied secret. If the required initial backup cannot be confirmed, setup remains incomplete and the user can retry rather than being told the vault is ready.
+**Important failure behavior:** An invalid key or wrong passphrase is explained without displaying the supplied secret. If the required initial backup cannot be confirmed, setup remains incomplete and the user can retry rather than being told the vault is ready. This applies to both the imported-key path and the in-app generation wizard, which keeps the user on its final verification screen until a retry reaches quorum.
 
 ## 2. Create an associated account
 

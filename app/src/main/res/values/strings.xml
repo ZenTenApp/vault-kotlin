@@ -257,6 +257,8 @@
     <string name="create_vault_key_confirm_secret_combinations_title">Secret Combinations</string>
     <string name="create_vault_key_confirm_secret_combinations_body">Confirm your Secret Combinations accurately. Every input must be correct</string>
     <string name="create_vault_key_confirm_secret_combinations_incorrect">Incorrect Secret Combination! Please try again.</string>
+    <string name="create_vault_key_setup_blocked_body">Your Secret Combinations are verified, but Vault could not confirm a backup of your VaultKey on at least one relay and one Brave Sync server. Setup stays incomplete until that backup succeeds.</string>
+    <string name="create_vault_key_setup_blocked_retry">Retry VaultKey backup</string>
 
     <!-- Settings Secret Combinations review flow -->
     <string name="secret_combinations_verify_title">Secret Combinations</string>
