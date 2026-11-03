@@ -135,7 +135,10 @@ class AccountConsolidationEngine(
 
     /**
      * Checks one source for the Vault Key record and writes it only when a successful index
-     * proved it absent. Returns `true` when the source is known to hold the Vault Key.
+     * proved it absent. Returns `true` only once a read-back confirmed the record is stored.
+     *
+     * An acknowledged write is necessary but not sufficient for quorum: a source that accepts
+     * writes yet never serves them back must not count as holding the Vault Key.
      */
     private suspend fun ensureVaultKeyAtSource(
         source: AccountBackupSource,
@@ -157,7 +160,7 @@ class AccountConsolidationEngine(
         return source.write(secrets, id, secrets.vaultKey).fold(
             onSuccess = {
                 markWriteConfirmed(id, config)
-                true
+                verifyVaultKeyWrite(source, config, secrets, id)
             },
             onFailure = { error ->
                 markWriteFailed(id, config, error)
@@ -166,6 +169,34 @@ class AccountConsolidationEngine(
             },
         )
     }
+
+    /**
+     * Re-indexes the source after an acknowledged Vault Key write so only an observed record can
+     * satisfy quorum. Mirrors [verifyAccountWrite]; every non-confirming outcome is a failure and
+     * queues a retry because the source may still be repaired by a later cycle.
+     */
+    private suspend fun verifyVaultKeyWrite(
+        source: AccountBackupSource,
+        config: BackupSourceConfig,
+        secrets: VaultKeyRunSecrets,
+        id: BackupAccountId,
+    ): Boolean = source.index(secrets).fold(
+        onSuccess = { verified ->
+            if (id in verified.ids) {
+                markPresent(id, config)
+                true
+            } else {
+                markWriteFailed(id, config, readBackMismatch(), checked = true)
+                markPendingRetry(id, config, PendingWriteReason.VAULT_KEY_QUORUM)
+                false
+            }
+        },
+        onFailure = { error ->
+            markUnknown(id, config, error)
+            markPendingRetry(id, config, PendingWriteReason.VAULT_KEY_QUORUM)
+            false
+        },
+    )
 
     // -----------------------------------------------------------------------------------
     // Targeted (single associated account) consolidation

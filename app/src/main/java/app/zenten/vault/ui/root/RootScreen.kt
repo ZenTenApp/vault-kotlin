@@ -39,7 +39,8 @@ class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewMod
         appStorage.pendingLocalBackupAccountIds,
         appStorage.createVaultKeyStep,
         appStorage.secretCombinationsViewStep,
-    ) { complete, pending, createStep, secretCombinationsStep ->
+        appStorage.importedVaultKeySetupPending,
+    ) { complete, pending, createStep, secretCombinationsStep, importedPending ->
         when {
             // The Settings review flow is irreversible once entered, so it takes precedence
             // over every other launch destination until verification finishes.
@@ -52,6 +53,11 @@ class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewMod
             createStep == CreateVaultKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO
             createStep == CreateVaultKeyStep.CONFIRM_BACKUP -> VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP
             createStep == CreateVaultKeyStep.SECRET_COMBINATIONS -> VaultDestinations.CREATE_VAULT_KEY_SECRET_COMBINATIONS
+            // An imported key was committed but its backup never reached quorum. Resume the
+            // backup from that stored key instead of Get Started, which could start a new
+            // identity and replace the committed one. The generated-key wizard is excluded by
+            // its create-step markers above and never sets this flag.
+            importedPending -> VaultDestinations.GET_STARTED_SSH
             else -> VaultDestinations.GET_STARTED
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

@@ -16,6 +16,32 @@ import java.nio.file.Files
 
 class AppStorageServiceTest {
     @Test
+    fun pending_imported_vault_key_backup_is_durable_and_cleared_by_every_setup_terminal() = runTest {
+        val directory = Files.createTempDirectory("vault-datastore").toFile()
+        try {
+            val service = AppStorageService(PreferenceDataStoreFactory.create(scope = backgroundScope) {
+                File(directory, "settings.preferences_pb")
+            })
+            assertFalse(service.importedVaultKeySetupPending.first())
+
+            // Persisted in DataStore, so a later process reads the same pending state.
+            service.requireImportedVaultKeyBackup()
+            assertTrue(service.importedVaultKeySetupPending.first())
+
+            service.setSetupComplete()
+            assertFalse(service.importedVaultKeySetupPending.first())
+
+            // Restarting setup drops the previous attempt's pending state with its quorum claim.
+            service.requireImportedVaultKeyBackup()
+            assertTrue(service.importedVaultKeySetupPending.first())
+            service.clearSetupComplete()
+            assertFalse(service.importedVaultKeySetupPending.first())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun persists_source_specific_non_secret_state() = runTest {
         val directory = Files.createTempDirectory("vault-datastore").toFile()
         try {

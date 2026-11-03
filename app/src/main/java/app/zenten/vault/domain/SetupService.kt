@@ -7,6 +7,7 @@ import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import app.zenten.vault.ui.availability.RemoteOperationReadiness
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 /** VaultKey onboarding and local-first associated-account persistence. */
@@ -20,13 +21,30 @@ class SetupService(
 ) {
     suspend fun performSetup(vaultKey: Account): Result<Unit> = runCatching {
         persistVaultKey(vaultKey)
+        // Durable before any remote work so the launch router and the onboarding screen agree,
+        // even after a process death, that an imported key is stored and only its backup is
+        // missing. [AppStorageService.setSetupComplete] clears it on success.
+        appStorage.requireImportedVaultKeyBackup()
         // The local commit happens first, so a prerequisite failure still leaves a retryable
         // Vault Key instead of sending the user back to key derivation.
-        throwIfRemoteOperationBlocked()
-        val result = withVaultPassphrase { passphrase ->
-            consolidationEngine.backupVaultKey(vaultKey, passphrase)
+        try {
+            throwIfRemoteOperationBlocked()
+            val result = withVaultPassphrase { passphrase ->
+                consolidationEngine.backupVaultKey(vaultKey, passphrase)
+            }
+            check(result.quorumReached) { result.quorumFailureMessage() }
+        } catch (failure: CancellationException) {
+            // Cancellation is not a backup outcome; propagating it keeps structured concurrency.
+            throw failure
+        } catch (failure: Exception) {
+            // Tell the caller the key is already committed, so it can offer the stored-key retry
+            // instead of asking the user to paste and derive the key again.
+            throw VaultKeyPersistedException(
+                "The VaultKey is saved locally, but its backup is incomplete. " +
+                    (failure.message ?: "Retry the backup."),
+                failure,
+            )
         }
-        check(result.quorumReached) { result.quorumFailureMessage() }
         appStorage.setSetupComplete()
         // Record the evidence that justified completion, so every setup-complete state in the app
         // also carries the backup fact it depends on.
@@ -81,6 +99,18 @@ class SetupService(
         appStorage.setVaultKeyQuorumReached(true)
         workScheduler?.scheduleConsolidation()
     }
+
+    /**
+     * Whether an imported Vault Key is stored but its backup never reached quorum.
+     *
+     * The generated-key create flow also leaves a stored key while setup is incomplete, but it
+     * always has a [CreateVaultKeyStep] marker and must keep routing to its own wizard, so that
+     * case is excluded here.
+     */
+    suspend fun hasPendingImportedVaultKeyBackup(): Boolean =
+        secureStorage.getVaultKey() != null &&
+            appStorage.importedVaultKeySetupPending.first() &&
+            !appStorage.setupComplete.first()
 
     /**
      * Marks generated-VaultKey setup complete, but only when a remote backup quorum is known.
@@ -170,6 +200,15 @@ class SetupService(
         }
     }
 }
+
+/**
+ * [SetupService.performSetup] failed after the imported Vault Key was committed to secure
+ * storage.
+ *
+ * The distinction matters because the user can resume from the stored key without pasting it
+ * again, unlike a parse/derivation failure where nothing was persisted.
+ */
+class VaultKeyPersistedException(message: String, cause: Throwable) : Exception(message, cause)
 
 interface BackupWorkScheduler {
     /** Enqueues the post-unlock Vault Key and account cycles; the engine still applies freshness. */

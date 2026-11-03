@@ -41,6 +41,54 @@ class SetupServiceTest {
         verify(exactly = 0) { fixture.secureStorage.removeVaultKey() }
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
         coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
+        // The caller must be able to tell that the key is already committed and retry it
+        // without the user pasting it again, in this process or a later one.
+        coVerify(exactly = 1) { fixture.appStorage.requireImportedVaultKeyBackup() }
+        assertTrue(result.exceptionOrNull() is VaultKeyPersistedException)
+    }
+
+    @Test
+    fun blocked_prerequisite_after_persisting_is_reported_as_a_stored_key_failure() = runTest {
+        val fixture = Fixture()
+        coEvery { fixture.precondition.check() } returns RemoteOperationReadiness.NO_VALIDATED_INTERNET
+
+        val result = fixture.service.performSetup(vaultKey)
+
+        assertTrue(result.exceptionOrNull() is VaultKeyPersistedException)
+        coVerify(exactly = 1) { fixture.appStorage.requireImportedVaultKeyBackup() }
+        coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
+    }
+
+    @Test
+    fun generated_flow_does_not_mark_an_imported_key_as_pending() = runTest {
+        val fixture = Fixture()
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+            relayQuorum = false,
+            braveQuorum = false,
+            successfulSourceIds = emptySet(),
+            failedSourceIds = setOf("relay", "brave"),
+        )
+
+        fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity)
+
+        coVerify(exactly = 0) { fixture.appStorage.requireImportedVaultKeyBackup() }
+    }
+
+    @Test
+    fun pending_import_is_reported_only_while_the_key_is_retained_and_setup_incomplete() = runTest {
+        val fixture = Fixture()
+        every { fixture.secureStorage.getVaultKey() } returns vaultKey
+        every { fixture.appStorage.importedVaultKeySetupPending } returns flowOf(true)
+        every { fixture.appStorage.setupComplete } returns flowOf(false)
+
+        assertTrue(fixture.service.hasPendingImportedVaultKeyBackup())
+
+        every { fixture.appStorage.setupComplete } returns flowOf(true)
+        assertFalse(fixture.service.hasPendingImportedVaultKeyBackup())
+
+        every { fixture.appStorage.importedVaultKeySetupPending } returns flowOf(false)
+        every { fixture.appStorage.setupComplete } returns flowOf(false)
+        assertFalse(fixture.service.hasPendingImportedVaultKeyBackup())
     }
 
     @Test
@@ -259,6 +307,7 @@ class SetupServiceTest {
             coJustRun { appStorage.setSetupComplete() }
             coJustRun { appStorage.setCreateVaultKeyStep(any()) }
             coJustRun { appStorage.setVaultKeyQuorumReached(any()) }
+            coJustRun { appStorage.requireImportedVaultKeyBackup() }
         }
     }
 

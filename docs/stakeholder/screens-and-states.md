@@ -57,9 +57,13 @@ flowchart TD
     P -- No --> U[App unavailable: show all errors/warnings]
     U --> P
     P -- Yes --> S{Setup complete?}
-    S -- No --> G[Get started]
-    G --> M[Set up Vault Key]
-    M -- Quorum succeeds --> A[Accounts]
+    S -- No --> IP{Imported Vault Key retained with backup incomplete?}
+    IP -- Yes --> M[Set up Vault Key: retry stored-key backup]
+    IP -- No --> G[Get started]
+    G --> M2[Set up Vault Key]
+    M2 -- Quorum succeeds --> A[Accounts]
+    M2 -- Quorum unavailable --> M2
+    M -- Quorum succeeds --> A
     M -- Quorum unavailable --> M
     S -- Yes --> A
     A --> N[Create associated account]
@@ -112,7 +116,7 @@ flowchart TD
 
 - The screen accepts a passphrase-protected Ed25519 OpenSSH vault key.
 - **Setup VaultKey** uses the standard page frame — a header row with an icon-only back arrow beside the centered title — and a two-segment progress indicator for its two steps. There is no separate Cancel button: the header back arrow returns from the passphrase step to the paste step, and leaves the flow from the first step. The first step shows a **Paste VaultKey** action instead of a key text field. It reads the clipboard, clears the current clipboard entry, and validates the encrypted OpenSSH-v1 Ed25519 container without rendering it. PEM, raw Base64, and the supported JSON wrapper are accepted; clipboard or key-format errors remain on the first step with a safe message.
-- On remote quorum failure, the imported Vault Key remains securely stored and retry does not require re-entry.
+- On remote quorum failure, the imported Vault Key remains securely stored and retry does not require re-entry. The screen switches to a retry-only state with **Retry backup without re-importing** and no Back arrow, because the key is already committed; this state is durable, so a process restart at the normal device-authentication and passphrase gate reopens it rather than **Get started**. A parse or derivation failure persists nothing and offers no stored-key retry. A successful retry marks setup complete and opens **Accounts**.
 - Errors distinguish missing relay versus Brave coverage without including secret data.
 - The screen remains protected from screenshots where supported.
 

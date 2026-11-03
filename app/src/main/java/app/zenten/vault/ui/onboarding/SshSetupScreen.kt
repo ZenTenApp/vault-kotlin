@@ -59,11 +59,23 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
     // cannot call stringResource, so the error is resolved where it is rendered.
     var clipboardError by remember { mutableStateOf<Int?>(null) }
     val state by viewModel.state.collectAsState()
+    // Once the key is committed only the backup is missing, so the two paste/derive steps are
+    // not meaningful: show the retry (in this process or a resumed one) instead.
+    val resumingPendingBackup = state.canRetryStoredVaultKey && !state.completed
     val context = LocalContext.current
     val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
     LaunchedEffect(state.completed) {
-        if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {
-            popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }
+        if (state.completed) {
+            // A fresh import has Get started beneath this screen; a launch-resumed retry has only
+            // the SSH entry. Pop whichever onboarding entry exists so Back from Accounts cannot
+            // return to a completed setup screen.
+            val hasGetStarted = runCatching {
+                navController.getBackStackEntry(VaultDestinations.GET_STARTED)
+            }.isSuccess
+            navController.navigate(VaultDestinations.ACCOUNTS) {
+                if (hasGetStarted) popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }
+                else popUpTo(VaultDestinations.GET_STARTED_SSH) { inclusive = true }
+            }
         }
     }
 
@@ -82,9 +94,26 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
 
     VaultScreenScaffold(
         title = stringResource(R.string.ssh_setup_title),
-        onBack = back,
+        // The resumed state has no earlier onboarding step to return to and setup must not be
+        // abandoned silently, so its header has no Back arrow.
+        onBack = if (resumingPendingBackup) null else back,
         backEnabled = !state.inProgress,
         content = {
+            if (resumingPendingBackup) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.ssh_setup_pending_backup_body),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                state.error?.let {
+                    Spacer(Modifier.height(16.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+                return@VaultScreenScaffold
+            }
             Spacer(Modifier.height(16.dp))
             SetupProgress(step)
 
@@ -133,6 +162,23 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
             }
         },
         actions = {
+            // In the resumed state the stored key is already committed, so pasting/deriving it
+            // again is not offered: only the retry below applies.
+            if (resumingPendingBackup) {
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = viewModel::retryStoredVaultKey,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.inProgress,
+                ) {
+                    if (state.inProgress) {
+                        CircularProgressIndicator()
+                    } else {
+                        Text(stringResource(R.string.ssh_setup_retry_action))
+                    }
+                }
+                return@VaultScreenScaffold
+            }
             when (step) {
                 SetupStep.PRIVATE_KEY -> {
                     clipboardError?.let {
