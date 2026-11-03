@@ -1,22 +1,26 @@
-# Golden Crypto Test Vectors (Phase 1)
+# Golden Crypto Test Vectors
 
 These fixtures are the **parity gate** for the cryptographic core
-(`app.zenten.vault.crypto`). Every primitive must reproduce these values
-byte-for-byte before any downstream phase merges (see `implementation-plan.md`
-§5 Phase 1 and §7 Testing Strategy).
+(`app.zenten.vault.crypto`). Every deterministic production-path value must be
+reproduced exactly; see
+[Test coverage areas](../../../../../docs/technical/build-and-test.md#test-coverage-areas).
 
-**Status:** the Nostr half (NIP-06 keys, NIP-19 npub/nsec, NIP-44 v2) is owned by
-the [Quartz](https://github.com/vitorpamplona/quartz) library and is already
-proven against these vectors by `QuartzParityTest`. The SSH-side seed extraction
-(`seedHex` from `sshKeyPem` + `passphrase`) is the remaining primitive to build
-and gate.
+**Status:** both halves are implemented and gated. The Nostr half (NIP-06 keys,
+NIP-19 npub/nsec, NIP-44 v2) is owned by the
+[Quartz](https://github.com/vitorpamplona/quartz) library and is proven against
+these vectors by `QuartzParityTest`. The SSH side — decrypting a
+passphrase-protected OpenSSH key and extracting the raw 32-byte Ed25519 seed
+(`seedHex`) — is implemented by `SshKeyCodec.parse` and gated by
+`SshKeyCodecTest`, which decrypts the passphrase-protected
+`keys.encryptedEd25519Pem` fixture (it wraps the same Ed25519 material as the
+unencrypted vector) and asserts the parsed seed equals the vector's `seedHex`.
 
 ## Files
 
 ### `crypto-vectors.json`
 
 Deterministic outputs of the reference chain, captured from the same libraries
-the React `../vault` app uses (`seedify-ts` + `nostr-tools`):
+the React Native (`../vault`) app uses (`seedify-ts` + `nostr-tools`):
 
 ```
 SSH key (+passphrase) -> raw 32-byte ed25519 seed
@@ -31,14 +35,18 @@ Fields per vector:
 | ------------------ | -------------------------------------------------------------- |
 | `sshKeyPem`        | Input OpenSSH v1 private key (PEM)                             |
 | `passphrase`       | Passphrase (null = unencrypted key)                           |
-
-`keys.encryptedEd25519Pem` is a separate OpenSSH-generated `aes256-ctr` / bcrypt_pbkdf fixture (one KDF round), using the test-only passphrase `phase1-test-passphrase`. It encrypts the same Ed25519 material as the unencrypted vector and is exercised by `SshKeyCodecTest`.
 | `seedHex`          | Raw 32-byte ed25519 seed extracted from the key (hex)         |
 | `ed25519PubkeyHex` | Raw 32-byte ed25519 public key (hex)                          |
 | `sshFingerprint`   | `SHA256:<base64>` — matches `ssh-keygen -E sha256 -lf`        |
 | `mnemonic24`       | 24-word BIP39 mnemonic (no-prefix path; entropy == seed)      |
 | `mnemonic12`       | 12-word BIP39 mnemonic (SHA256(prefixedSeed)[:16] path)       |
 | `nostrNip06`       | NIP-06 secp256k1 keys: `pubkey`,`privkey` (hex), `npub`,`nsec`|
+
+`keys.encryptedEd25519Pem` is a separate OpenSSH-generated `aes256-ctr` / bcrypt_pbkdf fixture (one KDF round), using the test-only passphrase `phase1-test-passphrase`. It encrypts the same Ed25519 material as the unencrypted vector and is exercised by `SshKeyCodecTest`.
+
+No Kotlin code consumes `mnemonic12` or `passphrase`: `SshKeyCodec.parse` accepts
+only passphrase-protected keys, so this `passphrase: null` vector is reference
+material, and only the 24-word path is a product contract.
 
 > Note: `seedify-ts` also exposes an ed25519-direct `deriveNostrKeysFromSeed`,
 > but the **production vault path** (and thus this fixture) derives Nostr keys
@@ -50,12 +58,19 @@ The **official NIP-44 v2 test vectors** (source:
 `github.com/paulmillr/nip44` → `nip44.vectors.json`). Covers
 `get_conversation_key`, `get_message_keys`, `calc_padded_len`,
 `encrypt_decrypt` (fixed nonce → deterministic ciphertext), and
-`encrypt_decrypt_long_msg`. Use these for full ChaCha20-Poly1305 + HKDF parity.
+`encrypt_decrypt_long_msg`. Use these for full NIP-44 v2 parity: secp256k1 ECDH
+followed by HKDF-SHA256 (extract with salt `nip44-v2`, expand to the ChaCha20
+key, ChaCha20 nonce, and HMAC key), ChaCha20 (RFC 8439) encryption, and a
+32-byte HMAC-SHA256 MAC over the nonce and ciphertext. NIP-44 v2 does not use
+AES or Poly1305. `QuartzParityTest` currently asserts the `get_conversation_key`
+and `encrypt_decrypt` blocks; the `get_message_keys`, `calc_padded_len`, and
+`encrypt_decrypt_long_msg` blocks are available but not yet asserted directly.
 
 The `nip44` block inside `crypto-vectors.json` is a small self-encryption
-smoke vector (sender == recipient == Vault Key). Its `sampleCiphertext` uses a
-**random nonce**, so assert `decrypt(ciphertext) == plaintext` and reproduce
-`conversationKey` exactly — do not assert the ciphertext bytes.
+smoke vector with sender == recipient (the shape Vault Key backup uses). Its
+`sampleCiphertext` uses a **random nonce**, so assert
+`decrypt(ciphertext) == plaintext` and reproduce `conversationKey` exactly — do
+not assert the ciphertext bytes.
 
 ## Regenerating
 
@@ -65,6 +80,12 @@ node tools/gen-golden-vectors.mjs   # rewrites crypto-vectors.json
 
 Requires the sibling reference repos to be present and built:
 `../vault` (node_modules installed) and `../seedify-ts` (`npm run build`).
+
+> Caution: the generator still embeds an older `encryptedEd25519Pem` whose
+> passphrase is unknown, so running it would overwrite the checked-in
+> `phase1-test-passphrase` fixture that `SshKeyCodecTest` decrypts. Update the
+> generator's `ENCRYPTED_ED25519` constant to the checked-in fixture (or restore
+> the `keys.encryptedEd25519Pem` value afterwards) before regenerating.
 
 To refresh the official NIP-44 vectors:
 

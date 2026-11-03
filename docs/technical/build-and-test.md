@@ -19,6 +19,40 @@ The debug APK is produced at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## Release build status
+
+```bash
+# Compile and minify an unsigned release APK
+./gradlew :app:assembleRelease
+
+# Run release lint (includes R8/resource-shrinker checks)
+./gradlew :app:lintRelease
+```
+
+The release variant is minified by R8 and has resource shrinking enabled
+(`app/build.gradle.kts`). It compiles, minifies, and passes `lintRelease`, and the
+unsigned artifact is produced at:
+
+```text
+app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+**This artifact is not shippable yet.** Two gaps remain:
+
+- **No release signing configuration.** `app/build.gradle.kts` defines no
+  `signingConfigs`, so the APK is unsigned. A signing config fed from CI secrets,
+  documented key custody/rotation, and an incident plan for a compromised signing
+  key are still needed before any Play Store submission.
+- **The minified build has not been smoke-tested on a device or emulator.** R8
+  keep rules for interfaces and libraries reached only by reflection (Quartz
+  serialization, Hilt, JNI bindings) are verified by compilation, not by runtime
+  behavior. Any release-track claim of correctness rests on the debug build until
+  an on-device pass of the minified APK is recorded.
+
+The R8 keep/dontwarn rules that make the current release build succeed are in
+`app/proguard-rules.pro`; the comments there explain why each suppressed
+reference is optional.
+
 ## Versioning shared APKs
 
 The Android version is configured in `app/build.gradle.kts`:
@@ -42,6 +76,13 @@ The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests 
 3. `./gradlew :app:lintDebug`
 
 Android lint errors fail the build, so a change that introduces a new lint error cannot pass CI. Instrumented tests (`:app:connectedDebugAndroidTest`) are not run in CI because they require an emulator or connected device.
+
+**CI does not build the release variant.** `:app:assembleRelease` and
+`:app:lintRelease` are not workflow steps, so an R8, shrinking, or proguard rule
+regression passes CI even though it breaks the release artifact. Run both
+locally before a change that touches dependencies, crypto/JNI code, reflection,
+or `app/proguard-rules.pro`. Adding them as required CI steps is tracked as
+release-process work, not yet implemented.
 
 Branch protection for `main` (required pull-request review, required status checks, and disabled force pushes) is not enabled yet. Until it is, the workflow provides signal but does not block direct pushes to `main`.
 
@@ -86,6 +127,9 @@ At minimum:
 1. Run `./gradlew :app:testDebugUnitTest`.
 2. Run `./gradlew :app:assembleDebug` if Android/UI/build configuration changed.
 3. Run `./gradlew :app:lintDebug` if Android resources or Kotlin sources changed.
-4. Exercise affected sensitive screens manually on a device/emulator where feasible. Device-authentication changes should cover PIN-only, strong biometric plus credential, no-lock enrollment, cancellation, biometric lockout, and background-grace behavior, including pre-Android 11 (API 26–29) capability handling.
-5. Confirm no secrets, generated APKs, or local configuration files are included in the change.
-6. Run the Gitleaks and Semgrep commands under [Dependency and security scanning](#dependency-and-security-scanning) when the change touches crypto, network, storage, CI, or dependencies, or when adding test fixtures that contain key material.
+4. Run `./gradlew :app:assembleRelease :app:lintRelease` if dependencies,
+   `app/proguard-rules.pro`, JNI/crypto code, or anything reached by reflection
+   changed — CI does not cover the release variant.
+5. Exercise affected sensitive screens manually on a device/emulator where feasible. Device-authentication changes should cover PIN-only, strong biometric plus credential, no-lock enrollment, cancellation, biometric lockout, and background-grace behavior, including pre-Android 11 (API 26–29) capability handling.
+6. Confirm no secrets, generated APKs, or local configuration files are included in the change.
+7. Run the Gitleaks and Semgrep commands under [Dependency and security scanning](#dependency-and-security-scanning) when the change touches crypto, network, storage, CI, or dependencies, or when adding test fixtures that contain key material.
