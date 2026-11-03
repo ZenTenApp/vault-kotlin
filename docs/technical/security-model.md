@@ -54,7 +54,7 @@
 5. Network timeouts, retries, offline state, remote-service compromise/outage, and status accuracy.
 6. Secret handling in logs, telemetry, analytics, crash reporting, CI, support, and release builds, including coverage gaps left by the free-tier scanners (no push protection, no Security-tab dashboard, runtime-fetched Semgrep rules).
 7. Independent cryptography and protocol review before production use.
-8. Whether interactive private-key disclosure should use a separate authentication-bound encryption domain, given that KeyHive provider access must remain unattended.
+8. ~~Whether interactive private-key disclosure should use a separate authentication-bound encryption domain, given that KeyHive provider access must remain unattended.~~ **Closed as not planned (D5).** Same-signature unattended access is an accepted requirement; see [KeyHive provider](key-hive-provider.md#accepted-decision-d5). Signing-key custody and sibling-app review are the controls for that boundary.
 
 ## Non-promises
 
@@ -62,7 +62,7 @@
 - Remote backup does not guarantee availability. Vault Key setup requires one eligible Nostr and one eligible Brave source, not successful writes to every source. The current app has no account-deletion or vault-reset action.
 - The public profile is not private. The account name, creation ID, and DM relay list are published unencrypted to public relays and are visible to anyone who queries them or sees the replicated events; publication is mandatory, the creation screen deliberately does not disclose it (D4), and deletion cannot be guaranteed.
 - The application cannot recover Vault Key material that the user has lost.
-- Every application signed with Vault's trusted release certificate can read each shared associated SSH private key. A compromised trusted sibling app or device is outside this protection boundary.
+- Every application signed with Vault's trusted release certificate can read each shared associated SSH private key. A compromised trusted sibling app or device is outside this protection boundary. This is an accepted product requirement (D5), not a gap: the provider shares only the passphrase-encrypted OpenSSH container and the public Nostr key, never the passphrase or Nostr private key, and it serves reads without device authentication or an unlocked session. A separate authentication-bound encryption domain is not planned.
 
 ## Change control
 
