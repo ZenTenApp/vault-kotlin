@@ -48,6 +48,8 @@ Consolidation is enqueued after each passphrase-unlocked launch, subject to netw
 
 Operational status records contain source/account identifiers, state, coarse error categories, and timestamps—not private keys, passphrases, backup payloads, sync codes, authentication tokens, or relay challenges. User-facing and support diagnostics must preserve this boundary.
 
+Profile publication is separate from backup and is deliberately public. Once the mandatory creation export is confirmed, the app publishes the account name as the public kind-0 `display_name`, the creation ID as its `name`, and a kind-10050 NIP-17 DM relay list to seven public Nostr relays. Relays and other clients can copy or re-publish these events, so the app cannot delete them or guarantee they are forgotten. The creation screen intentionally does not repeat this warning, to keep the flow minimal; see [Security model](../technical/security-model.md) for the exact fields and relay set.
+
 ## Current limitations
 
 - Default sources cannot be removed or disabled.
