@@ -78,6 +78,16 @@ The device-authentication gate applies to interactive UI only. The signature-pro
 - Only `SharedAssociatedAccount` is serialized: encrypted private key plus public Nostr key. The vault passphrase and Nostr private key are never exposed.
 - The provider runs regardless of the interactive unlock gate, so its permission boundary, not the UI lock, is the security control for sibling access.
 
+## Accepted decision (D5)
+
+Same-signature unattended access is an **accepted product requirement**, not an oversight:
+
+- Every application signed with the Vault release certificate is inside the KeyHive trust boundary. It may read each account's encrypted OpenSSH container and public Nostr key at any time, with no device authentication and no Vault Key passphrase.
+- The protection is the encrypted container itself: a sibling app still needs the user's Vault Key passphrase to use the private key, and it never receives the passphrase or the Nostr private key from the provider.
+- A compromised trusted sibling app, a leaked or stolen signing key, or a hostile app added under the same certificate reads this data. That is outside the protection boundary by design rather than by accident.
+- Review topic 8 in the [security model](security-model.md#required-production-review-topics) — a separate authentication-bound Keystore domain for interactive private-key disclosure — is **closed as not planned** while KeyHive access must remain unattended.
+- Consequence for release process: production signing-key custody and sibling-app review are security controls for this boundary, not merely release hygiene. Adding an app to the trusted certificate set is a security change.
+
 ## Key references
 
 - `app/src/main/java/app/zenten/vault/keyhive/AssociatedAccountsProvider.kt`
