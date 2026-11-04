@@ -41,7 +41,7 @@ Only after all phase-1 source reads finish:
 
 1. Retain each successful phase-1 index; do not refresh it before writes.
 2. Compare that snapshot with the complete local inventory, including accounts restored from later sources.
-3. Write associated accounts in local registry order, only when the canonical ID is absent. The Vault Key is not written by this phase; `AccountConsolidationEngine.backupVaultKey` owns it because it publishes under a different Nostr identity.
+3. Write associated accounts in local inventory order, only when the canonical ID is absent. The Vault Key is not written by this phase; `AccountConsolidationEngine.backupVaultKey` owns it because it publishes under a different Nostr identity.
 4. Continue after individual write failures and persist pending writes without secret payloads.
 5. Update the retained in-memory presence set after each acknowledgement.
 6. Perform one final read-back for each successfully indexed source after its writes.
