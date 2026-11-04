@@ -40,7 +40,7 @@ After setup, the same 24 positions can be re-displayed and re-verified from **Se
 
 ## Current limitations
 
-- Passphrase strength is enforced only on the in-app **Create VaultKey** path. **Recover VaultKey** and **Paste VaultKey** accept a passphrase the user did not choose, so it cannot be gated or improved here.
+- Passphrase strength is enforced only on the in-app **Create VaultKey** path. **Recover VaultKey** and **Paste VaultKey** accept a passphrase the user did not choose and show no warning about it: it cannot be gated, because refusing it would leave a user holding a valid key unable to onboard or recover, and re-encrypting the container is an out-of-band operation the app does not offer. This is a recorded decision (D9), not an unaddressed gap; see [Security model](../technical/security-model.md#required-production-review-topics).
 - The bundled strength estimator's dictionaries are a compact English- and US-centric subset (common passwords, English Wikipedia words, US census names and surnames, US TV and film). Passphrases built from other languages or from uncommon domain vocabulary may be scored more generously than they deserve.
 - A passphrase longer than 256 characters fails the strength rule rather than being measured, and the UI does not state that limit; the checklist simply keeps the rule unmet.
 - The passphrase rules cover length and guessability only. There is no check against a live breach corpus such as Have I Been Pwned, which would require a network call this flow deliberately avoids.

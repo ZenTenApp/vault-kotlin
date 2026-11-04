@@ -34,7 +34,7 @@ Status: ✅ done · ⬜ pending · 🔄 in progress · 🟡 decided, code follow
 | H2 | Release variant never built, linted, or instrumented in CI | High | ⬜ |
 | H3 | Release build fails under R8 | High | ✅ fixed `a1f6d3a` |
 | H4 | Vault Key recovery is not bound to the supplied recovery words | High | ✅ fixed |
-| H5 | Imported Vault Key passphrases bypass the strength policy | High | ⬜ |
+| H5 | Imported Vault Key passphrases bypass the strength policy | High | ✅ decided (D9) |
 | H6 | bcrypt work factor settable to 1 for keys that leave the device | High | ⬜ |
 | H7 | Vault Key quorum trusted write acks without read-back | High | ✅ fixed `4954799` |
 | H8 | Generated setup completed without backup quorum | High | ✅ fixed `27e16c1` |
@@ -78,6 +78,7 @@ These were recorded in round 1 and constrain this round. Do not reopen them with
 | D6 | Recovery is a **material matrix**: private key, or 24 combinations plus an existing remote copy; the passphrase is always required. |
 | D7 | **Vault Key writes are read back** before a source counts toward quorum. Closes H7. |
 | D8 | Nigori compatibility is a **restricted contract**: one key set per chain, no keybag rotation. |
+| D9 | Passphrase strength is **not enforced outside in-app creation**. **Paste VaultKey** and **Recover VaultKey** accept any passphrase and show no warning: an imported passphrase is a property of an existing key the user did not choose, and refusing it would leave a user with a valid key unable to onboard or recover. Accepted business decision, recorded 2026-11-04. Closes H5 with no code change. |
 
 ---
 
@@ -166,18 +167,25 @@ persisted, corrupt newest copy does not mask an older valid one, misbound newest
 older valid one, untrusted source never queried. Docs updated in
 `docs/features/vault-key-setup.md` and `docs/technical/ssh-key-seed-derivation.md`.
 
-### H5 — Imported Vault Key passphrases bypass the strength policy
+### H5 — Imported Vault Key passphrases bypass the strength policy ✅
 
-**Found by:** DS (High), OP (B4), GPT (medium). **Tag:** DECIDE → CODE.
+**Found by:** DS (High), OP (B4), GPT (medium). **Tag:** DECIDE. **Resolved:** 2026-11-04, D9.
 
 `VaultKeyPassphrasePolicy` (minimum length 12, zxcvbn ≥ 3) is enforced only in
 `ui/onboarding/createvaultkey/`. `OnboardingViewModel.performSetup` and `VaultKeyRecoveryService`
 accept any passphrase, and both concern keys that are published to public relays where the
 passphrase is the only remaining protection.
 
-**Decision needed:** block import below the policy, warn and allow, or allow silently. The recorded
-D6 stance ("the passphrase is always required") argues for at minimum a blocking warning. Record the
-answer as D9 before implementing.
+**Resolution (D9):** accepted as-is. No blocking, warning, or acknowledgement is added on
+**Paste VaultKey** or **Recover VaultKey**. The passphrase on an imported key is a property of an
+existing artifact the user did not choose; gating it would leave a user holding a valid key unable
+to onboard, and the app has no in-app remedy (re-encrypting the container is an out-of-band
+operation). Recovery cannot be gated at all, because the typed passphrase is the only thing that
+opens the remote copy. This is a recorded business decision, not a deferred fix: the current
+behaviour — enforcement on in-app creation only, documented in `docs/features/vault-key-setup.md`
+(“Current limitations”) and `docs/technical/security-model.md` — is the intended behaviour.
+No code or doc change was needed. If the weakness is to be removed rather than accepted later, the
+remedy is re-encryption under a newly chosen, policy-checked passphrase, tracked separately from H5.
 
 ### H6 — bcrypt work factor settable to 1
 
@@ -484,8 +492,9 @@ change, not part of this fix.
 ## Notes
 
 - Line numbers in the audit reports have drifted; anchor on the quoted symbol or section heading.
-- Items C1, H3, H7, H8, H9, H19, H20 are already closed. They stay in the table so the backlog
-  stays auditable and so no later change silently re-opens them.
+- Items C1, H3, H5, H7, H8, H9, H19, H20 are already closed. They stay in the table so the backlog
+  stays auditable and so no later change silently re-opens them. H5 is closed by decision (D9), not
+  by code: do not add an import warning later without a new decision.
 - H17 and H18 are recorded as decided (D2/D4, D5) in their *policy* half; only their code half is
   open. Do not re-litigate the decisions while fixing the code.
 - Any fix that changes user-visible behavior, a security property, or a documented contract must
