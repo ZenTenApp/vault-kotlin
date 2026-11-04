@@ -133,7 +133,7 @@ flowchart TD
 - Settings uses the shared header row: an icon-only back arrow beside the centered title, returning to **Accounts**. The arrow uses the normal text color rather than an accent color.
 - The current vault section contains one full-width **Vault Key** item with supporting text. It opens Vault Key source status and Vault Key consolidation controls.
 - A second full-width **Secret Combinations** item opens the passphrase-gated review flow described below.
-- **KDF rounds** is a dropdown for the bcrypt work factor used by newly generated Vault Keys and associated SSH accounts. It permits only `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`, defaults to `128`, and does not alter existing encrypted keys.
+- **KDF rounds** is a dropdown for the bcrypt work factor used by newly generated Vault Keys and associated SSH accounts. It permits only `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`, defaults to `128`, and does not alter existing encrypted keys. Lower values are no longer offered because a key whose encrypted form leaves the device must not be cheap to attack offline; higher values are capped because the work factor multiplies unlock time. A previously stored value below `128` is not migrated or destroyed — it is simply not selectable, and the setting falls back to `128`.
 
 ### Secret Combinations review
 

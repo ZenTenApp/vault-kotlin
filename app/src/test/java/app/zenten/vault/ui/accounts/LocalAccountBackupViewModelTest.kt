@@ -26,7 +26,11 @@ class LocalAccountBackupViewModelTest {
     @Test
     fun rejects_a_different_valid_key_as_mismatched() = runTest {
         val account = accountWith("pass")
-        val other = SshKeyCodec.generateEncrypted(1_700_000_000_000_000L, "other".toCharArray(), rounds = 16)
+        val other = SshKeyCodec.generateEncrypted(
+            1_700_000_000_000_000L,
+            "other".toCharArray(),
+            rounds = SshKeyCodec.MIN_BCRYPT_PBKDF_ROUNDS,
+        )
         val viewModel = viewModelFor(account)
 
         val result = viewModel.confirmPastedAccountKey(other.privateKeyPem)
@@ -54,7 +58,13 @@ class LocalAccountBackupViewModelTest {
     }
 
     private fun accountWith(passphrase: String): Account {
-        val generated = SshKeyCodec.generateEncrypted(1_700_000_000_000_000L, passphrase.toCharArray(), rounds = 16)
+        // Generated at the floor rather than a fast test-only value: generation now refuses
+        // anything below MIN_BCRYPT_PBKDF_ROUNDS, so a weaker fixture cannot be built at all.
+        val generated = SshKeyCodec.generateEncrypted(
+            1_700_000_000_000_000L,
+            passphrase.toCharArray(),
+            rounds = SshKeyCodec.MIN_BCRYPT_PBKDF_ROUNDS,
+        )
         return Account(
             createdAt = generated.createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
