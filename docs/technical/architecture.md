@@ -90,6 +90,9 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 ## Security boundaries
 
 - Secrets are stored only through `SecureStorageService`, which encrypts each value with `KeystoreCryptoService` (AES-256-GCM using a non-exportable Android Keystore key), or transiently in crypto/network operations.
+- Each account is one self-describing encrypted record under the preference key `accounts_<createdAt>`. There is no separate index of accounts: listing scans that key prefix, takes the account ID from the authenticated record contents, and returns records in ascending ID order. Keeping the index out of the store is a correctness choice, not a size optimization — see below.
+- Every secure-storage mutation is exactly one `SharedPreferences` edit. `SharedPreferences` makes a single edit atomic, so concurrent account creation, consolidation restore, and removal cannot drop one another's updates. This is why no storage mutex is needed and why no caller has to coordinate with the consolidation engine's operation lock.
+- A record that fails to decrypt or parse, or whose authenticated `createdAt` disagrees with its preference key, is skipped when listing and left untouched on disk for a future recovery path.
 - `AppStorageService`, WorkManager input, checkpoints, status, and diagnostics contain no keys, passphrases, encrypted backup payloads, sync codes, tokens, or NIP-42 challenges.
 - Relay authentication signs kind `22242` on the challenged connection using the Vault Key-derived Nostr identity and does not persist the challenge.
 - Remote payloads are decrypted only to restore an account missing locally.

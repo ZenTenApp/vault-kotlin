@@ -92,6 +92,14 @@ a doc to match a bug unless that weaker behavior is explicitly accepted.
 | 24 | `code-review-checklist.md` | Missing `KeystoreCryptoService.kt`, `VaultKeySession.kt`, `ProfileService.kt`, `ProfilePublicationWorker.kt`, `VaultKeyRecoveryService.kt`. | **HOUSE** — closed as not needed: the untracked, gitignored checklist was deleted by owner decision rather than extended | OP | ✅ |
 | 25 | `build-and-test.md` | Does not state that the release variant is unbuildable/untested; CI section implies debug-only coverage. | **BLOCKED** — R8 half fixed; signing still absent. Docs now state the post-R8 status and the missing release gate | DS | ✅ |
 
+### Code items outside the 25-doc backlog
+
+These are fix-the-code findings from the audit reports that are not doc-drift rows.
+
+| # | Finding | Resolve | Status |
+| --- | --- | --- | --- |
+| B01 | Concurrent secure-storage writes could lose an account from the registry (GPT, Critical). | **CODE** — removed the separate account registry rather than adding a mutex. Each account is one self-describing encrypted record under `accounts_<createdAt>`, so every mutation is a single atomic preference edit and no read-modify-write of an index remains to lose. Listing is derived by prefix scan, ordered by ascending account ID; records that fail to decrypt/parse or whose authenticated `createdAt` disagrees with their key are skipped and left on disk. No migration code by owner decision (unreleased app). | ✅ 2026-11-04 |
+
 ---
 
 ## Execution log
