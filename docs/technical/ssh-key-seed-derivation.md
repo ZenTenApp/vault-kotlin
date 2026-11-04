@@ -42,6 +42,8 @@ The parser reads the cipher name, KDF name and options, key count, outer public-
 
 The bcrypt options provide a salt and round count. The parser derives 48 bytes with `bcrypt_pbkdf`: the first 32 bytes are the AES-256 key and the remaining 16 bytes are the AES-CTR IV. It decrypts the private blob before parsing it.
 
+The encrypted private section must also be a whole number of 16-byte AES blocks; a truncated or spliced container is rejected rather than decrypted into shifted garbage.
+
 The decrypted private blob is checked for matching OpenSSH check integers, the `ssh-ed25519` algorithm identifier, matching inner and outer public keys, valid sequential OpenSSH padding, and the expected private-key layout:
 
 ```text
@@ -55,6 +57,20 @@ privateAndPublic.copyOfRange(0, 32)
 ```
 
 It is not calculated by hashing the SSH key or by deriving it from the public key.
+
+### Seed/public-key binding
+
+All of the checks above are structural: they confirm the container is well formed and internally consistent, but none of them proves the seed and the public key describe the *same* key. The seed and the public key are two views of one identity, and this app exposes them as such — the SSH public key shown and exported to the user comes from the container's public-key field, while the recovery words come from the seed (`Seedify.toMnemonic(seed)` → NIP-06 Nostr key → `vkbckp` backup address). AES-CTR provides no authentication over the container, so a corrupt or crafted blob could otherwise pass a "valid key, correct passphrase" check while those two identities diverge, yielding an exported key no server accepts or a recovery under an identity the user never had.
+
+After extracting the seed, the parser therefore re-derives its Ed25519 public key and requires it to equal every stored public-key copy before reporting success:
+
+```kotlin
+require(publicKeyOf(seed).contentEquals(public)) {
+    "OpenSSH private key does not match its public key"
+}
+```
+
+Generation uses the same construction in reverse — `Ed25519PrivateKeyParameters(random)` yields both the seed and its public key — so a generated key always satisfies this invariant.
 
 ### Why the result is 24 words
 
@@ -120,7 +136,8 @@ A mnemonic is an intermediate representation of an account's SSH seed, not a per
 
 - extracts the expected seed, public key, fingerprint, and 24-word mnemonic from a known OpenSSH fixture;
 - decrypts the supported bcrypt/AES-CTR fixture and rejects missing or incorrect passphrases;
-- normalizes PEM, raw Base64, and supported JSON-wrapped input consistently, and ignores public metadata appended after a PEM export; and
+- normalizes PEM, raw Base64, and supported JSON-wrapped input consistently, and ignores public metadata appended after a PEM export;
+- rejects a container whose seed does not match its advertised public key, mutated check integers or padding, and a private section that is not a whole number of AES blocks — each variant keeps every structural check intact, so only the seed/public-key binding or the alignment check catches it; and
 - rejects unencrypted OpenSSH private keys and creates a passphrase-encrypted associated key whose comment is the allocated creation ID.
 
 Compatibility vectors are in `app/src/test/resources/golden/crypto-vectors.json`; their chain is documented in `app/src/test/resources/golden/README.md`.
