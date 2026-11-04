@@ -33,7 +33,7 @@ Status: ✅ done · ⬜ pending · 🔄 in progress · 🟡 decided, code follow
 | H1 | No release signing configuration or key custody | High | ⬜ |
 | H2 | Release variant never built, linted, or instrumented in CI | High | ⬜ |
 | H3 | Release build fails under R8 | High | ✅ fixed `a1f6d3a` |
-| H4 | Vault Key recovery is not bound to the supplied recovery words | High | ⬜ |
+| H4 | Vault Key recovery is not bound to the supplied recovery words | High | ✅ fixed |
 | H5 | Imported Vault Key passphrases bypass the strength policy | High | ⬜ |
 | H6 | bcrypt work factor settable to 1 for keys that leave the device | High | ⬜ |
 | H7 | Vault Key quorum trusted write acks without read-back | High | ✅ fixed `4954799` |
@@ -136,7 +136,7 @@ covered, so the seed test is the one that isolates the fix.
 
 ### H4 — Vault Key recovery is not bound to the supplied recovery words
 
-**Found by:** GPT (B09, reproduced). **Tag:** CODE.
+**Found by:** GPT (B09, reproduced). **Tag:** CODE. **Resolved:** 2026-11-04 (uncommitted).
 
 `domain/VaultKeyRecoveryService.kt`: `normalizeAndParse` accepts the first candidate that decrypts.
 It never re-derives that candidate's `vkbckp` mnemonic and compares it with the user's 24 words, so
@@ -154,6 +154,17 @@ supplied mnemonic before anything is persisted. Iterate all candidates newest-fi
 validation. Apply an explicit restore-trust policy. Report incompatible copies distinctly from
 absence and keep checking the remaining sources. Add wrong-root/same-passphrase, corrupt-first, and
 untrusted-source tests.
+
+**Implemented:** `normalizeAndParse` now re-derives the candidate's `vkbckp` mnemonic
+(`Seedify.toVaultKeyBackupWordIndices`) and throws a distinct `VaultKeyMismatchException` unless it
+equals the supplied words — the backup mnemonic, not the raw seed mnemonic. `Lookup` carries every
+decryptable copy per source instead of one; relay events sort by `createdAt` and Brave entries by
+`version`, both newest-first. `enabledSources` now also requires `trustedForRestore`. A mismatch is
+skipped and the scan continues; if no copy matches and at least one decrypted, recovery reports "found
+but does not belong" rather than "not found". Tests: wrong-root/same-passphrase rejected and nothing
+persisted, corrupt newest copy does not mask an older valid one, misbound newest copy does not mask an
+older valid one, untrusted source never queried. Docs updated in
+`docs/features/vault-key-setup.md` and `docs/technical/ssh-key-seed-derivation.md`.
 
 ### H5 — Imported Vault Key passphrases bypass the strength policy
 
