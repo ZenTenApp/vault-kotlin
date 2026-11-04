@@ -21,9 +21,37 @@ object SshKeyCodec {
     /** AES block size in bytes; the CTR-mode private section is always a whole number of blocks. */
     private const val AES_BLOCK_BYTES = 16
 
-    /** Allowed OpenSSH bcrypt_pbkdf work factors, intentionally limited to powers of two. */
-    val SUPPORTED_BCRYPT_PBKDF_ROUNDS: List<Int> = (0..13).map { 1 shl it }
-    const val DEFAULT_BCRYPT_PBKDF_ROUNDS = 128
+    /**
+     * Lowest work factor Vault will ever generate or let the user select. Each bcrypt_pbkdf round
+     * costs a full Blowfish key schedule — roughly 8 ms of deliberate work on a desktop CPU — so
+     * the default of 128 is about a second and a floor of 128 keeps generated keys in that range.
+     *
+     * This floor applies to **generation only**. Parsing accepts weaker values because the app
+     * imports foreign keys: `ssh-keygen` defaults to 16 rounds, and rejecting anything below the
+     * floor would make a user's own existing key impossible to paste or unlock. Those keys keep
+     * whatever work factor they were created with.
+     */
+    const val MIN_BCRYPT_PBKDF_ROUNDS = 128
+
+    /**
+     * Highest work factor accepted anywhere. It bounds both what the Settings menu offers and what
+     * a parsed container may declare, so a hostile pasted key cannot ask the app to run an
+     * effectively unbounded bcrypt_pbkdf loop. Parsing is the security-critical direction: a
+     * container declaring `rounds = 2_147_483_647` passes metadata validation today and then
+     * wedges the passphrase step forever, which would make recovery impossible to complete.
+     */
+    const val MAX_BCRYPT_PBKDF_ROUNDS = 8192
+
+    /**
+     * Work factors Vault offers for *newly generated* keys, as powers of two inside the supported
+     * band. Kept as a list because the Settings dropdown renders it directly.
+     */
+    val SUPPORTED_BCRYPT_PBKDF_ROUNDS: List<Int> =
+        generateSequence(MIN_BCRYPT_PBKDF_ROUNDS) { previous -> (previous * 2).takeIf { it <= MAX_BCRYPT_PBKDF_ROUNDS } }
+            .toList()
+
+    /** Work factor used when the user has not chosen one. Tied to the floor so it stays selectable. */
+    const val DEFAULT_BCRYPT_PBKDF_ROUNDS = MIN_BCRYPT_PBKDF_ROUNDS
 
     /**
      * Upper bound on accepted serialized-key text. A real encrypted OpenSSH key and the
@@ -104,7 +132,10 @@ object SshKeyCodec {
         random: SecureRandom = SecureRandom(),
     ): GeneratedKey {
         require(passphrase.isNotEmpty()) { "A passphrase is required to encrypt an SSH key" }
-        require(rounds in SUPPORTED_BCRYPT_PBKDF_ROUNDS) { "Unsupported bcrypt KDF round count: $rounds" }
+        // Generation is held to the supported band; only parsing tolerates weaker foreign keys.
+        require(rounds in SUPPORTED_BCRYPT_PBKDF_ROUNDS) {
+            "bcrypt KDF round count must be between $MIN_BCRYPT_PBKDF_ROUNDS and $MAX_BCRYPT_PBKDF_ROUNDS: $rounds"
+        }
         val private = Ed25519PrivateKeyParameters(random)
         val seed = private.encoded
         val public = private.generatePublicKey().encoded
@@ -202,9 +233,17 @@ object SshKeyCodec {
         require(kdfName == Bcrypt) { "Unsupported OpenSSH KDF: $kdfName" }
         val optionsReader = SshReader(kdfOptions)
         val salt = optionsReader.bytes()
-        val rounds = optionsReader.uInt().toInt()
-        require(salt.isNotEmpty() && rounds > 0 && optionsReader.atEnd()) { "Invalid bcrypt KDF options" }
-        return EncryptedContainer(bytes, publicKey, encryptedPrivate, salt, rounds)
+        // Read the work factor as an unsigned 32-bit value before narrowing it. This field is
+        // attacker-controlled: a crafted container can declare any value, and bcrypt_pbkdf cost
+        // grows linearly with it, so an unchecked value turns one pasted key into a hang that
+        // repeats on every unlock and recovery attempt. Reject it here, while only metadata has
+        // been read, rather than after the KDF has already been asked to run.
+        val declaredRounds = optionsReader.uInt()
+        require(salt.isNotEmpty() && declaredRounds > 0 && optionsReader.atEnd()) { "Invalid bcrypt KDF options" }
+        require(declaredRounds <= MAX_BCRYPT_PBKDF_ROUNDS) {
+            "OpenSSH key uses $declaredRounds bcrypt KDF rounds; the supported maximum is $MAX_BCRYPT_PBKDF_ROUNDS"
+        }
+        return EncryptedContainer(bytes, publicKey, encryptedPrivate, salt, declaredRounds.toInt())
     }
 
     private fun verifyPadding(padding: ByteArray) {

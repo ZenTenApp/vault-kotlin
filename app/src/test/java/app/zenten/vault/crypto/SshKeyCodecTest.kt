@@ -179,14 +179,85 @@ class SshKeyCodecTest {
     }
 
     @Test
-    fun generation_accepts_only_supported_kdf_rounds() {
+    fun generation_accepts_only_rounds_inside_the_supported_band() {
         val passphrase = "vaultKey-passphrase".toCharArray()
-        val generated = SshKeyCodec.generateEncrypted(123L, passphrase, rounds = 8)
+        val generated = SshKeyCodec.generateEncrypted(123L, passphrase, rounds = 256)
 
-        assertEquals(8, SshKeyCodec.bcryptKdfRounds(generated.privateKeyPem))
+        assertEquals(256, SshKeyCodec.bcryptKdfRounds(generated.privateKeyPem))
+        // Below the floor: a single bcrypt block is far too cheap to protect a key that leaves
+        // the device, so generation must refuse it even though parsing still accepts it.
         assertThrows(IllegalArgumentException::class.java) {
-            SshKeyCodec.generateEncrypted(124L, passphrase, rounds = 3)
+            SshKeyCodec.generateEncrypted(124L, passphrase, rounds = 1)
         }
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.generateEncrypted(125L, passphrase, rounds = 64)
+        }
+        // Above the ceiling, and a non-power-of-two that only the band check can reject.
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.generateEncrypted(126L, passphrase, rounds = 16_384)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.generateEncrypted(127L, passphrase, rounds = 200)
+        }
+    }
+
+    @Test
+    fun offers_a_contiguous_power_of_two_band_for_generation() {
+        val offered = SshKeyCodec.SUPPORTED_BCRYPT_PBKDF_ROUNDS
+
+        assertEquals(SshKeyCodec.MIN_BCRYPT_PBKDF_ROUNDS, offered.first())
+        assertEquals(SshKeyCodec.MAX_BCRYPT_PBKDF_ROUNDS, offered.last())
+        // No 1-round key can be created or selected: the weakest offered value must already be
+        // expensive enough to slow an offline attack on an exported key.
+        assertFalse(offered.contains(1))
+        assertTrue(offered.all { it == 1 shl Integer.numberOfTrailingZeros(it) })
+        // The default must stay selectable, or the Settings dropdown could not show its value.
+        assertTrue(offered.contains(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS))
+    }
+
+    @Test
+    fun parsing_still_accepts_a_foreign_key_below_the_generation_floor() {
+        // Compatibility, not a security property: ssh-keygen's default is 16 rounds, so a user's
+        // own existing key must remain pasteable and unlockable even though we no longer create
+        // anything that weak. This fixture also uses one round.
+        val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
+
+        assertEquals(1, SshKeyCodec.bcryptKdfRounds(pem))
+        assertTrue(SshKeyCodec.parse(pem, "phase1-test-passphrase".toCharArray()).encrypted)
+    }
+
+    @Test
+    fun rejects_a_container_declaring_an_unbounded_bcrypt_work_factor() {
+        val bytes = goldenContainer()
+
+        // The work factor sits in a four-byte big-endian field inside the plaintext KDF options,
+        // so it can be rewritten without touching any encrypted bytes or the passphrase.
+        fun containerWithRounds(rounds: Int): String {
+            val tampered = bytes.copyOf()
+            ByteBuffer.wrap(tampered).putInt(roundsFieldOffset(tampered), rounds)
+            return Base64.getEncoder().encodeToString(tampered)
+        }
+
+        // Metadata-only paths must reject it, so a hostile key never even reaches the passphrase
+        // step. 2_147_483_647 is the value the audit reproduced as accepted.
+        listOf(Int.MAX_VALUE, SshKeyCodec.MAX_BCRYPT_PBKDF_ROUNDS + 1).forEach { rounds ->
+            assertThrows(IllegalArgumentException::class.java) {
+                SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(containerWithRounds(rounds))
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                SshKeyCodec.bcryptKdfRounds(containerWithRounds(rounds))
+            }
+            // The full parse must fail just as fast, before running bcrypt at all.
+            assertThrows(IllegalArgumentException::class.java) {
+                SshKeyCodec.parse(containerWithRounds(rounds), "phase1-test-passphrase".toCharArray())
+            }
+        }
+        // Positive control: the ceiling itself is still accepted, so the test fails for the right
+        // reason rather than because the tampering broke the container.
+        assertEquals(
+            SshKeyCodec.MAX_BCRYPT_PBKDF_ROUNDS,
+            SshKeyCodec.bcryptKdfRounds(containerWithRounds(SshKeyCodec.MAX_BCRYPT_PBKDF_ROUNDS)),
+        )
     }
 
     @Test
@@ -281,6 +352,18 @@ class SshKeyCodecTest {
     }
 
     private fun readUInt(bytes: ByteArray, at: Int): Int = ByteBuffer.wrap(bytes, at, 4).int
+
+    /**
+     * Offset of the bcrypt work-factor field inside the container. The KDF options are
+     * `[salt length][salt][rounds]`, and the options block follows the magic, cipher name, and KDF
+     * name. Walking the lengths keeps this correct if the fixture's salt size ever changes.
+     */
+    private fun roundsFieldOffset(container: ByteArray): Int {
+        var offset = MAGIC.size
+        repeat(2) { offset += 4 + readUInt(container, offset) } // cipher name, KDF name
+        val optionsStart = offset + 4
+        return optionsStart + 4 + readUInt(container, optionsStart) // skip the salt string
+    }
 
     private fun root() = json.parseToJsonElement(load("/golden/crypto-vectors.json")).jsonObject
     private fun vector(label: String) = root()["vectors"]!!.jsonArray.map { it.jsonObject }.first { value(it, "label") == label }

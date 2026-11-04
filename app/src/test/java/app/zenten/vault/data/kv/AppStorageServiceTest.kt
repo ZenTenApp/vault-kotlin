@@ -6,9 +6,11 @@ import app.zenten.vault.domain.BackupSourceConfig
 import app.zenten.vault.domain.BackupSourceType
 import app.zenten.vault.domain.SourceAuthentication
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -56,8 +58,12 @@ class AppStorageServiceTest {
             // The default round count is owned by SshKeyCodec; reference it so this
             // persistence test does not silently pin a stale value.
             assertEquals(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS, service.sshKdfRounds.first())
-            service.setSshKdfRounds(64)
-            assertEquals(64, service.sshKdfRounds.first())
+            service.setSshKdfRounds(256)
+            assertEquals(256, service.sshKdfRounds.first())
+            // A value below the generation floor is no longer selectable, so it must be refused
+            // outright rather than persisted and later clamped to a different number.
+            assertThrows(IllegalArgumentException::class.java) { runBlocking { service.setSshKdfRounds(64) } }
+            assertThrows(IllegalArgumentException::class.java) { runBlocking { service.setSshKdfRounds(16_384) } }
             service.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
             assertEquals(CreateVaultKeyStep.BACKUP_INTRO, service.createVaultKeyStep.first())
             service.setCreateVaultKeyStep(CreateVaultKeyStep.CONFIRM_BACKUP)

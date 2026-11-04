@@ -35,7 +35,7 @@ Status: ✅ done · ⬜ pending · 🔄 in progress · 🟡 decided, code follow
 | H3 | Release build fails under R8 | High | ✅ fixed `a1f6d3a` |
 | H4 | Vault Key recovery is not bound to the supplied recovery words | High | ✅ fixed |
 | H5 | Imported Vault Key passphrases bypass the strength policy | High | ✅ decided (D9) |
-| H6 | bcrypt work factor settable to 1 for keys that leave the device | High | ⬜ |
+| H6 | bcrypt work factor settable to 1 for keys that leave the device | High | ✅ fixed (D12) |
 | H7 | Vault Key quorum trusted write acks without read-back | High | ✅ fixed `4954799` |
 | H8 | Generated setup completed without backup quorum | High | ✅ fixed `27e16c1` |
 | H9 | Imported-setup retry was not durable across restart | High | ✅ fixed `4954799` |
@@ -79,6 +79,7 @@ These were recorded in round 1 and constrain this round. Do not reopen them with
 | D7 | **Vault Key writes are read back** before a source counts toward quorum. Closes H7. |
 | D8 | Nigori compatibility is a **restricted contract**: one key set per chain, no keybag rotation. |
 | D9 | Passphrase strength is **not enforced outside in-app creation**. **Paste VaultKey** and **Recover VaultKey** accept any passphrase and show no warning: an imported passphrase is a property of an existing key the user did not choose, and refusing it would leave a user with a valid key unable to onboard or recover. Accepted business decision, recorded 2026-11-04. Closes H5 with no code change. |
+| D12 | The `bcrypt_pbkdf` work factor is bounded to **128–8192 for generation and selection**, default 128. Parsing accepts declared factors down to 1 for foreign-key compatibility and rejects anything above 8192 as hostile input. Recorded 2026-11-04. Closes H6 and the rounds row of H14. |
 
 ---
 
@@ -187,19 +188,38 @@ behaviour — enforcement on in-app creation only, documented in `docs/features/
 No code or doc change was needed. If the weakness is to be removed rather than accepted later, the
 remedy is re-encryption under a newly chosen, policy-checked passphrase, tracked separately from H5.
 
-### H6 — bcrypt work factor settable to 1
+### H6 — bcrypt work factor settable to 1 ✅
 
-**Found by:** OP (B4), GPT (medium). **Tag:** CODE + DECIDE.
+**Found by:** OP (B4), GPT (medium). **Tag:** CODE + DECIDE. **Resolved:** 2026-11-04 (D12).
 
-`SshKeyCodec.SUPPORTED_BCRYPT_PBKDF_ROUNDS` starts at `1 shl 0 = 1` and `ui/settings/SettingsScreen.kt`
-renders every value, so a user can create keys whose encrypted form leaves the device (Notes export,
-clipboard, sibling-app KeyHive reads) protected by a single bcrypt round. The default of 128 is
-unaffected.
+`SshKeyCodec.SUPPORTED_BCRYPT_PBKDF_ROUNDS` started at `1 shl 0 = 1` and
+`ui/settings/SettingsScreen.kt` renders every value, so a user could create keys whose encrypted
+form leaves the device (Notes export, clipboard, sibling-app KeyHive reads) protected by a single
+bcrypt round. The default of 128 was unaffected.
 
-**Fix:** establish a calibrated production floor (at least 64, ideally removing the setting for
-release builds or gating it behind a debug flag). Record the floor as a decision so the doc and the
-settings menu agree. Lowering the floor later is a compatibility question — old keys keep their
-stored rounds.
+**Resolution (D12):** generation and the Settings menu are restricted to `128`–`8192`, floor
+**128**, ceiling **8192**. The list is now derived from `MIN_BCRYPT_PBKDF_ROUNDS` and
+`MAX_BCRYPT_PBKDF_ROUNDS` so the menu, the generator, and the storage guard cannot drift apart.
+
+Three things the original wording got wrong, now recorded in the code and docs:
+
+1. **`rounds = 1` is ~64× weaker than the default, not "one hash".** Each round pays a full
+   Blowfish key schedule — measured at ~8 ms on a desktop CPU — so even `rounds = 1` is ~8 ms and
+   `128` is ~1 s. Cost is ≈ `8·(1+rounds)` ms.
+2. **The ceiling was the larger practical defect.** `8192` extrapolates to ~66 s of KDF on a
+   desktop, and the menu presented it as an ordinary option with no indication of that cost. The
+   band is now documented with real numbers rather than asserted.
+3. **The floor must not apply to parsing.** Vault imports foreign keys and `ssh-keygen` defaults
+   to 16 rounds, so a 128-round parse floor would make a user's existing key impossible to paste
+   or unlock. Parsing still accepts any declared factor from 1, and only the ceiling binds it —
+   as an input-safety limit (H14), not a strength policy.
+
+`AppStorageService.setSshKdfRounds` now rejects anything outside the offered list, and the existing
+`sshKdfRounds` clamp still maps a previously stored weak value (e.g. `64`) to 128, so no migration
+is needed and nothing is destroyed. Tests: band boundaries and non-power-of-two rejection in
+`generation_accepts_only_rounds_inside_the_supported_band`, list shape and
+default-selectability in `offers_a_contiguous_power_of_two_band_for_generation`, and the
+compatibility carve-out in `parsing_still_accepts_a_foreign_key_below_the_generation_floor`.
 
 ### H10 — Unreadable records are indistinguishable from absent ones
 
@@ -290,7 +310,7 @@ multiple batches, and repeated markers.
 
 | Surface | Gap |
 | --- | --- |
-| `crypto/SshKeyCodec.readEncryptedContainer` | Accepts any `rounds > 0`; a synthetic container with `2,147,483,647` passed metadata validation. `parse` then runs bcrypt synchronously. |
+| `crypto/SshKeyCodec.readEncryptedContainer` | Accepts any `rounds > 0`; a synthetic container with `2,147,483,647` passed metadata validation. `parse` then runs bcrypt synchronously. ✅ **Fixed** — capped at `MAX_BCRYPT_PBKDF_ROUNDS` (8192) while reading metadata, before any KDF work. Still open: `parse` is synchronous (H15). |
 | `bravesync/transport/BraveSyncTransport.post` | Buffers the whole body, then expands gzip with unbounded `readBytes()`. |
 | `bravesync/proto/ProtoWire` | No field-count or group-recursion cap, so a crafted payload can exhaust the stack. |
 | `network/nostr/NostrRelayService` + Quartz | No event-count or payload-volume limit; Quartz uses an unbounded incoming channel. |
@@ -467,6 +487,40 @@ device-to-device transfer) and a clean-device restore drill are the minimum.
 ## Execution log
 
 Newest first. Each entry records what changed, what was verified, and which docs moved.
+
+### H6 + H14 (bcrypt rounds) — work-factor band and parse ceiling
+
+- `crypto/SshKeyCodec.kt`: replaced the `1 shl it` list with `MIN_BCRYPT_PBKDF_ROUNDS` (128) and
+  `MAX_BCRYPT_PBKDF_ROUNDS` (8192), and derived both `SUPPORTED_BCRYPT_PBKDF_ROUNDS` (generation
+  band) and the parse cap from them. `readEncryptedContainer` now reads the declared factor as an
+  unsigned 32-bit value and rejects anything above the ceiling with an explicit "supported maximum"
+  message instead of hanging later.
+- `data/kv/AppStorageService.kt`: no code change needed — `setSshKdfRounds` already required
+  membership in the offered list, and `sshKdfRounds` already clamps unknown values to the default,
+  so the narrowed list automatically makes the storage layer reject the weak values and migrate a
+  stale stored one.
+- **Verified:** `SshKeyCodecTest` 20/20 pass and `AppStorageServiceTest` passes. Four tests added or
+  rewritten: generation band boundaries, list shape, the parse-below-floor compatibility carve-out,
+  and `rejects_a_container_declaring_an_unbounded_bcrypt_work_factor`, which walks the container to
+  the plaintext rounds field and rewrites it to `Int.MAX_VALUE` and `8193`, then asserts that
+  `validateAndNormalizeEncryptedPrivateKey`, `bcryptKdfRounds`, and `parse` all reject it. The
+  `8192` positive control keeps the test honest.
+- **Benchmark used to calibrate the comments:** `BCrypt().pbkdf` on an i5-13450HX desktop JVM —
+  ~8 ms at 1 round, ~129 ms at 16, ~1.03 s at 128, ~8.2 s at 1024. Desktop numbers; phone timings
+  are worse, which is why the ceiling matters. Not a device measurement — that belongs to H23.
+- **Not verified:** the negative control (removing the `require` and confirming the new test fails)
+  could not be run — the sandbox blocked weakening the source guard. The test's `8192` positive
+  control is the partial substitute: it proves the container rewrite reaches the field the guard
+  reads, so the rejection is not an artifact of malformed input.
+- **Docs moved:** `docs/technical/ssh-key-seed-derivation.md` (new paragraph separating
+  generation/storage/parse bounds with measured costs), `docs/stakeholder/screens-and-states.md`
+  (Settings dropdown values 128–8192 plus the clamp behaviour),
+  `docs/technical/security-model.md` (review item 10 → D12).
+
+**Scope note:** H14 is only partially closed. The Brave transport body/gzip bounds, the ProtoWire
+field-count and group-depth caps, and the Nostr event-count/volume limits are untouched. The Nostr
+quarter is deferred to H13, because the only place to enforce a count limit is the collector that
+H13 must rewrite anyway to get typed EOSE/rejection/timeout outcomes.
 
 ### C2 — seed/public-key binding in OpenSSH parse
 
