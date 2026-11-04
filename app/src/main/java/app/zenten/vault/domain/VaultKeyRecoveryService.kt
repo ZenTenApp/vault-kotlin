@@ -31,9 +31,11 @@ import java.time.Clock
  * - the Nostr identity under which Vault Key relay records are published, because that identity
  *   is the NIP-06 key pair of the same 24-word Vault Key backup (`vkbckp`) associated account mnemonic.
  *
- * Every enabled restore-capable source is queried and the first copy that decrypts with the
- * user's passphrase wins. A copy that is corrupt or belongs to another key does not block the
- * remaining sources.
+ * Every enabled, restore-trusted source is queried and every copy it holds is a candidate. A
+ * candidate is accepted only when the passphrase decrypts it *and* its `vkbckp` backup mnemonic
+ * re-derives to the exact 24 words the user supplied; decryption alone proves the passphrase, not
+ * ownership. Candidates are tried newest-first and a copy that is corrupt or belongs to another key
+ * does not block the remaining copies or sources.
  */
 class VaultKeyRecoveryService(
     private val sourceRepository: BackupSourceRepository,
@@ -53,7 +55,7 @@ class VaultKeyRecoveryService(
             // Nostr relays are queried first because a relay record needs only the 24 words,
             // while every Brave lookup also depends on Brave Sync's date-derived 25th word.
             val lookups = lookupNostrSources(vaultKeyBackupNostr) + lookupBraveSources(syncCode)
-            val candidates = lookups.mapNotNull { it.value }
+            val candidates = lookups.flatMap { it.candidates }
             if (candidates.isEmpty()) {
                 // A reachable source that simply holds no Vault Key proves absence; only when
                 // every source failed do we surface connectivity instead of "not found".
@@ -63,12 +65,27 @@ class VaultKeyRecoveryService(
                 throw IllegalArgumentException("No VaultKey backup was found for these Secret Combinations.")
             }
 
+            // Decryption proves the passphrase, not ownership: a copy that decrypts but whose seed
+            // re-derives to other words is another key's backup and is skipped, not persisted.
+            var sawIncompatibleCopy = false
             var lastFailure: Throwable? = null
             val recovered = candidates.firstNotNullOfOrNull { encryptedKey ->
-                runCatching { normalizeAndParse(encryptedKey, passphrase) }
-                    .onFailure { lastFailure = it }
+                runCatching { normalizeAndParse(encryptedKey, passphrase, indices) }
+                    .onFailure {
+                        if (it is VaultKeyMismatchException) sawIncompatibleCopy = true
+                        lastFailure = it
+                    }
                     .getOrNull()
-            } ?: throw (lastFailure ?: IllegalArgumentException("No VaultKey backup was found for these Secret Combinations."))
+            } ?: run {
+                if (sawIncompatibleCopy) {
+                    throw IllegalArgumentException(
+                        "A VaultKey backup was found for these Secret Combinations, but it does not " +
+                            "belong to them. Check the Secret Combinations, or confirm the backup was " +
+                            "not overwritten.",
+                    )
+                }
+                throw (lastFailure ?: IllegalArgumentException("No VaultKey backup was found for these Secret Combinations."))
+            }
 
             val (normalized, parsed) = recovered
             val nostr = NostrKeyDerivation.derive(
@@ -92,8 +109,11 @@ class VaultKeyRecoveryService(
         }
     }
 
-    /** One source read; [error] preserves the difference between unreachable and record-absent. */
-    private data class Lookup(val value: String?, val error: Throwable?)
+    /**
+     * One source read. [candidates] keeps every decryptable copy so a corrupt first copy cannot
+     * mask a valid later one; [error] preserves the difference between unreachable and absent.
+     */
+    private data class Lookup(val candidates: List<String>, val error: Throwable?)
 
     /** Reads Vault Key records from enabled relays under the 24-word-derived Vault Key backup identity. */
     private suspend fun lookupNostrSources(vaultKeyBackupNostr: NostrKeyPair): List<Lookup> =
@@ -104,10 +124,12 @@ class VaultKeyRecoveryService(
                     vaultKeyBackupNostr.pubkey,
                     BackupService.VAULT_KEY_BACKUP_KIND,
                     vaultKeyBackupNostr.privateKey(),
-                ).getOrThrow().firstNotNullOfOrNull { decodeVaultKeyEvent(it, vaultKeyBackupNostr) }
+                ).getOrThrow()
+                    .sortedByDescending(NostrEvent::createdAt)
+                    .mapNotNull { decodeVaultKeyEvent(it, vaultKeyBackupNostr) }
             }.fold(
                 onSuccess = { Lookup(it, null) },
-                onFailure = { Lookup(null, it) },
+                onFailure = { Lookup(emptyList(), it) },
             )
         }
 
@@ -134,29 +156,47 @@ class VaultKeyRecoveryService(
                 val service = BravePasswordService(
                     BraveSyncTransport(serverUrl = source.endpoint, serviceKey = BraveSyncConfig.SERVICE_KEY),
                 )
-                service.list(syncCode).passwords.firstOrNull {
-                    it.username == BraveSyncBackupService.VAULT_KEY_ID &&
-                        it.url == "https://${BraveSyncBackupService.VAULT_KEY_ID}.zenten/" &&
-                        it.notes.isEmpty()
-                }?.password
+                service.list(syncCode).passwords
+                    .filter {
+                        it.username == BraveSyncBackupService.VAULT_KEY_ID &&
+                            it.url == "https://${BraveSyncBackupService.VAULT_KEY_ID}.zenten/" &&
+                            it.notes.isEmpty()
+                    }
+                    .sortedByDescending { it.version }
+                    .map { it.password }
             }.fold(
                 onSuccess = { Lookup(it, null) },
-                onFailure = { Lookup(null, it) },
+                onFailure = { Lookup(emptyList(), it) },
             )
         }
 
-    /** Canonicalizes a stored key copy and proves the passphrase decrypts it. */
+    /** Thrown when a copy decrypts but its seed re-derives to words other than the user's. */
+    private class VaultKeyMismatchException(message: String) : IllegalArgumentException(message)
+
+    /**
+     * Canonicalizes a stored key copy and proves both that the passphrase decrypts it and that the
+     * key belongs to the supplied recovery words.
+     *
+     * The 24 words address the backup (`vkbckp`) associated account, so the recovered seed's backup
+     * mnemonic — not the raw seed mnemonic — is what must match. The 25th Brave word is a
+     * date-derived freshness token and is not part of the identity.
+     */
     private fun normalizeAndParse(
         encryptedKey: String,
         passphrase: String,
+        indices: List<Int>,
     ): Pair<String, SshKeyCodec.ParsedKey> {
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(encryptedKey)
-        return normalized to SshKeyCodec.parse(normalized, passphrase.toCharArray())
+        val parsed = SshKeyCodec.parse(normalized, passphrase.toCharArray())
+        if (Seedify.toVaultKeyBackupWordIndices(parsed.seed) != indices) {
+            throw VaultKeyMismatchException("This VaultKey backup does not belong to the supplied Secret Combinations.")
+        }
+        return normalized to parsed
     }
 
     private suspend fun enabledSources(type: BackupSourceType): List<BackupSourceConfig> =
         sourceRepository.sources.first()
-            .filter { it.enabled && it.type == type && it.restoreEnabled }
+            .filter { it.enabled && it.type == type && it.restoreEnabled && it.trustedForRestore }
             .sortedBy(BackupSourceConfig::order)
 
     private fun mnemonicWords(indices: List<Int>): String {

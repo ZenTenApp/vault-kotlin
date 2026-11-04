@@ -7,6 +7,7 @@ import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
+import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrRelayGateway
 import io.mockk.coEvery
 import io.mockk.coJustRun
@@ -124,7 +125,122 @@ class VaultKeyRecoveryServiceTest {
         verify(exactly = 0) { fixture.secureStorage.addVaultKey(any()) }
     }
 
+    // --- H4: bind the recovered key to the supplied 24 words ---
+
+    /** Recovery must reject a copy that decrypts but belongs to a different key's recovery words. */
+    @Test
+    fun key_that_decrypts_but_belongs_to_other_words_is_not_stored() = runTest {
+        val fixture = Fixture()
+        val wanted = fixture.generateKey()
+        val other = fixture.generateKey()
+        // Publish the *other* key's material under the wanted key's recovery identity, same passphrase.
+        coEvery { fixture.gateway.fetchAuthenticatedByRelay(any(), any(), any(), any()) } returns
+            Result.success(listOf(fixture.eventFor(wanted.words, other)))
+        every { fixture.repository.sources } returns flowOf(listOf(relaySource))
+
+        val result = fixture.service.recover(wanted.indices, passphrase)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("does not belong"))
+        verify(exactly = 0) { fixture.secureStorage.addVaultKey(any()) }
+        coVerify(exactly = 0) { fixture.appStorage.setSetupComplete() }
+        assertTrue(!fixture.session.isUnlocked.value)
+    }
+
+    /** A corrupt newest copy must not mask an older valid copy on the same source. */
+    @Test
+    fun corrupt_newest_copy_does_not_block_older_valid_copy() = runTest {
+        val fixture = Fixture()
+        val key = fixture.generateKey()
+        val valid = fixture.eventFor(key.words, key, atSeconds = 1_000)
+        // Corrupt copy: not a NIP-44 payload, so decoding skips it without invalidating its signature.
+        val corrupt = valid.copy(content = "not-a-nip44-payload")
+        coEvery { fixture.gateway.fetchAuthenticatedByRelay(any(), any(), any(), any()) } returns
+            Result.success(listOf(corrupt, valid))
+        every { fixture.repository.sources } returns flowOf(listOf(relaySource))
+        every { fixture.secureStorage.addVaultKey(any()) } just runs
+
+        val result = fixture.service.recover(key.indices, passphrase)
+
+        assertTrue(result.isSuccess)
+        verify(exactly = 1) { fixture.secureStorage.addVaultKey(any()) }
+    }
+
+    /** A copy for another key must not block a later valid copy from the same source. */
+    @Test
+    fun mismatched_newest_copy_does_not_block_older_valid_copy() = runTest {
+        val fixture = Fixture()
+        val key = fixture.generateKey()
+        val other = fixture.generateKey()
+        val valid = fixture.eventFor(key.words, key, atSeconds = 1_000)
+        // The other key's material, signed under the wanted key's identity, as the newest copy.
+        val misbound = fixture.eventFor(key.words, other, atSeconds = 2_000)
+        coEvery { fixture.gateway.fetchAuthenticatedByRelay(any(), any(), any(), any()) } returns
+            Result.success(listOf(misbound, valid))
+        every { fixture.repository.sources } returns flowOf(listOf(relaySource))
+        every { fixture.secureStorage.addVaultKey(any()) } just runs
+
+        val result = fixture.service.recover(key.indices, passphrase)
+
+        assertTrue(result.isSuccess)
+        verify(exactly = 1) { fixture.secureStorage.addVaultKey(any()) }
+    }
+
+    /** A custom source the user did not mark trusted for restore cannot supply the Vault Key. */
+    @Test
+    fun untrusted_source_is_not_queried_for_recovery() = runTest {
+        val fixture = Fixture()
+        val key = fixture.generateKey()
+        coEvery { fixture.gateway.fetchAuthenticatedByRelay(any(), any(), any(), any()) } returns
+            Result.success(listOf(fixture.eventFor(key.words, key)))
+        every { fixture.repository.sources } returns
+            flowOf(listOf(relaySource.copy(trustedForRestore = false)))
+
+        val result = fixture.service.recover(key.indices, passphrase)
+
+        assertTrue(result.isFailure)
+        coVerify(exactly = 0) { fixture.gateway.fetchAuthenticatedByRelay(any(), any(), any(), any()) }
+        verify(exactly = 0) { fixture.secureStorage.addVaultKey(any()) }
+    }
+
+    private class GeneratedKey(
+        val normalized: String,
+        val seed: ByteArray,
+        val words: String,
+        val indices: List<Int>,
+    )
+
     private inner class Fixture(serviceClock: Clock = clock) {
+        fun generateKey(): GeneratedKey {
+            val generated = SshKeyCodec.generateEncrypted(clock.millis(), passphrase.toCharArray())
+            val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
+            val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
+            return GeneratedKey(
+                normalized = normalized,
+                seed = seed,
+                words = Seedify.toVaultKeyBackupMnemonic(seed),
+                indices = Seedify.toVaultKeyBackupWordIndices(seed),
+            )
+        }
+
+        /**
+         * Builds a relay event as the backup path would: [key]'s material signed and NIP-44
+         * encrypted under [words]'s backup identity. Passing a key whose words differ from [words]
+         * reproduces a misbound copy. [atSeconds] must be set when signing, because changing
+         * `createdAt` afterwards invalidates the signature.
+         */
+        fun eventFor(words: String, key: GeneratedKey, atSeconds: Long = clock.instant().epochSecond): NostrEvent {
+            val nostr = NostrKeyDerivation.derive(words).toPersistedKeyPair()
+            val publisher = Account(1, key.normalized, nostr = nostr)
+            val eventClock = Clock.fixed(Instant.ofEpochSecond(atSeconds), ZoneOffset.UTC)
+            return BackupService(gateway, eventClock).buildBackupEvent(
+                publisher,
+                publisher,
+                BackupService.VAULT_KEY_D_TAG,
+                BackupService.VAULT_KEY_BACKUP_KIND,
+            )
+        }
+
         val repository: BackupSourceRepository = mockk()
         val secureStorage: SecureStorageService = mockk()
         val appStorage: AppStorageService = mockk()
@@ -156,6 +272,8 @@ class VaultKeyRecoveryServiceTest {
             type = BackupSourceType.NOSTR_RELAY,
             endpoint = "wss://relay.example",
             order = 1,
+            // Recovery only reads sources the user marked trusted; defaults all set this.
+            trustedForRestore = true,
             authentication = SourceAuthentication.NIP42_OPTIONAL,
         )
     }
