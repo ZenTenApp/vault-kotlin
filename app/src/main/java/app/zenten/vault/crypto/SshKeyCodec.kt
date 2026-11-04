@@ -18,6 +18,9 @@ object SshKeyCodec {
     private const val Aes256Ctr = "aes256-ctr"
     private const val Bcrypt = "bcrypt"
 
+    /** AES block size in bytes; the CTR-mode private section is always a whole number of blocks. */
+    private const val AES_BLOCK_BYTES = 16
+
     /** Allowed OpenSSH bcrypt_pbkdf work factors, intentionally limited to powers of two. */
     val SUPPORTED_BCRYPT_PBKDF_ROUNDS: List<Int> = (0..13).map { 1 shl it }
     const val DEFAULT_BCRYPT_PBKDF_ROUNDS = 128
@@ -117,7 +120,7 @@ object SshKeyCodec {
             Aes256Ctr.toByteArray(),
             Bcrypt.toByteArray(),
             options,
-            encryptBcrypt(pad(privateBlob, 16), salt, rounds, passphrase),
+            encryptBcrypt(pad(privateBlob, AES_BLOCK_BYTES), salt, rounds, passphrase),
         )
         val container = magic + sshString(containerFields.cipherName) + sshString(containerFields.kdfName) + sshString(containerFields.kdfOptions) +
             uint(1) + sshString(publicBlob) + sshString(containerFields.privateSection)
@@ -157,8 +160,21 @@ object SshKeyCodec {
         require(privateAndPublic.size == 64 && privateAndPublic.copyOfRange(32, 64).contentEquals(public)) { "Invalid Ed25519 private key" }
         val comment = reader.stringUtf8()
         verifyPadding(reader.remaining())
-        return ParsedKey(privateAndPublic.copyOfRange(0, 32), public, comment, encrypted)
+        val seed = privateAndPublic.copyOfRange(0, 32)
+        // The seed and the public key are two views of one identity: the SSH key shown/exported to
+        // the user comes from the public field, while the recovery words come from the seed. AES-CTR
+        // authenticates nothing, so every check above can pass on a corrupt or crafted blob whose
+        // seed belongs to a different key. Re-derive the public key from the seed and require the
+        // two identities to agree, otherwise the user could receive a key no server accepts or
+        // recover under an identity they never had.
+        require(publicKeyOf(seed).contentEquals(public)) {
+            "OpenSSH private key does not match its public key"
+        }
+        return ParsedKey(seed, public, comment, encrypted)
     }
+
+    /** Derives the Ed25519 public key that belongs to [seed], the counterpart of `generateEncrypted`. */
+    private fun publicKeyOf(seed: ByteArray): ByteArray = Ed25519PrivateKeyParameters(seed, 0).generatePublicKey().encoded
 
     private fun readPublicBlob(blob: ByteArray): ByteArray {
         val reader = SshReader(blob)
@@ -179,6 +195,9 @@ object SshKeyCodec {
         val publicKey = readPublicBlob(reader.bytes())
         val encryptedPrivate = reader.bytes()
         require(encryptedPrivate.isNotEmpty() && reader.atEnd()) { "Invalid OpenSSH private-key container" }
+        // AES-CTR cannot be fed a partial block, and a truncated or spliced container would
+        // otherwise decrypt to shifted garbage instead of being rejected outright.
+        require(encryptedPrivate.size % AES_BLOCK_BYTES == 0) { "Invalid OpenSSH private-key length" }
         require(cipherName == Aes256Ctr) { "Unencrypted OpenSSH private keys are not supported" }
         require(kdfName == Bcrypt) { "Unsupported OpenSSH KDF: $kdfName" }
         val optionsReader = SshReader(kdfOptions)

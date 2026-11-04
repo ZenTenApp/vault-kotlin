@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.nio.ByteBuffer
 import java.time.Instant
+import java.util.Base64
 
 class SshKeyCodecTest {
     private val json = Json
@@ -201,9 +203,104 @@ class SshKeyCodecTest {
         assertEquals("backup", Nip44.decryptSelf(encrypted, keys.privateKey, keys.publicKey))
     }
 
+    @Test
+    fun rejects_an_openssh_key_whose_seed_does_not_match_its_public_key() {
+        // Corrupting one seed byte leaves every structural check intact: the check integers, the
+        // two public-key copies, the private-field layout and the padding all still agree. Only
+        // re-deriving the public key from the seed detects that the SSH identity (public key) and
+        // the recovery identity (seed -> mnemonic) have diverged.
+        val container = goldenContainer()
+        val corrupted = patchPrivateCiphertextByte(container, SEED_PLAINTEXT_OFFSET, 0x01)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.parse(corrupted, "phase1-test-passphrase".toCharArray())
+        }
+    }
+
+    @Test
+    fun rejects_mutated_check_integers_and_padding() {
+        val container = goldenContainer()
+
+        // The two check integers must be equal; the second one starts at plaintext offset 4.
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.parse(patchPrivateCiphertextByte(container, CHECK_INTEGER_2_OFFSET, 0x01), "phase1-test-passphrase".toCharArray())
+        }
+
+        // The last plaintext byte is the final padding byte, which must equal the padding index.
+        // Flipping its high bit always breaks that equality because indices never exceed 16.
+        val badPadding = container.copyOf().also { it[it.lastIndex] = (it[it.lastIndex].toInt() xor 0x80).toByte() }
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.parse(Base64.getEncoder().encodeToString(badPadding), "phase1-test-passphrase".toCharArray())
+        }
+    }
+
+    @Test
+    fun rejects_a_private_section_that_is_not_a_whole_number_of_aes_blocks() {
+        // A truncated or spliced container must be rejected on sight rather than decrypted into
+        // shifted garbage. Appending bytes and widening the stored length keeps the container
+        // self-consistent apart from the block alignment.
+        val misaligned = appendPrivateCiphertextBytes(goldenContainer(), extra = 5)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            SshKeyCodec.parse(misaligned, "phase1-test-passphrase".toCharArray())
+        }
+    }
+
+    // --- helpers for building hostile variants of the golden key -----------------------------
+
+    private fun goldenContainer() =
+        Base64.getDecoder().decode(SshKeyCodec.normalizeToSingleLineBase64(root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content))
+
+    /** Offsets of the encrypted private section's length prefix and payload inside the container. */
+    private fun privateSectionOffsets(container: ByteArray): Pair<Int, Int> {
+        var offset = MAGIC.size
+        repeat(3) { offset += 4 + readUInt(container, offset) } // cipher name, KDF name, KDF options
+        offset += 4 // key count
+        offset += 4 + readUInt(container, offset) // outer public-key blob
+        return offset to (offset + 4)
+    }
+
+    /**
+     * XOR-flips one byte of the *decrypted* private blob. AES-CTR is a stream cipher, so flipping a
+     * ciphertext byte flips exactly the plaintext byte at the same offset — no re-encryption needed.
+     */
+    private fun patchPrivateCiphertextByte(container: ByteArray, plaintextOffset: Int, xorByte: Int): String {
+        val (_, privateStart) = privateSectionOffsets(container)
+        val mutated = container.copyOf()
+        val index = privateStart + plaintextOffset
+        mutated[index] = (mutated[index].toInt() xor xorByte).toByte()
+        return Base64.getEncoder().encodeToString(mutated)
+    }
+
+    private fun appendPrivateCiphertextBytes(container: ByteArray, extra: Int): String {
+        val (lengthPrefix, privateStart) = privateSectionOffsets(container)
+        val widened = ByteArray(4).also { ByteBuffer.wrap(it).putInt(readUInt(container, lengthPrefix) + extra) }
+        return Base64.getEncoder().encodeToString(
+            container.copyOfRange(0, lengthPrefix) + widened + container.copyOfRange(privateStart, container.size) + ByteArray(extra),
+        )
+    }
+
+    private fun readUInt(bytes: ByteArray, at: Int): Int = ByteBuffer.wrap(bytes, at, 4).int
+
     private fun root() = json.parseToJsonElement(load("/golden/crypto-vectors.json")).jsonObject
     private fun vector(label: String) = root()["vectors"]!!.jsonArray.map { it.jsonObject }.first { value(it, "label") == label }
     private fun value(object_: kotlinx.serialization.json.JsonObject, name: String) = object_[name]!!.jsonPrimitive.content
     private fun load(path: String) = requireNotNull(javaClass.getResourceAsStream(path)).bufferedReader().use { it.readText() }
     private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
+
+    private companion object {
+        /**
+         * Offset of the 32-byte seed inside the decrypted private blob. The blob is laid out as
+         * [check1][check2][algorithm string][public key string][private field string][comment][padding],
+         * so the seed starts right after the private field's 4-byte length prefix:
+         * 4+4 check integers, 4+11 algorithm, 4+32 public key, 4 length prefix = 63.
+         */
+        const val SEED_PLAINTEXT_OFFSET = 4 + 4 + (4 + 11) + (4 + 32) + 4
+
+        /** The second of the two duplicated check integers must equal the first. */
+        const val CHECK_INTEGER_2_OFFSET = 4
+
+        /** OpenSSH-v1 magic prefix that precedes the container fields. */
+        val MAGIC = "openssh-key-v1\u0000".toByteArray(Charsets.US_ASCII)
+    }
 }
