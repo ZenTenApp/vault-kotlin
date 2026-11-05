@@ -139,7 +139,22 @@ class NostrBackupSource(
         // passphrase is still required to make the restored account usable.
         val decrypted = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
         accountFromSshKey(createdAt, decrypted, secrets.passphrase)
+            // The `label` tag is the only place the account name survives a device change, so
+            // carry it onto the restored account. Absent or blank leaves the name unset.
+            .copy(accountName = event.accountLabel())
     }
+
+    /**
+     * Reads the optional `label` tag on an associated-account event.
+     *
+     * The first label wins when an event carries more than one, and a blank value is treated as
+     * absent so the account-card fallback to a shortened npub applies.
+     */
+    private fun NostrEvent.accountLabel(): String? =
+        tags.firstOrNull { it.firstOrNull() == BackupService.ACCOUNT_LABEL_TAG }
+            ?.getOrNull(1)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
 
     override suspend fun write(secrets: VaultKeyRunSecrets, accountId: BackupAccountId, account: Account): Result<Unit> {
         val vaultKey = secrets.vaultKey

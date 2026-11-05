@@ -30,7 +30,6 @@ import java.util.Locale
 @Composable
 fun AccountCard(
     account: Account,
-    displayName: String? = null,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     // The compact list view shows only the date; the detail view keeps the full date and time.
@@ -52,7 +51,7 @@ fun AccountCard(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = accountCardIdentity(displayName, account),
+                    text = accountCardIdentity(account),
                     modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp,
@@ -100,10 +99,14 @@ internal fun formatShortNpub(publicKey: String): String =
         if (npub == "Unavailable") npub else "${npub.take(4)}...${npub.takeLast(4)}"
     }
 
-internal fun accountCardIdentity(displayName: String?, account: Account): String =
-    listOf(displayName, account.accountName).firstNotNullOfOrNull { name ->
-        name?.trim()?.takeIf { it.isNotEmpty() }
-    } ?: formatShortNpub(account.nostr.pubkey)
+/**
+ * Picks the name a card shows: the account's own name, then the shortened npub.
+ *
+ * The name is restored alongside the key from a backup record (a `label` tag on relays or a note
+ * on Brave Sync), so there is no separate profile lookup or cache to fall back from any more.
+ */
+internal fun accountCardIdentity(account: Account): String =
+    account.accountName?.trim()?.takeIf { it.isNotEmpty() } ?: formatShortNpub(account.nostr.pubkey)
 
 internal fun formatAccountCreatedAt(accountId: Long): String =
     SimpleDateFormat("EEEE, MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(accountId / 1_000L))

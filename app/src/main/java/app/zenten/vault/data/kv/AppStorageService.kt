@@ -59,8 +59,7 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     val pendingLocalBackupAccountIds: Flow<Set<String>> = dataStore.data.map { preferences ->
         decodeList<String>(preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS]).toSet()
     }
-    val cachedAccountProfiles: Flow<List<CachedAccountProfile>> = jsonFlow(CACHED_ACCOUNT_PROFILES)
-
+    
     /**
      * Failed **Confirm Backup** pastes for the generated VaultKey. Persisted so a
      * process restart cannot reset the escalating lockout, and kept in
@@ -223,16 +222,6 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS] = json.encodeToString(ids.toList())
     }
 
-    suspend fun getCachedAccountProfiles(): List<CachedAccountProfile> = cachedAccountProfiles.first()
-
-    /** Stores public profile presentation data separately from encrypted account secrets. */
-    suspend fun upsertCachedAccountProfiles(profiles: List<CachedAccountProfile>) = dataStore.edit { preferences ->
-        val current = decodeList<CachedAccountProfile>(preferences[CACHED_ACCOUNT_PROFILES])
-            .associateBy { it.accountId }.toMutableMap()
-        profiles.forEach { profile -> current[profile.accountId] = profile }
-        preferences[CACHED_ACCOUNT_PROFILES] = json.encodeToString(current.values.toList())
-    }
-
     /** Removes state from superseded implementations. */
     suspend fun clearLegacyBackupState() = dataStore.edit {
         it.remove(stringPreferencesKey("failed_backup_account_ids"))
@@ -264,7 +253,6 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val LAST_VAULT_KEY_CONSOLIDATION_COMPLETED = longPreferencesKey("last_vault_key_consolidation_completed_v1")
         val LOCALLY_BACKED_UP_ACCOUNT_IDS = stringPreferencesKey("locally_backed_up_account_ids_v1")
         val PENDING_LOCAL_BACKUP_ACCOUNT_IDS = stringPreferencesKey("pending_local_backup_account_ids_v1")
-        val CACHED_ACCOUNT_PROFILES = stringPreferencesKey("cached_account_profiles_v1")
         val VAULT_KEY_PASTE_ATTEMPTS = intPreferencesKey("vault_key_paste_attempts_v1")
         val VAULT_KEY_PASTE_BLOCKED_UNTIL = longPreferencesKey("vault_key_paste_blocked_until_v1")
     }
@@ -287,13 +275,6 @@ enum class SecretCombinationsViewStep {
     SHOW,
     CONFIRM,
 }
-
-@Serializable
-data class CachedAccountProfile(
-    val accountId: Long,
-    val displayName: String? = null,
-    val createdAtSeconds: Long? = null,
-)
 
 @Serializable
 data class PendingSourceWrite(

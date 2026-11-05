@@ -95,23 +95,19 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `profile display name replaces the shortened npub`() {
-        assertEquals("Profile name", accountCardIdentity(" Profile name ", account("Account name")))
+    fun `account name replaces the shortened npub`() {
+        assertEquals("Stored name", accountCardIdentity(account(" Stored name ")))
     }
 
     @Test
-    fun `long profile display name is returned in full for layout ellipsis`() {
-        assertEquals("12345678901234567", accountCardIdentity("12345678901234567", account("Account name")))
+    fun `long account name is returned in full for layout ellipsis`() {
+        assertEquals("12345678901234567", accountCardIdentity(account("12345678901234567")))
     }
 
     @Test
-    fun `missing profile display name falls back to the persisted account name`() {
-        assertEquals("Account name", accountCardIdentity("  ", account(" Account name ")))
-    }
-
-    @Test
-    fun `missing profile and account names fall back to the shortened npub`() {
-        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity(null, account(null)))
+    fun `missing or blank account name falls back to the shortened npub`() {
+        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity(account("  ")))
+        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity(account(null)))
     }
 
     @Test

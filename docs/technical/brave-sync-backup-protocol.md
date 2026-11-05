@@ -72,16 +72,18 @@ Session and key setup are done once per endpoint per run (`withSession`), while 
 
 ## What is stored
 
-Backups are stored as **password records**, the same entity type Brave's password manager syncs. One record exists per backup, and records carry no notes.
+Backups are stored as **password records**, the same entity type Brave's password manager syncs. One record exists per backup. Associated-account records carry at most one note; the Vault Key record carries none.
 
-| Backup | URL | Username | Password field |
-| --- | --- | --- | --- |
-| Vault Key | `https://vaultkey.zenten/` | `vaultkey` | Canonical single-line Base64 OpenSSH private key |
-| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | Canonical single-line Base64 encrypted OpenSSH private key |
+| Backup | URL | Username | Password field | Notes |
+| --- | --- | --- | --- | --- |
+| Vault Key | `https://vaultkey.zenten/` | `vaultkey` | Canonical single-line Base64 OpenSSH private key | Never any note |
+| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | Canonical single-line Base64 encrypted OpenSSH private key | Optional single `label: <account name>` note; absent when the account has no name |
 
 The password field holds the SSH key text, not JSON or an app-specific blob. The key remains passphrase-protected: the account passphrase is **never** uploaded. The Vault Key's own passphrase is also never stored remotely, which is why the Vault Key only re-enters the app through onboarding.
 
-A record is recognized by URL **and** username matching its canonical backup ID (`vaultkey` or a decimal `createdAt`), with an empty notes list.
+The note is the only place an associated account's name survives a device change, and it is not encrypted: anyone who can list that account's records can read it. A missing or blank note leaves the restored account's name unset, and the UI falls back to the shortened `npub`. The remote copy is never rewritten just to add or change a name, because presence is decided by URL and username alone.
+
+A record is recognized by URL **and** username matching its canonical backup ID (`vaultkey` or a decimal `createdAt`). The Vault Key record additionally requires an empty notes list; an associated-account record accepts zero or one note, which keeps the name out of record identity.
 
 Two encryption/validation layers must be distinguished:
 

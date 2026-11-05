@@ -77,7 +77,6 @@ class AppStorageServiceTest {
             service.upsertAccountSourceStatus(AccountSourceStatus("10", "custom", AccountSourceBackupState.BACKUP_FAILED))
             service.markAccountLocallyBackedUp(10L)
             service.requireAccountLocalBackup(20L)
-            service.upsertCachedAccountProfiles(listOf(CachedAccountProfile(10L, "Profile", 100L)))
 
             assertTrue(service.setupComplete.first())
             assertTrue(service.vaultKeyQuorumReached.first())
@@ -87,7 +86,6 @@ class AppStorageServiceTest {
             assertEquals(AccountSourceBackupState.BACKUP_FAILED, service.accountSourceStatuses.first().single().state)
             assertEquals(setOf("10"), service.locallyBackedUpAccountIds.first())
             assertEquals(setOf("20"), service.pendingLocalBackupAccountIds.first())
-            assertEquals(CachedAccountProfile(10L, "Profile", 100L), service.cachedAccountProfiles.first().single())
             service.markAccountLocallyBackedUp(20L)
             assertTrue(service.pendingLocalBackupAccountIds.first().isEmpty())
 

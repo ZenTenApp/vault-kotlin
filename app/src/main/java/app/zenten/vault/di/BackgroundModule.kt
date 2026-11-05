@@ -3,9 +3,7 @@ package app.zenten.vault.di
 import android.content.Context
 import androidx.work.WorkManager
 import app.zenten.vault.background.WorkManagerBackupWorkScheduler
-import app.zenten.vault.background.WorkManagerProfilePublicationScheduler
 import app.zenten.vault.domain.BackupWorkScheduler
-import app.zenten.vault.domain.ProfilePublicationScheduler
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -19,9 +17,6 @@ import javax.inject.Singleton
 abstract class BackgroundModule {
     @Binds @Singleton
     abstract fun backupWorkScheduler(implementation: WorkManagerBackupWorkScheduler): BackupWorkScheduler
-
-    @Binds @Singleton
-    abstract fun profilePublicationScheduler(implementation: WorkManagerProfilePublicationScheduler): ProfilePublicationScheduler
 
     companion object {
         @Provides @Singleton

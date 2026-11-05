@@ -60,8 +60,23 @@ class RecoveryService(
             nostr = NostrKeyDerivation.derive(
                 Seedify.fromSshKey(sshPrivateKey, passphrase),
             ).toPersistedKeyPair(),
+            // A missing or malformed label is not a reason to discard an otherwise valid key:
+            // the account still restores and its card falls back to the shortened npub.
+            accountName = event.accountLabel(),
         )
     }.getOrNull()
+
+    /**
+     * Reads the optional `label` tag on an associated-account event.
+     *
+     * The first label is used when an event carries more than one, and blank values are treated
+     * as absent so the account-name fallback in the UI applies.
+     */
+    private fun NostrEvent.accountLabel(): String? =
+        tags.firstOrNull { it.firstOrNull() == BackupService.ACCOUNT_LABEL_TAG }
+            ?.getOrNull(1)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
 
     data class RecoveryResult(
         val recovered: List<Account>,

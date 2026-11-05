@@ -41,11 +41,27 @@ class BackupService(
             privateKey = nostr.privateKey(),
             publicKey = nostr.publicKey(),
             kind = kind,
-            tags = listOf(listOf("d", dTag)),
+            // Associated-account events carry the account label as a plain tag. The content is
+            // still encrypted, so the label is the only readable field; it is optional because
+            // accounts restored from a source without one fall back to a shortened npub.
+            tags = if (kind == ASSOCIATED_ACCOUNT_BACKUP_KIND) {
+                listOf(accountLabelTag(account)).filterNotNull() + listOf(listOf("d", dTag))
+            } else {
+                listOf(listOf("d", dTag))
+            },
             content = encrypted,
             createdAtSeconds = clock.instant().epochSecond,
         )
     }
+
+    /**
+     * Returns the account's `label` tag, or `null` when it has no name.
+     *
+     * The label is a tag rather than a content field so recovery and other Nostr clients can read
+     * it without the Vault Key passphrase; the encrypted key stays the event's content.
+     */
+    private fun accountLabelTag(account: Account): List<String>? =
+        account.accountName?.trim()?.takeIf { it.isNotEmpty() }?.let { listOf(ACCOUNT_LABEL_TAG, it) }
 
     private fun requireEncryptedAssociatedKey(account: Account) {
         // Validate the encrypted-container metadata without needing the passphrase: the
@@ -68,6 +84,9 @@ class BackupService(
         const val VAULT_KEY_BACKUP_KIND = 37_801
         const val ASSOCIATED_ACCOUNT_BACKUP_KIND = 37_802
         const val VAULT_KEY_D_TAG = "vaultkey"
+
+        /** Plain tag on associated-account events that carries the user's account name. */
+        const val ACCOUNT_LABEL_TAG = "label"
     }
 }
 

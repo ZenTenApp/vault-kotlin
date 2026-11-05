@@ -27,7 +27,6 @@ This feature protects the **interactive application surface**.
 
 - Root, forensic extraction, or a compromised OS/process running under the app's UID.
 - Background consolidation while the user is absent: the passphrase is never persisted, so it can only run while an in-memory session is unlocked.
-- Automatic profile publication while the user is absent: it signs kind-0 and kind-10050 events with the account's stored Nostr key and can run while the vault UI is locked.
 - The signature-protected KeyHive `AssociatedAccountsProvider`, which must keep serving authorized sibling apps unattended.
 - Cryptographic use of the existing storage key without a recent user prompt.
 - A compromised trusted sibling application.
@@ -57,7 +56,7 @@ Covered configurations for manual verification: PIN/password only, strong biomet
 ## Current limitations
 
 - This is an interactive UI gate. Stored vault data uses a Keystore key that is not bound to user authentication.
-- Background consolidation fails closed when the in-memory passphrase session is locked; it is re-enqueued on the next unlocked launch. A job that already started keeps its own passphrase copy, finishes after the foreground session locks, and zeroes the copy on completion. Automatic profile publication is not session-gated and may run while the UI is locked.
+- Background consolidation fails closed when the in-memory passphrase session is locked; it is re-enqueued on the next unlocked launch. A job that already started keeps its own passphrase copy, finishes after the foreground session locks, and zeroes the copy on completion.
 - The KeyHive provider's IPC contract is unchanged while the UI is locked.
 
 ## Primary implementation locations

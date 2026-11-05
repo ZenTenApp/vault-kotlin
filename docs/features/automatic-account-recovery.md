@@ -34,6 +34,8 @@ A Nostr candidate is eligible only when:
 - NIP-44 self-decryption succeeds; and
 - the decrypted value normalizes and parses as an Ed25519 OpenSSH private key with the retained Vault Key passphrase.
 
+The account name is not part of eligibility. When the event carries a `label` tag its trimmed first value becomes the restored account's name; a missing or blank label is accepted and the account restores without a name.
+
 Source reads use NIP-42 authentication on the same connection when a relay challenges the client.
 
 ## Brave Sync validation
@@ -42,8 +44,10 @@ A Brave candidate is eligible only when:
 
 - username is a decimal account ID;
 - URL is exactly `https://<accountId>.zenten/`;
-- notes are empty; and
+- the record has at most one note; and
 - password normalizes and parses as an Ed25519 OpenSSH private key with the retained Vault Key passphrase.
+
+The single note, when present and nonblank, supplies the restored account's name after its `label: ` prefix is removed; a record with no note restores without a name.
 
 Each Brave-compatible server is queried independently with the Vault Key-derived sync code.
 
