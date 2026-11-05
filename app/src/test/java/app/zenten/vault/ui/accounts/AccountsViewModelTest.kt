@@ -2,8 +2,6 @@ package app.zenten.vault.ui.accounts
 
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
-import app.zenten.vault.domain.AccountProfile
-import app.zenten.vault.domain.AccountProfileRepository
 import app.zenten.vault.domain.AccountService
 import io.mockk.every
 import io.mockk.mockk
@@ -31,22 +29,16 @@ class AccountsViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun displays_cached_profiles_and_retries_network_on_refresh() = runTest(dispatcher) {
-        val account = Account(10L, "key", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+    fun shows_the_account_name_stored_with_the_account() = runTest(dispatcher) {
+        val account = Account(10L, "key", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)), accountName = "Cached")
         val accountService = mockk<AccountService>()
         val accounts = MutableStateFlow(listOf(account))
         every { accountService.accountUpdates } returns accounts
         every { accountService.getAccounts() } returns listOf(account)
-        val repository = RecordingProfileRepository(mapOf(10L to AccountProfile("Cached", 100L)))
 
-        val viewModel = AccountsViewModel(accountService, repository)
+        val viewModel = AccountsViewModel(accountService)
         advanceUntilIdle()
-        assertEquals("Cached", viewModel.state.value.profiles[10L]?.displayName)
-        assertEquals(1, repository.refreshCount)
-
-        viewModel.refresh()
-        advanceUntilIdle()
-        assertEquals(2, repository.refreshCount)
+        assertEquals("Cached", viewModel.state.value.accounts.single().accountName)
     }
 
     @Test
@@ -57,20 +49,11 @@ class AccountsViewModelTest {
         every { accountService.accountUpdates } returns accounts
         every { accountService.getAccounts() } returns emptyList()
 
-        val viewModel = AccountsViewModel(accountService, RecordingProfileRepository(emptyMap()))
+        val viewModel = AccountsViewModel(accountService)
         advanceUntilIdle()
         accounts.value = listOf(restored)
         advanceUntilIdle()
 
         assertEquals(listOf(restored), viewModel.state.value.accounts)
-    }
-
-    private class RecordingProfileRepository(initial: Map<Long, AccountProfile>) : AccountProfileRepository {
-        override val profiles = MutableStateFlow(initial)
-        var refreshCount = 0
-
-        override suspend fun loadCachedProfiles() = Unit
-        override suspend fun refresh(accounts: List<Account>, force: Boolean) { refreshCount++ }
-        override suspend fun refreshIfNeeded(account: Account) = Unit
     }
 }

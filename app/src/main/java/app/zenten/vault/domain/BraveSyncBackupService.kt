@@ -11,7 +11,9 @@ import kotlinx.coroutines.withContext
  * Stores Vault SSH keys in the password-only Brave Sync adapter.
  *
  * The vaultKey account derives the Sync code; records are deliberately limited to
- * canonical single-line OpenSSH private-key Base64 values and carry no notes.
+ * canonical single-line OpenSSH private-key Base64 values. Associated-account records also
+ * carry the account label as a note so recovery can restore the name without local state;
+ * the Vault Key record never has a note because the Vault Key has no user-set name.
  */
 class BraveSyncBackupService(
     private val passwordService: BravePasswordService = BravePasswordService(),
@@ -29,7 +31,7 @@ class BraveSyncBackupService(
 
     fun accountId(entry: BravePasswordService.Password): String? = when {
         entry.username == VAULT_KEY_ID && entry.url == accountUrl(VAULT_KEY_ID) && entry.notes.isEmpty() -> VAULT_KEY_ID
-        entry.username.toLongOrNull() != null && entry.url == accountUrl(entry.username) && entry.notes.isEmpty() -> entry.username
+        entry.username.toLongOrNull() != null && entry.url == accountUrl(entry.username) && entry.notes.size <= 1 -> entry.username
         else -> null
     }
 
@@ -38,6 +40,9 @@ class BraveSyncBackupService(
         // deliberately restores associated accounts only.
         val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
         accountFromSshKey(accountId, entry.password, passphrase)
+            // The note is the only place the account name survives a device change; a missing or
+            // blank one leaves the name unset so the UI falls back to the shortened npub.
+            .copy(accountName = entry.notesText())
     }.getOrNull()
 
     /** Checks the vaultKey record separately because normal recovery deliberately restores associated accounts only. */
@@ -69,6 +74,22 @@ class BraveSyncBackupService(
     }
 
     private suspend fun backup(vaultKey: Account, accountId: String, passphrase: CharArray, account: Account = vaultKey): Result<Unit> =
+        // The Vault Key record never carries a note; only associated accounts do.
+        backupRecord(vaultKey, accountId, passphrase, account, if (accountId == VAULT_KEY_ID) null else accountNote(account))
+
+    /**
+     * Writes one record. [note] is the plain account label to store, or `null` for no note.
+     *
+     * The Vault Key record always passes `null`: its readers require an empty note, and the
+     * Vault Key has no user-set name to publish.
+     */
+    private suspend fun backupRecord(
+        vaultKey: Account,
+        accountId: String,
+        passphrase: CharArray,
+        account: Account,
+        note: String?,
+    ): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val syncCode = syncCode(vaultKey, passphrase)
@@ -77,20 +98,38 @@ class BraveSyncBackupService(
                 if (runSyncCode != null) {
                     // The engine invokes write only after this source's index proved the ID
                     // absent, so another list/refetch would duplicate network work.
-                    passwordService.createKnownMissing(syncCode, url, accountId, key)
+                    passwordService.createKnownMissing(syncCode, url, accountId, key, note)
                 } else {
                     // Standalone callers do not provide an index, so retain the idempotency check.
                     val existing = passwordService.list(syncCode).passwords.firstOrNull {
                         it.url == url && it.username == accountId
                     }
-                    if (existing == null) passwordService.create(syncCode, url, accountId, key)
-                    else require(existing.password == key && existing.notes.isEmpty()) {
+                    if (existing == null) passwordService.create(syncCode, url, accountId, key, note)
+                    else require(existing.password == key && existing.notesText() == note) {
                         "Brave Sync already contains a different Vault backup for $accountId"
                     }
                 }
                 Unit
             }
         }
+
+    /**
+     * Builds the note stored for an associated account, formatted as `label: <account name>`.
+     *
+     * The `label: ` prefix keeps the note self-describing for a person reading it in Brave's
+     * password manager, where Vault's note otherwise looks like free text. A nameless account
+     * gets no note rather than an empty prefixed value. The Vault Key has no note, so its record
+     * keeps the empty-note form that [accountId] and [hasVaultKeyBackup] require.
+     */
+    private fun accountNote(account: Account): String? =
+        account.accountName?.trim()?.takeIf { it.isNotEmpty() }?.let { "$ACCOUNT_NOTE_PREFIX$it" }
+
+    /** Returns the account label from a record's note, accepting records without the prefix too. */
+    private fun BravePasswordService.Password.notesText(): String? = notes.singleOrNull()?.value
+        ?.trim()
+        ?.removePrefix(ACCOUNT_NOTE_PREFIX)
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
 
     private fun syncCode(vaultKey: Account, passphrase: CharArray): String {
         // Consolidation supplies a run-scoped code so all endpoints reuse one SSH
@@ -117,5 +156,8 @@ class BraveSyncBackupService(
 
     companion object {
         const val VAULT_KEY_ID = "vaultkey"
+
+        /** Prefix of the single note Vault stores on associated-account records. */
+        const val ACCOUNT_NOTE_PREFIX = "label: "
     }
 }

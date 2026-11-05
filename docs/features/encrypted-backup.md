@@ -33,10 +33,12 @@ Presence is determined by identifier only. Consolidation does not decrypt an alr
 
 ## Nostr format
 
-| Backup | Kind | `d` tag | Plaintext before NIP-44 |
-| --- | ---: | --- | --- |
-| Vault Key | `37801` | `vaultkey` | normalized Vault Key OpenSSH private key |
-| Associated | `37802` | decimal `createdAt` | normalized encrypted OpenSSH private key |
+| Backup | Kind | `d` tag | Extra tags | Plaintext before NIP-44 |
+| --- | ---: | --- | --- | --- |
+| Vault Key | `37801` | `vaultkey` | none | normalized Vault Key OpenSSH private key |
+| Associated | `37802` | decimal `createdAt` | optional `["label", <account name>]` | normalized encrypted OpenSSH private key |
+
+The associated-account label is a plain NIP-01 tag rather than an addition to the encrypted content, so it can be read back without the Vault Key passphrase; this is what lets a restored account keep its name. An account with no name (or a blank one) produces only the `d` tag, and readers then fall back to the shortened `npub`. The label is stored on the first write and is not re-published by consolidation, which never rewrites a record it already found present.
 
 The relay identity depends on the record class, and the two are never mixed:
 
@@ -66,12 +68,12 @@ NIP-42 auth events use the device wall clock and relays may reject events outsid
 
 The sync code is derived from the parsed Vault Key seed by `Seedify.toBraveSyncCode`. Consolidation derives it once per in-memory run, fixing the date-derived word for that run, and reuses it across Brave endpoints without persisting or logging it. The date-derived 25th word wraps modulo the 2,048-word BIP-39 list, matching Brave, so day indices 2048 and beyond reuse the start of the list instead of failing; this keeps Brave backup and recovery working past 17 December 2027. Each independently configured server still receives its own transport, cached in-memory session, Nigori settings, and operation. Because the engine writes only after a successful source index proves a record absent, that write reuses the indexed result instead of listing records again; the later consolidation read-back remains the authoritative verification.
 
-| Backup | URL | Username | Password |
-| --- | --- | --- | --- |
-| Vault Key | `https://vaultkey.zenten/` | `vaultkey` | normalized Vault Key private key |
-| Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key |
+| Backup | URL | Username | Password | Note |
+| --- | --- | --- | --- | --- |
+| Vault Key | `https://vaultkey.zenten/` | `vaultkey` | normalized Vault Key private key | none |
+| Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key | `label: <account name>`, when the account has a name |
 
-Records have no notes. Before writing, the service parses the key as Ed25519 OpenSSH. An identical matching record is success; a conflicting matching record fails and is not overwritten.
+The Vault Key record must keep an empty note; the associated-account note is the mirror of the Nostr `label` tag and is how a restored account keeps its name. Writing an associated account with no name (or a blank one) stores no note, and a record with more than one note is not treated as a Vault backup. Before writing, the service parses the key as Ed25519 OpenSSH. An identical matching record is success; a conflicting matching record fails and is not overwritten.
 
 For the protocol-level walkthrough (Nigori encryption, credential derivation, transport, and session lifecycle), see [Brave Sync and litesync backup protocol](../technical/brave-sync-backup-protocol.md).
 

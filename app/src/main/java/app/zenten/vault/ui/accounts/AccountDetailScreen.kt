@@ -98,7 +98,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             AccountCard(
                 account = account,
-                displayName = state.profile?.displayName,
                 modifier = Modifier.fillMaxWidth(),
             )
             val npub = formatNpub(account.nostr.pubkey)

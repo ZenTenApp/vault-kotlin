@@ -6,7 +6,6 @@ import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.domain.AccountService
-import app.zenten.vault.domain.ProfilePublicationScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +18,6 @@ import javax.inject.Inject
 class LocalAccountBackupViewModel @Inject constructor(
     private val accountService: AccountService,
     private val appStorage: AppStorageService,
-    private val profilePublicationScheduler: ProfilePublicationScheduler,
 ) : ViewModel() {
     private val _state = MutableStateFlow(LocalAccountBackupState())
     val state: StateFlow<LocalAccountBackupState> = _state.asStateFlow()
@@ -30,9 +28,9 @@ class LocalAccountBackupViewModel @Inject constructor(
     }
 
     /**
-     * Marks the account's mandatory local backup as complete and schedules profile
-     * publication. Called from the Confirm Backup screen, which is only reachable after
-     * the export target accepted the account key, so no separate export flag is needed.
+     * Marks the account's mandatory local backup as complete. Called from the Confirm Backup
+     * screen, which is only reachable after the export target accepted the account key, so no
+     * separate export flag is needed.
      */
     fun complete() {
         val accountId = _state.value.accountId ?: return
@@ -40,7 +38,6 @@ class LocalAccountBackupViewModel @Inject constructor(
         _state.value = _state.value.copy(completing = true)
         viewModelScope.launch {
             appStorage.markAccountLocallyBackedUp(accountId)
-            profilePublicationScheduler.scheduleProfilePublication(accountId)
             _state.value = _state.value.copy(completed = true)
         }
     }

@@ -7,8 +7,6 @@ import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.BackupErrorCategory
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.domain.AccountService
-import app.zenten.vault.domain.AccountProfile
-import app.zenten.vault.domain.AccountProfileRepository
 import app.zenten.vault.domain.BackupSourceRepository
 import app.zenten.vault.domain.BackupSourceType
 import app.zenten.vault.domain.BackupWorkScheduler
@@ -27,7 +25,6 @@ class AccountDetailViewModel @Inject constructor(
     sourceRepository: BackupSourceRepository,
     private val appStorage: AppStorageService,
     private val scheduler: BackupWorkScheduler,
-    private val profileRepository: AccountProfileRepository,
 ) : ViewModel() {
     private val accountId = MutableStateFlow<Long?>(null)
 
@@ -35,12 +32,10 @@ class AccountDetailViewModel @Inject constructor(
         accountId,
         sourceRepository.sources,
         appStorage.accountSourceStatuses,
-        profileRepository.profiles,
-    ) { id, sources, statuses, profiles ->
+    ) { id, sources, statuses ->
         val account = id?.let(accountService::getAccount)
         AccountDetailState(
             account = account,
-            profile = id?.let(profiles::get),
             sources = sources.filter { it.enabled }.map { source ->
                 val status = statuses.firstOrNull { it.accountId == id?.toString() && it.sourceId == source.id }
                 BackupSourceRow(
@@ -58,13 +53,7 @@ class AccountDetailViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountDetailState())
 
     fun load(id: Long) {
-        if (accountId.value == id) return
         accountId.value = id
-        viewModelScope.launch {
-            val account = accountService.getAccount(id) ?: return@launch
-            profileRepository.loadCachedProfiles()
-            profileRepository.refreshIfNeeded(account)
-        }
     }
     fun consolidate() { accountId.value?.let(scheduler::scheduleAccountConsolidation) }
 
@@ -75,7 +64,6 @@ class AccountDetailViewModel @Inject constructor(
 
 data class AccountDetailState(
     val account: Account? = null,
-    val profile: AccountProfile? = null,
     val sources: List<BackupSourceRow> = emptyList(),
 )
 

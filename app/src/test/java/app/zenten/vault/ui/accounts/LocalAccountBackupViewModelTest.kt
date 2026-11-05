@@ -5,7 +5,6 @@ import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.domain.AccountService
-import app.zenten.vault.domain.ProfilePublicationScheduler
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -80,7 +79,6 @@ class LocalAccountBackupViewModelTest {
         val viewModel = LocalAccountBackupViewModel(
             accountService,
             mockk<AppStorageService>(relaxed = true),
-            mockk<ProfilePublicationScheduler>(relaxed = true),
         )
         viewModel.load(account.createdAt)
         return viewModel
