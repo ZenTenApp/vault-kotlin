@@ -62,14 +62,14 @@ flowchart LR
 **User goal:** Review an associated account's identity and backup coverage.
 
 1. The user opens an account from **Accounts**.
-2. The app shows the account ID, creation time, NIP-19 `npub` identity, SSH public-key line, SSH public-key fingerprint, and the bcrypt KDF round count stored in the encrypted SSH key. The user can copy any public identifier by tapping its text element, which includes an inline copy icon.
+2. The app shows the account ID, creation time, SSH public-key line, SSH public-key fingerprint, and the bcrypt KDF round count stored in the encrypted SSH key. The user can copy any public identifier by tapping its text element, which includes an inline copy icon. The account's Nostr identity stays internal: its NIP-19 `npub` is not shown, copied, or exported, and the SSH public-key line carries no comment.
 3. The app lists each configured backup destination and its current status.
 4. The user can select **Consolidate backup** to reconcile that account.
 5. The user can also export the account's private key in its passphrase-encrypted form. **Export Account to Notes** asks the user to re-enter the passphrase that protects the account, then opens the in-app target picker and sends the same self-describing encrypted-key text used when the account was created. **Export Account to Clipboard** uses the same passphrase gate and copies just the encrypted key as an OpenSSH PEM block, without the account metadata, and confirms with a status line.
 
 **Success:** The user can review account identity, its public SSH key and fingerprint, and backup coverage without plaintext private-key material appearing on screen.
 
-**Safety expectation:** Account detail must not expose or copy plaintext SSH private keys. The displayed and tap-to-copy values remain only the public NIP-19 `npub`, SSH public-key line, and SHA-256 SSH fingerprint. The two voluntary exports are the only actions that release key material: each requires the user to re-enter the account passphrase, and each emits only the passphrase-encrypted OpenSSH key, which is never rendered in plaintext in the app.
+**Safety expectation:** Account detail must not expose or copy plaintext SSH private keys. The displayed and tap-to-copy values remain only the SSH public-key line and SHA-256 SSH fingerprint; the account's NIP-19 `npub` is neither shown nor copied. The two voluntary exports are the only actions that release key material: each requires the user to re-enter the account passphrase, and each emits only the passphrase-encrypted OpenSSH key, which is never rendered in plaintext in the app.
 
 ## 4. Check and consolidate backup status
 

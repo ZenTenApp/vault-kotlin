@@ -3,6 +3,7 @@ package app.zenten.vault.ui.accounts
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -57,15 +58,31 @@ class LocalAccountBackupShareTest {
         assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----", lines[0])
         assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
         assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
-        assertEquals(formatNpub(account.nostr.pubkey), lines[3])
-        assertEquals(account.createdAt.toString(), lines[4])
-        assertEquals("Personal account", lines[5])
-        assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[6])
-        assertEquals(7, lines.size)
+        assertEquals(account.createdAt.toString(), lines[3])
+        assertEquals("Personal account", lines[4])
+        assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[5])
+        assertEquals(6, lines.size)
+        // The export must not carry the account's npub, which would link it to a Nostr identity.
+        assertFalse(LocalAccountBackupShare.accountExportText(account).contains("npub"))
     }
 
     @Test
-    fun vault_key_export_uses_fixed_display_name_and_same_line_order() {
+    fun nameless_account_export_writes_an_empty_display_name_line() {
+        val account = Account(
+            createdAt = 1_700_000_000_000_000L,
+            zenTenKey = goldenEncryptedKey(),
+
+            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
+        )
+
+        val lines = LocalAccountBackupShare.accountExportText(account).lines()
+
+        assertEquals("", lines[4])
+        assertEquals(6, lines.size)
+    }
+
+    @Test
+    fun vault_key_export_keeps_its_npub_and_fixed_display_name() {
         val encodedKey = goldenEncryptedKey()
         val account = Account(
             createdAt = 1_700_000_000_000_000L,

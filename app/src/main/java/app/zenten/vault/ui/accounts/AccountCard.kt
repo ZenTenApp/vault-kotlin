@@ -4,7 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -41,23 +43,31 @@ fun AccountCard(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.AccountCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = accountCardIdentity(account),
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 20.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            // The name is mandatory for newly created accounts; only a restored record without a
+            // label can leave it empty. That card still reserves the name row's height so cards
+            // stay vertically aligned, but shows neither the avatar nor any identifier in its place.
+            val name = accountCardIdentity(account)
+            if (name.isEmpty()) {
+                Spacer(Modifier.height(NAME_ROW_HEIGHT))
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AccountCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = name,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 20.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -85,28 +95,34 @@ fun AccountCard(
     }
 }
 
+/**
+ * Height of the card's name row, including the avatar icon's default 24dp size.
+ *
+ * A card whose account has no name renders a spacer of this height instead of the row, so the
+ * creation ID and date below line up with named cards in the same list.
+ */
+private val NAME_ROW_HEIGHT = 24.dp
+
 internal fun accountIdChunks(accountId: Long): List<String> = accountId.toString().chunked(4)
 
 internal fun formatAccountId(accountId: Long): String = accountIdChunks(accountId).joinToString(" ")
 
+/** Formats the Vault Key's public key as a full npub. Associated accounts do not display one. */
 internal fun formatNpub(publicKey: String): String =
     runCatching { publicKey.hexToBytes().toNpub() }
         .getOrNull()
         ?: "Unavailable"
 
-internal fun formatShortNpub(publicKey: String): String =
-    formatNpub(publicKey).let { npub ->
-        if (npub == "Unavailable") npub else "${npub.take(4)}...${npub.takeLast(4)}"
-    }
-
 /**
- * Picks the name a card shows: the account's own name, then the shortened npub.
+ * Picks the name a card shows: the account's own stored name, or an empty string when it has none.
  *
  * The name is restored alongside the key from a backup record (a `label` tag on relays or a note
- * on Brave Sync), so there is no separate profile lookup or cache to fall back from any more.
+ * on Brave Sync). The shortened npub is deliberately never used as a fallback: an associated
+ * account must not be presented as a Nostr identity. A restored record without a label therefore
+ * renders no name at all.
  */
 internal fun accountCardIdentity(account: Account): String =
-    account.accountName?.trim()?.takeIf { it.isNotEmpty() } ?: formatShortNpub(account.nostr.pubkey)
+    account.accountName?.trim().orEmpty()
 
 internal fun formatAccountCreatedAt(accountId: Long): String =
     SimpleDateFormat("EEEE, MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(accountId / 1_000L))

@@ -53,6 +53,8 @@ class SshKeyCodecTest {
         assertEquals(value(vector, "ed25519PubkeyHex"), publicKey.hex())
         assertEquals(value(vector, "sshFingerprint"), SshKeyCodec.fingerprintFromEncryptedPrivateKey(pem))
         assertTrue(SshKeyCodec.publicKeyLine(publicKey, "a comment").startsWith("ssh-ed25519 "))
+        // A blank comment leaves a valid two-field line with no trailing space.
+        assertTrue(SshKeyCodec.publicKeyLine(publicKey, "").matches(Regex("ssh-ed25519 \\S+")))
 
         assertThrows(IllegalArgumentException::class.java) {
             SshKeyCodec.publicKeyFromEncryptedPrivateKey("not an SSH key")

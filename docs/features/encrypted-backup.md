@@ -38,7 +38,7 @@ Presence is determined by identifier only. Consolidation does not decrypt an alr
 | Vault Key | `37801` | `vaultkey` | none | normalized Vault Key OpenSSH private key |
 | Associated | `37802` | decimal `createdAt` | optional `["label", <account name>]` | normalized encrypted OpenSSH private key |
 
-The associated-account label is a plain NIP-01 tag rather than an addition to the encrypted content, so it can be read back without the Vault Key passphrase; this is what lets a restored account keep its name. An account with no name (or a blank one) produces only the `d` tag, and readers then fall back to the shortened `npub`. The label is stored on the first write and is not re-published by consolidation, which never rewrites a record it already found present.
+The associated-account label is a plain NIP-01 tag rather than an addition to the encrypted content, so it can be read back without the Vault Key passphrase; this is what lets a restored account keep its name. An account with no name (or a blank one) produces only the `d` tag, and readers then restore it with an empty name rather than substituting the shortened `npub`. The label is stored on the first write and is not re-published by consolidation, which never rewrites a record it already found present.
 
 The relay identity depends on the record class, and the two are never mixed:
 

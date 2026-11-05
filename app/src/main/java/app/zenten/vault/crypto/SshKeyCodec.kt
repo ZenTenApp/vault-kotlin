@@ -103,10 +103,17 @@ object SshKeyCodec {
     /** Formats a stored canonical key for OpenSSH-compatible export. */
     fun formatAsPem(input: String): String = pemEncode(decodePem(input))
 
+    /**
+     * Formats the authorized-keys line for a public key.
+     *
+     * A blank comment omits the trailing comment field entirely instead of leaving a trailing
+     * space, so a copied line stays a valid two-field entry.
+     */
     fun publicKeyLine(publicKey: ByteArray, comment: String): String {
         require(publicKey.size == 32) { "Ed25519 public key must be 32 bytes" }
         val blob = sshString(Ed25519.toByteArray(StandardCharsets.US_ASCII)) + sshString(publicKey)
-        return "$Ed25519 ${Base64.getEncoder().encodeToString(blob)} $comment"
+        val keyLine = "$Ed25519 ${Base64.getEncoder().encodeToString(blob)}"
+        return if (comment.isBlank()) keyLine else "$keyLine $comment"
     }
 
     /** Fingerprint the SSH public-key wire blob, as ssh-keygen -E sha256 does. */

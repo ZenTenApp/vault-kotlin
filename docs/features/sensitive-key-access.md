@@ -7,9 +7,9 @@ A user can inspect an associated account's public key and fingerprint, and can d
 ## Current behavior
 
 1. The user opens an associated account from **Accounts**.
-2. The app displays the account creation ID, NIP-19 `npub`, SSH public key, and SHA-256 fingerprint; each identifier can be tapped to copy it.
+2. The app displays the account creation ID, SSH public key, and SHA-256 fingerprint; each identifier can be tapped to copy it. The account's Nostr identity stays internal: no `npub` is shown or copied, and the SSH public-key line carries no comment linking it to that identity.
 3. The app shows per-source backup state below the identity cards.
-4. Optionally, the user selects **Export Account to Notes**, re-enters the passphrase protecting the account, then picks an installed notes-capable app from the in-app target picker. The app sends the self-describing encrypted-private-key export text.
+4. Optionally, the user selects **Export Account to Notes**, re-enters the passphrase protecting the account, then picks an installed notes-capable app from the in-app target picker. The app sends the self-describing encrypted-private-key export text, which does not include the account's `npub`.
 5. Optionally, the user selects **Export Account to Clipboard**, re-enters the same passphrase, and the app copies only the passphrase-encrypted key as an OpenSSH PEM block.
 6. In both export paths only the encrypted key leaves the app; the decrypted private key is never displayed or copied.
 

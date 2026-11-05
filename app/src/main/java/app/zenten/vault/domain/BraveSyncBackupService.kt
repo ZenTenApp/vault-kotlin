@@ -41,7 +41,7 @@ class BraveSyncBackupService(
         val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
         accountFromSshKey(accountId, entry.password, passphrase)
             // The note is the only place the account name survives a device change; a missing or
-            // blank one leaves the name unset so the UI falls back to the shortened npub.
+            // blank one leaves the name unset, so the restored card shows no name.
             .copy(accountName = entry.notesText())
     }.getOrNull()
 

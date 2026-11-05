@@ -148,7 +148,7 @@ class NostrBackupSource(
      * Reads the optional `label` tag on an associated-account event.
      *
      * The first label wins when an event carries more than one, and a blank value is treated as
-     * absent so the account-card fallback to a shortened npub applies.
+     * absent so the restored account keeps an empty name.
      */
     private fun NostrEvent.accountLabel(): String? =
         tags.firstOrNull { it.firstOrNull() == BackupService.ACCOUNT_LABEL_TAG }

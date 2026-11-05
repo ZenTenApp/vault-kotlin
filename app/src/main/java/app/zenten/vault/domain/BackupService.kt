@@ -43,7 +43,8 @@ class BackupService(
             kind = kind,
             // Associated-account events carry the account label as a plain tag. The content is
             // still encrypted, so the label is the only readable field; it is optional because
-            // accounts restored from a source without one fall back to a shortened npub.
+            // a record written before labels existed has none, and such an account restores
+            // with an empty name.
             tags = if (kind == ASSOCIATED_ACCOUNT_BACKUP_KIND) {
                 listOf(accountLabelTag(account)).filterNotNull() + listOf(listOf("d", dTag))
             } else {
