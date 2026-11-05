@@ -100,9 +100,9 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                 account = account,
                 modifier = Modifier.fillMaxWidth(),
             )
-            val npub = formatNpub(account.nostr.pubkey)
-            NostrIdentityCard(npub = npub)
-            SshPublicKeyCard(publicKey = formatSshPublicKey(account.zenTenKey, npub))
+            // The associated account's Nostr key pair stays internal: no npub is shown, and the
+            // SSH public-key line carries no comment instead of linking to that identity.
+            SshPublicKeyCard(publicKey = formatSshPublicKey(account.zenTenKey, comment = ""))
             SshKeyCard(
                 fingerprint = formatSshFingerprint(account.zenTenKey),
                 kdfRounds = formatKdfRounds(account.zenTenKey),
@@ -203,27 +203,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun NostrIdentityCard(npub: String) {
-    VaultCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = "ID on NOSTR protocol",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-            )
-            CopyableIdentityValue(
-                value = npub,
-                clipboardLabel = "Nostr public key",
-                contentDescription = "Copy npub",
-            )
-        }
     }
 }
 

@@ -38,23 +38,29 @@ object LocalAccountBackupShare {
     fun targetedSendIntent(text: String, target: ShareTarget): Intent = sendIntent(text)
         .setComponent(ComponentName(target.packageName, target.activityName))
 
-    /** Builds the self-describing text saved during mandatory associated-account export. */
-    internal fun accountExportText(account: Account): String {
-        val displayName = account.accountName?.trim().takeUnless { it.isNullOrEmpty() } ?: formatShortNpub(account.nostr.pubkey)
-        return selfDescribingExportText(account, displayName)
-    }
+    /**
+     * Builds the self-describing text saved during mandatory associated-account export.
+     *
+     * The npub line is deliberately omitted so the exported backup does not link the account to
+     * a Nostr identity. An account restored without a label exports an empty display-name line
+     * rather than any identifier.
+     */
+    internal fun accountExportText(account: Account): String =
+        selfDescribingExportText(account, account.accountName?.trim().orEmpty(), includeNpub = false)
 
     /**
      * Builds the same self-describing export for the Vault Key. The Vault Key has no
-     * user-set display name, so the fixed label "VaultKey" is written instead.
+     * user-set display name, so the fixed label "VaultKey" is written instead. The Vault Key's
+     * npub stays in its export because that key pair is the Vault Key's own identity.
      */
-    internal fun vaultKeyExportText(account: Account): String = selfDescribingExportText(account, "VaultKey")
+    internal fun vaultKeyExportText(account: Account): String =
+        selfDescribingExportText(account, "VaultKey", includeNpub = true)
 
     /**
      * Builds the clipboard-only export: the passphrase-encrypted OpenSSH key wrapped in PEM
      * markers, and nothing else. The clipboard form deliberately omits the account metadata
-     * (npub, creation ID, display name, creation date) that the notes export appends, because
-     * a raw key is what a key-import field or another SSH tool expects to receive.
+     * (creation ID, display name, creation date) that the notes export appends, because a raw
+     * key is what a key-import field or another SSH tool expects to receive.
      */
     internal fun accountKeyPemText(account: Account): String = pemBlock(account)
 
@@ -64,16 +70,18 @@ object LocalAccountBackupShare {
         "-----END OPENSSH PRIVATE KEY-----",
     ).joinToString("\n")
 
-    private fun selfDescribingExportText(account: Account, displayName: String): String {
-        val npub = formatNpub(account.nostr.pubkey)
-        return listOf(
-            pemBlock(account),
-            npub,
-            account.createdAt.toString(),
-            displayName,
-            "Created on ${formatAccountCreatedAt(account.createdAt)}",
-        ).joinToString("\n")
-    }
+    private fun selfDescribingExportText(
+        account: Account,
+        displayName: String,
+        includeNpub: Boolean,
+    ): String = listOfNotNull(
+        pemBlock(account),
+        // Associated-account exports leave this out so the text never carries their npub.
+        formatNpub(account.nostr.pubkey).takeIf { includeNpub },
+        account.createdAt.toString(),
+        displayName,
+        "Created on ${formatAccountCreatedAt(account.createdAt)}",
+    ).joinToString("\n")
 
     internal fun <T : Target> orderedTargets(availableTargets: List<T>): List<T> =
         availableTargets

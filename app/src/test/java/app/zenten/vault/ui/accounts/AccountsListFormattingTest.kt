@@ -31,18 +31,10 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `Nostr public key is shortened to its npub prefix and suffix`() {
-        val shortened = formatShortNpub("00".repeat(32))
-
-        assertTrue(shortened.matches(Regex("npub\\.\\.\\.[a-z0-9]{4}")))
-    }
-
-    @Test
-    fun `Nostr public key is formatted as a full npub for account details`() {
+    fun `Nostr public key is formatted as a full npub`() {
         val npub = formatNpub("00".repeat(32))
 
         assertTrue(npub.matches(Regex("npub1[a-z0-9]+")))
-        assertTrue(npub.length > formatShortNpub("00".repeat(32)).length)
     }
 
     @Test
@@ -61,7 +53,7 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `stored encrypted SSH key is formatted as a public key line with npub comment`() {
+    fun `stored encrypted SSH key is formatted as a public key line without a comment`() {
         val pem = requireNotNull(javaClass.getResourceAsStream("/golden/crypto-vectors.json"))
             .bufferedReader()
             .use { it.readText() }
@@ -71,12 +63,11 @@ class AccountsListFormattingTest {
             .replace("\\n", "\n")
 
         assertEquals(
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMlBKiSzOJLCh5/M3g7uPNG/q8mnI5b0KcZeCRSNVqMc " +
-                "npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w",
-            formatSshPublicKey(encodedKey, "npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w"),
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMlBKiSzOJLCh5/M3g7uPNG/q8mnI5b0KcZeCRSNVqMc",
+            formatSshPublicKey(encodedKey, comment = ""),
         )
-        assertEquals("Unavailable", formatSshPublicKey(null, "npub"))
-        assertEquals("Unavailable", formatSshPublicKey("invalid", "npub"))
+        assertEquals("Unavailable", formatSshPublicKey(null, comment = ""))
+        assertEquals("Unavailable", formatSshPublicKey("invalid", comment = ""))
     }
 
     @Test
@@ -95,7 +86,7 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `account name replaces the shortened npub`() {
+    fun `card identity is the trimmed stored account name`() {
         assertEquals("Stored name", accountCardIdentity(account(" Stored name ")))
     }
 
@@ -105,9 +96,10 @@ class AccountsListFormattingTest {
     }
 
     @Test
-    fun `missing or blank account name falls back to the shortened npub`() {
-        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity(account("  ")))
-        assertEquals(formatShortNpub("00".repeat(32)), accountCardIdentity(account(null)))
+    fun `missing or blank account name renders as empty rather than the npub`() {
+        // The card must not present an associated account as a Nostr identity.
+        assertEquals("", accountCardIdentity(account("  ")))
+        assertEquals("", accountCardIdentity(account(null)))
     }
 
     @Test
