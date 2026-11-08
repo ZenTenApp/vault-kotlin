@@ -44,9 +44,9 @@ Sibling apps query the provider through Android's `ContentResolver`:
 4. **Payload shape:** The JSON is a `SharedAssociatedAccount` object containing only:
    - `createdAt` — the account creation timestamp.
    - `zentenKey` — the passphrase-encrypted OpenSSH private key (the same key material used in manual export).
-   - `nostrPubkey` — the account's public Nostr identity.
+   - `accountName` — the account label the user gave it, or an empty string when the account has none.
 
-`SharedAssociatedAccount` is deliberately the only record shape exposed to sibling apps. It excludes the passphrase (which is no longer a stored field on `Account`) and the Nostr private key. Only the encrypted key material and public identity cross the boundary; sibling apps must obtain the passphrase from the user.
+`SharedAssociatedAccount` is deliberately the only record shape exposed to sibling apps. It excludes the passphrase (which is no longer a stored field on `Account`), the Nostr public key, and the Nostr private key. Only the encrypted key material and the label cross the boundary; sibling apps must obtain the passphrase from the user. The label is always present as a string, so sibling apps never have to handle a null; accounts without a label (for example, a restored record whose `label` tag or Brave Sync note was missing) simply carry an empty value.
 
 Queries with a `selection`, `selectionArgs`, or `sortOrder` are rejected (return `null`), as are malformed IDs and unmatched URIs. Any exception during a query is caught and surfaced as `null` rather than leaking internal state.
 
@@ -75,15 +75,15 @@ The device-authentication gate applies to interactive UI only. The signature-pro
 
 - Access is limited to same-signature apps through `app.zenten.permission.VAULT_ACCESS`; `grantUriPermissions` is disabled so the permission cannot be delegated per-URI.
 - The provider is read-only.
-- Only `SharedAssociatedAccount` is serialized: encrypted private key plus public Nostr key. The vault passphrase and Nostr private key are never exposed.
+- Only `SharedAssociatedAccount` is serialized: the encrypted private key plus the account label. The vault passphrase, the account's Nostr public key, and the Nostr private key are never exposed.
 - The provider runs regardless of the interactive unlock gate, so its permission boundary, not the UI lock, is the security control for sibling access.
 
 ## Accepted decision (D5)
 
 Same-signature unattended access is an **accepted product requirement**, not an oversight:
 
-- Every application signed with the Vault release certificate is inside the KeyHive trust boundary. It may read each account's encrypted OpenSSH container and public Nostr key at any time, with no device authentication and no Vault Key passphrase.
-- The protection is the encrypted container itself: a sibling app still needs the user's Vault Key passphrase to use the private key, and it never receives the passphrase or the Nostr private key from the provider.
+- Every application signed with the Vault release certificate is inside the KeyHive trust boundary. It may read each account's encrypted OpenSSH container and label at any time, with no device authentication and no Vault Key passphrase.
+- The protection is the encrypted container itself: a sibling app still needs the user's Vault Key passphrase to use the private key, and it never receives the passphrase, the account's Nostr public key, or the Nostr private key from the provider.
 - A compromised trusted sibling app, a leaked or stolen signing key, or a hostile app added under the same certificate reads this data. That is outside the protection boundary by design rather than by accident.
 - Review topic 8 in the [security model](security-model.md#required-production-review-topics) — a separate authentication-bound Keystore domain for interactive private-key disclosure — is **closed as not planned** while KeyHive access must remain unattended.
 - Consequence for release process: production signing-key custody and sibling-app review are security controls for this boundary, not merely release hygiene. Adding an app to the trusted certificate set is a security change.
