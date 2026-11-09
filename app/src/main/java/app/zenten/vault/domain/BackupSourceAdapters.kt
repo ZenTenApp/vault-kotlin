@@ -7,9 +7,7 @@ import app.zenten.vault.crypto.Nip44
 import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
 import app.zenten.vault.network.nostr.NostrRelayGateway
@@ -28,28 +26,31 @@ class DefaultBackupSourceFactory(
     /**
      * Derives the run-scoped Vault Key backup credentials once.
      *
-     * Besides avoiding repeated SSH decryption, this also fixes Brave Sync's date-derived 25th
-     * word for the whole run, so a run that spans midnight cannot use two different sync codes.
+     * The SSH seed is decrypted once for the whole run, and every identity the sources need is
+     * derived from it here rather than read from stored state. Besides avoiding repeated SSH
+     * decryption, this also fixes Brave Sync's date-derived 25th word for the whole run, so a run
+     * that spans midnight cannot use two different sync codes.
      */
     override fun createRunContext(secrets: VaultKeyRunSecrets): BackupSourceRunContext {
         val seed = SshKeyCodec.parse(secrets.vaultKey.zenTenKey, secrets.passphrase).seed
-        val vaultKeyBackupMnemonic = Seedify.toVaultKeyBackupMnemonic(seed)
         return BraveRunContext(
             syncCode = Seedify.toBraveSyncCode(seed),
-            nostr = NostrKeyDerivation.derive(vaultKeyBackupMnemonic).toPersistedKeyPair(),
+            vaultKeyBackupIdentity = NostrKeyDerivation.fromVaultKeyBackupSeed(seed),
+            accountIdentity = NostrKeyDerivation.fromAccountSeed(seed),
         )
     }
 
     override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): AccountBackupSource {
         val vaultKeyBackupContext = context as? BraveRunContext
         return when (config.type) {
-            // Without a run context the relay source falls back to the Vault Key identity for
-            // Vault Key records; standalone callers that do so are responsible for that choice.
+            // A standalone source without a run context has no decrypted seed to derive from, so
+            // it refuses to guess: both identities are required for a relay so that a Vault Key
+            // record can never be published under the associated-account identity.
             BackupSourceType.NOSTR_RELAY -> NostrBackupSource(
                 config = config,
                 gateway = relayGateway,
                 backupService = backupService,
-                vaultKeyBackupNostr = vaultKeyBackupContext?.nostr,
+                identities = vaultKeyBackupContext,
             )
             BackupSourceType.BRAVE_SYNC -> {
                 val passwordService = BravePasswordService(
@@ -65,13 +66,16 @@ class DefaultBackupSourceFactory(
 /**
  * Secret, memory-only credentials shared across all endpoints of one engine operation.
  *
- * Both members are derived from the same Vault Key backup (`vkbckp`) associated account of the
- * Vault Key seed, which is what makes the Vault Key backup recoverable from the 24 words the user
- * writes down during setup.
+ * Every member is derived from the Vault Key seed and exists only for the life of the run:
+ *
+ * - [syncCode] and [vaultKeyBackupIdentity] come from the `vkbckp` associated account, which is
+ *   what makes the Vault Key backup recoverable from the 24 words the user writes down.
+ * - [accountIdentity] is the Vault Key's own Nostr identity, which owns associated-account records.
  */
 private data class BraveRunContext(
     val syncCode: String,
-    val nostr: NostrKeyPair,
+    val vaultKeyBackupIdentity: NostrKeyDerivation.NostrKeys,
+    val accountIdentity: NostrKeyDerivation.NostrKeys,
 ) : BackupSourceRunContext
 
 data class NostrCandidate(
@@ -86,29 +90,36 @@ data class NostrCandidate(
  * Two identities are in play, and they must not be mixed:
  *
  * - **Vault Key records** (`kind` [BackupService.VAULT_KEY_BACKUP_KIND]) use
- *   [vaultKeyBackupNostr], the identity derived from the Vault Key backup (`vkbckp`) associated
- *   account mnemonic, so they can be recovered from the 24 words alone.
+ *   [NostrKeyDerivation.fromVaultKeyBackupSeed], the identity derived from the Vault Key backup
+ *   (`vkbckp`) associated account mnemonic, so they can be recovered from the 24 words alone.
  * - **Associated-account records** (`kind` [BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND]) use
  *   the Vault Key's own identity, which requires the Vault Key itself to recover.
  *
- * The relay record for each account is addressed by a `d` tag holding its [BackupAccountId].
+ * Both are passed in from the run context because they are derived from the decrypted seed;
+ * neither is stored on the [Account]. The relay record for each account is addressed by a `d`
+ * tag holding its [BackupAccountId].
  */
 class NostrBackupSource(
     override val config: BackupSourceConfig,
     private val gateway: NostrRelayGateway,
     private val backupService: BackupService,
-    private val vaultKeyBackupNostr: NostrKeyPair? = null,
+    private val identities: BackupSourceRunContext?,
 ) : AccountBackupSource {
-    /** Identity that publishes and reads Vault Key records; falls back when no run context exists. */
-    private fun vaultKeyIdentity(vaultKey: Account): NostrKeyPair = vaultKeyBackupNostr ?: vaultKey.nostr
+    /**
+     * The two identities for this run, or a failure when the source was created standalone.
+     *
+     * Deriving them requires the decrypted SSH seed, which only a run context has. Failing here
+     * is deliberate: falling back to a stored identity is what used to let the two record classes
+     * drift onto the same Nostr key.
+     */
+    private fun identities(): BraveRunContext =
+        identities as? BraveRunContext ?: error("Nostr backup source requires a run context")
 
     override suspend fun index(secrets: VaultKeyRunSecrets): Result<SourceIndex> = runCatching {
-        val vaultKey = secrets.vaultKey
-        val vaultKeyIdentity = vaultKeyIdentity(vaultKey)
-        val accountIdentity = vaultKey.nostr
+        val runIdentities = identities()
         // Each kind is queried under the identity that is allowed to publish it.
-        val vaultKeyEvents = fetchEvents(vaultKeyIdentity, BackupService.VAULT_KEY_BACKUP_KIND)
-        val accountEvents = fetchEvents(accountIdentity, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
+        val vaultKeyEvents = fetchEvents(runIdentities.vaultKeyBackupIdentity, BackupService.VAULT_KEY_BACKUP_KIND)
+        val accountEvents = fetchEvents(runIdentities.accountIdentity, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
 
         val builder = SourceIndexBuilder()
         builder.addAll(vaultKeyEvents, BackupService.VAULT_KEY_BACKUP_KIND)
@@ -116,8 +127,8 @@ class NostrBackupSource(
         builder.build()
     }
 
-    private suspend fun fetchEvents(identity: NostrKeyPair, kind: Int): List<NostrEvent> =
-        gateway.fetchAuthenticatedByRelay(config.endpoint, identity.pubkey, kind, identity.privateKey())
+    private suspend fun fetchEvents(identity: NostrKeyDerivation.NostrKeys, kind: Int): List<NostrEvent> =
+        gateway.fetchAuthenticatedByRelay(config.endpoint, identity.pubkey, kind, identity.privateKey)
             .getOrThrow()
 
     private fun SourceIndexBuilder.addAll(events: List<NostrEvent>, expectedKind: Int) =
@@ -127,21 +138,18 @@ class NostrBackupSource(
         }
 
     override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
-        val vaultKey = secrets.vaultKey
         val event = (candidate as NostrCandidate).event
-        val nostr = vaultKey.nostr
+        val identity = identities().accountIdentity
         // Only associated accounts are restorable: the Vault Key re-enters the app through
         // onboarding, because its passphrase is never stored remotely.
         require(NostrEventCodec.isValid(event))
-        require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
+        require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == identity.pubkey)
         val createdAt = requireNotNull(candidate.id.createdAt)
         // The NIP-44 plaintext is the passphrase-encrypted OpenSSH key, so the session
         // passphrase is still required to make the restored account usable.
-        val decrypted = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
-        accountFromSshKey(createdAt, decrypted, secrets.passphrase)
-            // The `label` tag is the only place the account name survives a device change, so
-            // carry it onto the restored account. Absent or blank leaves the name unset.
-            .copy(accountName = event.accountLabel())
+        val decrypted = Nip44.decryptSelf(event.content, identity.privateKey, identity.publicKey)
+        // The `label` tag is the only place the account name survives a device change.
+        accountFromSshKey(createdAt, decrypted, event.accountLabel())
     }
 
     /**
@@ -158,24 +166,28 @@ class NostrBackupSource(
 
     override suspend fun write(secrets: VaultKeyRunSecrets, accountId: BackupAccountId, account: Account): Result<Unit> {
         val vaultKey = secrets.vaultKey
-        // The publishing identity depends on the record class, so swap it in before signing.
-        val publisher = vaultKey.copy(nostr = if (accountId.isVaultKey) vaultKeyIdentity(vaultKey) else vaultKey.nostr)
+        val runIdentities = identities()
+        // The publishing identity depends on the record class: Vault Key records must stay under
+        // the recoverable identity, associated-account records under the Vault Key's own.
+        val identity = if (accountId.isVaultKey) runIdentities.vaultKeyBackupIdentity else runIdentities.accountIdentity
         val event = if (accountId.isVaultKey) {
             backupService.buildBackupEvent(
-                publisher,
+                vaultKey,
                 vaultKey,
                 BackupService.VAULT_KEY_D_TAG,
                 BackupService.VAULT_KEY_BACKUP_KIND,
+                identity,
             )
         } else {
             backupService.buildBackupEvent(
-                publisher,
+                vaultKey,
                 account,
                 accountId.value,
                 BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+                identity,
             )
         }
-        return gateway.publishAuthenticatedToRelay(config.endpoint, event, publisher.nostr.privateKey())
+        return gateway.publishAuthenticatedToRelay(config.endpoint, event, identity.privateKey)
     }
 
     /**
@@ -258,17 +270,15 @@ private class SourceIndexBuilder(private var invalidRecordCount: Int = 0) {
 /**
  * Rebuilds an [Account] from a restored OpenSSH private key.
  *
- * The key is normalized to the canonical single-line Base64 form that every source stores, then
- * reparsed with the Vault Key passphrase (via Seedify) to both derive the Nostr identity and
- * confirm it is a usable Ed25519 key before it is saved.
+ * The key is normalized to the canonical single-line Base64 form that every source stores. Nothing
+ * derived from it is persisted: every consumer re-derives what it needs from this container.
+ *
+ * @param sshPrivateKey the passphrase-encrypted OpenSSH key read from the backup record.
+ * @param accountName the label carried by the record, or `null` when it carried none.
  */
-internal fun accountFromSshKey(createdAt: Long, sshPrivateKey: String, passphrase: CharArray): Account {
-    val normalized = SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey)
-    return Account(
+internal fun accountFromSshKey(createdAt: Long, sshPrivateKey: String, accountName: String? = null): Account =
+    Account(
         createdAt = createdAt,
-        zenTenKey = normalized,
-        // The account's own Nostr identity is derived from its key, not stored in the backup.
-        nostr = NostrKeyDerivation.derive(Seedify.fromSshKey(normalized, passphrase))
-            .toPersistedKeyPair(),
+        zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
+        accountName = accountName,
     )
-}

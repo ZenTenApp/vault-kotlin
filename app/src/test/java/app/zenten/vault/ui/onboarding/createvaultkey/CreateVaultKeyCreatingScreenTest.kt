@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test
 class CreateVaultKeyCreatingScreenTest {
     @Test
     fun `each derivation stage resolves only earlier operations`() {
-        val nostrLines = linesFor(VaultKeyCreationStage.DERIVING_NOSTR_KEY_PAIR)
+        val seedLines = linesFor(VaultKeyCreationStage.DERIVING_VAULT_KEY_SEED)
         val syncLines = linesFor(VaultKeyCreationStage.DERIVING_SYNC_CODE)
 
-        assertEquals(listOf("vaultKey", "nostr"), nostrLines.map { it.text })
-        assertFalse(nostrLines.first().active)
-        assertTrue(nostrLines.last().active)
-        assertEquals(listOf("vaultKey", "nostr", "sync code"), syncLines.map { it.text })
+        assertEquals(listOf("vaultKey", "seed"), seedLines.map { it.text })
+        assertFalse(seedLines.first().active)
+        assertTrue(seedLines.last().active)
+        assertEquals(listOf("vaultKey", "seed", "sync code"), syncLines.map { it.text })
         assertTrue(syncLines.last().active)
         assertTrue(syncLines.dropLast(1).none { it.active })
     }
@@ -27,7 +27,7 @@ class CreateVaultKeyCreatingScreenTest {
         val lines = linesFor(VaultKeyCreationStage.SYNCING_BACKUPS, progress)
 
         assertEquals(
-            listOf("vaultKey", "nostr", "sync code", "relay 1", "relay 2", "sync server 1"),
+            listOf("vaultKey", "seed", "sync code", "relay 1", "relay 2", "sync server 1"),
             lines.map { it.text },
         )
         assertTrue(lines.last().active)
@@ -42,7 +42,7 @@ class CreateVaultKeyCreatingScreenTest {
         assertEquals(
             listOf(
                 "vaultKey",
-                "nostr",
+                "seed",
                 "sync code",
                 "relay 1",
                 "relay 2",
@@ -62,7 +62,7 @@ class CreateVaultKeyCreatingScreenTest {
         stage = stage,
         progress = progress,
         creatingText = "vaultKey",
-        nostrText = "nostr",
+        seedText = "seed",
         syncCodeText = "sync code",
         relayTexts = listOf("relay 1", "relay 2"),
         syncServerTexts = listOf("sync server 1", "sync server 2", "sync server 3"),

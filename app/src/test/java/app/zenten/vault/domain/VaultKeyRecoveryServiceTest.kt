@@ -3,7 +3,6 @@ package app.zenten.vault.domain
 import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
@@ -50,21 +49,21 @@ class VaultKeyRecoveryServiceTest {
         val generated = SshKeyCodec.generateEncrypted(clock.millis(), passphrase.toCharArray())
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
         val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
-        val vaultKeyBackupMnemonic = Seedify.toVaultKeyBackupMnemonic(seed)
-        val vaultKeyBackupNostr = NostrKeyDerivation.derive(vaultKeyBackupMnemonic).toPersistedKeyPair()
+        val vaultKeyBackupIdentity = NostrKeyDerivation.fromVaultKeyBackupSeed(seed)
         val indices = Seedify.toVaultKeyBackupWordIndices(seed)
 
         // Publish the Vault Key relay record exactly as the backup path would, under the
         // Vault Key backup (`vkbckp`)-derived identity that the 24 words can reconstruct.
-        val publisher = Account(1, normalized, nostr = vaultKeyBackupNostr)
+        val publisher = Account(1, normalized)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
             BackupService.VAULT_KEY_D_TAG,
             BackupService.VAULT_KEY_BACKUP_KIND,
+            vaultKeyBackupIdentity,
         )
         coEvery {
-            fixture.gateway.fetchAuthenticatedByRelay(any(), vaultKeyBackupNostr.pubkey, any(), any())
+            fixture.gateway.fetchAuthenticatedByRelay(any(), vaultKeyBackupIdentity.pubkey, any(), any())
         } returns Result.success(listOf(event))
         every { fixture.repository.sources } returns flowOf(listOf(relaySource))
 
@@ -107,13 +106,13 @@ class VaultKeyRecoveryServiceTest {
         val generated = SshKeyCodec.generateEncrypted(clock.millis(), passphrase.toCharArray())
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
         val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
-        val vaultKeyBackupNostr = NostrKeyDerivation.derive(Seedify.toVaultKeyBackupMnemonic(seed)).toPersistedKeyPair()
-        val publisher = Account(1, normalized, nostr = vaultKeyBackupNostr)
+        val publisher = Account(1, normalized)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
             BackupService.VAULT_KEY_D_TAG,
             BackupService.VAULT_KEY_BACKUP_KIND,
+            NostrKeyDerivation.fromVaultKeyBackupSeed(seed),
         )
         coEvery { fixture.gateway.fetchAuthenticatedByRelay(any(), any(), any(), any()) } returns
             Result.success(listOf(event))
@@ -230,14 +229,14 @@ class VaultKeyRecoveryServiceTest {
          * `createdAt` afterwards invalidates the signature.
          */
         fun eventFor(words: String, key: GeneratedKey, atSeconds: Long = clock.instant().epochSecond): NostrEvent {
-            val nostr = NostrKeyDerivation.derive(words).toPersistedKeyPair()
-            val publisher = Account(1, key.normalized, nostr = nostr)
+            val publisher = Account(1, key.normalized)
             val eventClock = Clock.fixed(Instant.ofEpochSecond(atSeconds), ZoneOffset.UTC)
             return BackupService(gateway, eventClock).buildBackupEvent(
                 publisher,
                 publisher,
                 BackupService.VAULT_KEY_D_TAG,
                 BackupService.VAULT_KEY_BACKUP_KIND,
+                NostrKeyDerivation.derive(words),
             )
         }
 

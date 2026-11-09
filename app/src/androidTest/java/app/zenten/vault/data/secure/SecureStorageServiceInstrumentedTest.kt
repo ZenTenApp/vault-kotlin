@@ -3,7 +3,6 @@ package app.zenten.vault.data.secure
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -30,7 +29,7 @@ class SecureStorageServiceInstrumentedTest {
 
     @Test
     fun encrypted_accounts_round_trip_across_service_recreation_in_id_order() {
-        val vaultKey = account(1, key = "private-key-1", nostr = NostrKeyPair("pub", "priv"))
+        val vaultKey = account(1, key = "private-key-1")
         val second = account(20)
         val first = account(10)
         storage.addVaultKey(vaultKey)
@@ -67,9 +66,8 @@ class SecureStorageServiceInstrumentedTest {
         ids.forEach { assertEquals(it, reloaded.getAccountById(it)?.createdAt) }
     }
 
-    private fun account(id: Long, key: String = "private-key-$id", nostr: NostrKeyPair = NostrKeyPair("00".repeat(32), "01".repeat(32))) = Account(
+    private fun account(id: Long, key: String = "private-key-$id") = Account(
         createdAt = id,
         zenTenKey = key,
-        nostr = nostr,
     )
 }

@@ -2,7 +2,6 @@ package app.zenten.vault.domain
 
 import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.network.nostr.NostrEvent
@@ -31,8 +30,12 @@ class AssociatedAccountLabelTest {
         zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(
             SshKeyCodec.generateEncrypted(1L, PASSPHRASE).privateKeyPem,
         ),
-        nostr = NostrKeyDerivation.derive(MNEMONIC).toPersistedKeyPair(),
     )
+    // The identities used to sign records are derived from the key's own seed, exactly as the
+    // backup sources do; neither is stored on the account.
+    private val seed: ByteArray get() = SshKeyCodec.parse(vaultKey.zenTenKey, PASSPHRASE).seed
+    private val accountIdentity: NostrKeyDerivation.NostrKeys get() = NostrKeyDerivation.fromAccountSeed(seed)
+    private val vaultKeyBackupIdentity: NostrKeyDerivation.NostrKeys get() = NostrKeyDerivation.fromVaultKeyBackupSeed(seed)
 
     @Test
     fun associated_account_event_carries_the_label_tag_before_the_d_tag() {
@@ -41,6 +44,7 @@ class AssociatedAccountLabelTest {
             account(10L).copy(accountName = "  Work account  "),
             "10",
             BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+            accountIdentity,
         )
 
         assertEquals(
@@ -56,6 +60,7 @@ class AssociatedAccountLabelTest {
             account(10L).copy(accountName = "   "),
             "10",
             BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+            accountIdentity,
         )
 
         assertEquals(listOf(listOf("d", "10")), event.tags)
@@ -68,6 +73,7 @@ class AssociatedAccountLabelTest {
             vaultKey.copy(accountName = "Not published"),
             BackupService.VAULT_KEY_D_TAG,
             BackupService.VAULT_KEY_BACKUP_KIND,
+            vaultKeyBackupIdentity,
         )
 
         assertEquals(listOf(listOf("d", BackupService.VAULT_KEY_D_TAG)), event.tags)
@@ -80,6 +86,7 @@ class AssociatedAccountLabelTest {
             account(10L).copy(accountName = "Work account"),
             "10",
             BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+            accountIdentity,
         )
 
         val restored = requireNotNull(recoveryService().decodeAssociatedAccount(event, vaultKey, PASSPHRASE))
@@ -95,6 +102,7 @@ class AssociatedAccountLabelTest {
             account(10L),
             "10",
             BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+            accountIdentity,
         )
 
         val restored = requireNotNull(recoveryService().decodeAssociatedAccount(event, vaultKey, PASSPHRASE))
@@ -113,7 +121,6 @@ class AssociatedAccountLabelTest {
         zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(
             SshKeyCodec.generateEncrypted(createdAt, PASSPHRASE).privateKeyPem,
         ),
-        nostr = NostrKeyDerivation.derive(MNEMONIC).toPersistedKeyPair(),
     )
 
     private class RecordingGateway : NostrRelayGateway {
@@ -123,8 +130,6 @@ class AssociatedAccountLabelTest {
     }
 
     private companion object {
-        const val MNEMONIC =
-            "alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady"
         val PASSPHRASE = "pass".toCharArray()
     }
 }

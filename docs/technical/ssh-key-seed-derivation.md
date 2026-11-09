@@ -5,7 +5,7 @@ This document describes the current implementation for two distinct flows:
 1. importing a **Vault Key** OpenSSH Ed25519 private key and deriving its 24-word recovery mnemonic; and
 2. generating a fresh OpenSSH Ed25519 key for an **associated account**.
 
-Both flows temporarily derive a mnemonic from the SSH seed to create the account's Nostr identity. The mnemonic is not persisted.
+Both flows derive a mnemonic from the SSH seed when they need the account's Nostr identity. Neither the mnemonic nor any key derived from it is persisted: `NostrKeyDerivation.fromAccountSeed` and `fromVaultKeyBackupSeed` rebuild the identity on demand from the encrypted container plus the passphrase.
 
 ## Vault Key: OpenSSH key to 24-word mnemonic
 
@@ -23,12 +23,12 @@ Pasted passphrase-protected OpenSSH private key + passphrase
 
 ```kotlin
 val key = SshKeyCodec.normalizeToSingleLineBase64(keyInput)
-val parsed = SshKeyCodec.parse(key, passphrase.toCharArray())
-val mnemonic = Seedify.toMnemonic(parsed.seed)
-val nostr = NostrKeyDerivation.derive(mnemonic)
+// Parsing proves the passphrase before anything is persisted.
+SshKeyCodec.parse(key, passphrase.toCharArray())
+val account = Account(createdAt = createdAt, zenTenKey = key)
 ```
 
-The mnemonic exists only as a temporary onboarding value used for Nostr derivation. The resulting Vault Key retains the normalized private key and derived Nostr keys before `SetupService` persists it and makes the required Vault Key backup; the passphrase is moved to the in-memory session and is never persisted. The SSH public key is not stored: it is derived on demand from the key container's unencrypted header.
+The resulting `Account` holds only the normalized private key; the identity used to sign and encrypt its relay records is derived later from that key's seed by `DefaultBackupSourceFactory`, so nothing derived is persisted. The passphrase is moved to the in-memory session and is never persisted. The SSH public key is not stored either: it is derived on demand from the key container's unencrypted header.
 
 ### Accepted input and OpenSSH-v1 parsing
 
@@ -124,17 +124,21 @@ The work factor has three separate bounds, and they are deliberately not the sam
 
 ### Important distinction
 
-A generated associated key has the same Ed25519 `seed || public` representation, so it *could* be parsed and passed through `Seedify.toMnemonic` later. The current associated-account creation path temporarily derives a mnemonic to create its Nostr identity but does not persist the mnemonic.
+A generated associated key has the same Ed25519 `seed || public` representation, so it *could* be parsed and passed through `Seedify.toMnemonic` later. Associated-account creation does not derive anything but the key container; its Nostr identity is rebuilt on demand whenever a backup record needs to be signed.
 
 ```text
 Imported vault key:
-  parse key -> extract seed -> temporarily derive mnemonic -> derive/store Nostr identity
+  parse key -> extract seed -> store the encrypted container only
 
 Generated associated key:
-  generate seed/key pair -> serialize/store OpenSSH key -> temporarily derive mnemonic -> derive/store Nostr identity -> back up key
+  generate seed/key pair -> serialize/store OpenSSH key -> back up key
+  (the Nostr identity is derived from the stored seed at backup time, never stored)
+
+Vault Key backup identity (relays, kind 37801):
+  decrypt stored seed -> vkbckp mnemonic -> derive NIP-06 identity -> use for the run, discard
 ```
 
-A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The generated-Vault Key flow also derives Seedify's deterministic Vault Key backup (`vkbckp`) associated-account seed as `SHA-256(SHA-256(UTF-8("vkbckp")) || originalVaultKeySeed)` and encodes it as a 24-word BIP-39 mnemonic. `vkbckp` is the "Vault Key BacKup" acronym; it is an arbitrary but fixed sub-account label whose exact spelling is part of the derivation, so changing it would produce different words, a different Brave Sync code, and a different relay identity for new Vault Keys. Those 24 words serve two purposes: Brave Sync appends its daily 25th word, while NIP-06 derives the Nostr identity used to back up the original VaultKey on relays. The app presents the 24 words as recovery indices but does not persist the mnemonic or indices separately. The stored Vault Key retains its original-seed Nostr identity, which is used for associated-account records (`kind` 37802); every Vault Key record (`kind` 37801) operation, including later consolidation, uses the `vkbckp`-derived identity. **Recover VaultKey** reverses the same two derivations from the 24 words the user saved: it rebuilds the NIP-06 Vault Key backup identity to read the `vaultkey` record from relays and rebuilds the sync code (including the date-derived 25th word) to read the Brave Sync record, then tries every copy those sources hold, newest first. A copy is accepted only when the passphrase decrypts it **and** its `vkbckp` backup mnemonic re-derives to the exact 24 words the user entered; decryption alone proves the passphrase, not ownership. Copies that decrypt but re-derive to other words are skipped rather than persisted, and a misbound copy is reported distinctly from an absent one.
+A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The generated-Vault Key flow also derives Seedify's deterministic Vault Key backup (`vkbckp`) associated-account seed as `SHA-256(SHA-256(UTF-8("vkbckp")) || originalVaultKeySeed)` and encodes it as a 24-word BIP-39 mnemonic. `vkbckp` is the "Vault Key BacKup" acronym; it is an arbitrary but fixed sub-account label whose exact spelling is part of the derivation, so changing it would produce different words, a different Brave Sync code, and a different relay identity for new Vault Keys. Those 24 words serve two purposes: Brave Sync appends its daily 25th word, while NIP-06 derives the Nostr identity used to back up the original VaultKey on relays. The app presents the 24 words as recovery indices but does not persist the mnemonic or indices separately. The stored Vault Key is only its encrypted container: its original-seed Nostr identity, used for associated-account records (`kind` 37802), is re-derived per engine run, and every Vault Key record (`kind` 37801) operation, including later consolidation, uses the `vkbckp`-derived identity instead. **Recover VaultKey** reverses the same two derivations from the 24 words the user saved: it rebuilds the NIP-06 Vault Key backup identity to read the `vaultkey` record from relays and rebuilds the sync code (including the date-derived 25th word) to read the Brave Sync record, then tries every copy those sources hold, newest first. A copy is accepted only when the passphrase decrypts it **and** its `vkbckp` backup mnemonic re-derives to the exact 24 words the user entered; decryption alone proves the passphrase, not ownership. Copies that decrypt but re-derive to other words are skipped rather than persisted, and a misbound copy is reported distinctly from an absent one.
 
 ## Verification
 

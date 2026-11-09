@@ -1,7 +1,6 @@
 package app.zenten.vault.ui.accounts
 
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -28,13 +27,6 @@ class AccountsListFormattingTest {
         // The full detail format always carries a clock time; the compact list format must not.
         assertTrue(formatAccountCreatedAt(timestamp).contains(":"))
         assertTrue(!formatAccountCreatedDate(timestamp).contains(":"))
-    }
-
-    @Test
-    fun `Nostr public key is formatted as a full npub`() {
-        val npub = formatNpub("00".repeat(32))
-
-        assertTrue(npub.matches(Regex("npub1[a-z0-9]+")))
     }
 
     @Test
@@ -105,8 +97,8 @@ class AccountsListFormattingTest {
     @Test
     fun `accounts created on different days in a month share a group`() {
         val accounts = listOf(
-            Account(createdAt = 1_700_444_800_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
-            Account(createdAt = 1_700_876_800_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_700_444_800_000_000L, zenTenKey = "older"),
+            Account(createdAt = 1_700_876_800_000_000L, zenTenKey = "newer"),
         )
 
         val grouped = accountsByMonth(accounts)
@@ -121,8 +113,8 @@ class AccountsListFormattingTest {
     @Test
     fun `newest account is listed first`() {
         val accounts = listOf(
-            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
-            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))),
+            Account(createdAt = 1_700_000_000_000_000L, zenTenKey = "older"),
+            Account(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer"),
         )
 
         assertEquals(
@@ -134,8 +126,6 @@ class AccountsListFormattingTest {
     private fun account(accountName: String?) = Account(
         createdAt = 1L,
         zenTenKey = "key",
-
-        nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         accountName = accountName,
     )
 }

@@ -3,7 +3,6 @@ package app.zenten.vault.domain
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateVaultKeyStep
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import app.zenten.vault.ui.availability.RemoteOperationReadiness
@@ -62,22 +61,18 @@ class SetupService(
      */
     suspend fun persistGeneratedVaultKeyAndBackup(
         vaultKey: Account,
-        createFlowRelayIdentity: NostrKeyPair,
         onProgress: suspend (AccountConsolidationEngine.VaultKeyBackupProgress) -> Unit = {},
     ): Result<VaultKeySetupState> = runCatching {
         persistVaultKey(vaultKey)
         appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
-        // Address the Vault Key record under the recoverable `vkbckp` identity. The factory would
-        // derive that same identity from this key's seed anyway; passing it explicitly keeps the
-        // create flow correct even if the stored key's own `nostr` value ever differs from the
-        // one this run was created with.
-        val createFlowVaultKey = vaultKey.copy(nostr = createFlowRelayIdentity)
         // Source-level state records failures for later retries, so a blocked prerequisite is
         // treated like any other source failure: it records no quorum and is retried later.
         val result = if (blockedRemoteOperation() == null) {
             runCatching {
                 withVaultPassphrase { passphrase ->
-                    consolidationEngine.backupVaultKey(createFlowVaultKey, passphrase, onProgress)
+                    // The engine derives the recoverable `vkbckp` identity from this key's own
+                    // seed, so the create flow needs no separate identity argument.
+                    consolidationEngine.backupVaultKey(vaultKey, passphrase, onProgress)
                 }
             }.getOrNull()
         } else {

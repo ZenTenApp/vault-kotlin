@@ -22,9 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.domain.hexToBytes
 import app.zenten.vault.ui.components.VaultCard
-import com.vitorpamplona.quartz.nip19Bech32.toNpub
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -106,12 +104,6 @@ private val NAME_ROW_HEIGHT = 24.dp
 internal fun accountIdChunks(accountId: Long): List<String> = accountId.toString().chunked(4)
 
 internal fun formatAccountId(accountId: Long): String = accountIdChunks(accountId).joinToString(" ")
-
-/** Formats the Vault Key's public key as a full npub. Associated accounts do not display one. */
-internal fun formatNpub(publicKey: String): String =
-    runCatching { publicKey.hexToBytes().toNpub() }
-        .getOrNull()
-        ?: "Unavailable"
 
 /**
  * Picks the name a card shows: the account's own stored name, or an empty string when it has none.

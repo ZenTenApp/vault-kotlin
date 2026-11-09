@@ -2,12 +2,8 @@ package app.zenten.vault.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.zenten.vault.crypto.NostrKeyDerivation
-import app.zenten.vault.crypto.toPersistedKeyPair
-import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeyPersistedException
 import app.zenten.vault.domain.VaultKeySession
@@ -48,15 +44,15 @@ class OnboardingViewModel @Inject constructor(
                 // Parsing stays outside the service call, so a wrong key or passphrase fails here
                 // before anything is persisted and must not offer the stored-key retry.
                 val key = SshKeyCodec.normalizeToSingleLineBase64(keyInput)
-                _state.value = _state.value.copy(stage = "Deriving recovery identity…")
-                val parsed = SshKeyCodec.parse(key, passphrase.toCharArray())
-                val mnemonic = Seedify.toMnemonic(parsed.seed)
-                val nostr = NostrKeyDerivation.derive(mnemonic)
+                // Parsing proves the passphrase before anything is persisted; the identity the
+                // backup step needs is derived later from the same seed, never stored here.
+                SshKeyCodec.parse(key, passphrase.toCharArray())
                 val createdAt = clock.millis() * 1_000L
+                // Only the encrypted container is stored: every derived value (Nostr identity,
+                // Sync code) is rebuilt from the seed by the flow that needs it.
                 val account = Account(
                     createdAt = createdAt,
                     zenTenKey = key,
-                    nostr = nostr.toPersistedKeyPair(),
                 )
                 // The passphrase was just used to parse the key, so remember it in the session
                 // (never on disk) before backing up and any retry needs it.

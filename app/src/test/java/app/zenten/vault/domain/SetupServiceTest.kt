@@ -3,7 +3,6 @@ package app.zenten.vault.domain
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateVaultKeyStep
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import app.zenten.vault.ui.availability.RemoteOperationReadiness
@@ -69,7 +68,7 @@ class SetupServiceTest {
             failedSourceIds = setOf("relay", "brave"),
         )
 
-        fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity)
+        fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey)
 
         coVerify(exactly = 0) { fixture.appStorage.requireImportedVaultKeyBackup() }
     }
@@ -101,7 +100,7 @@ class SetupServiceTest {
             failedSourceIds = setOf("relay", "brave"),
         )
 
-        val result = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity)
+        val result = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey)
 
         assertTrue(result.isSuccess)
         assertFalse(result.getOrThrow().quorumReached)
@@ -109,7 +108,7 @@ class SetupServiceTest {
         coVerify(exactly = 1) { fixture.appStorage.clearSetupComplete() }
         coVerify(exactly = 1) { fixture.appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO) }
         coVerify(exactly = 1) {
-            fixture.engine.backupVaultKey(vaultKey.copy(nostr = createFlowRelayIdentity), any(), any())
+            fixture.engine.backupVaultKey(vaultKey, any(), any())
         }
         // The quorum outcome is recorded even when it is negative, so the last wizard step
         // cannot complete setup on a backup that never landed.
@@ -122,7 +121,7 @@ class SetupServiceTest {
         val fixture = Fixture()
         // The create flow backs up under the `vkbckp` identity, not the stored key's own.
         coEvery {
-            fixture.engine.backupVaultKey(vaultKey.copy(nostr = createFlowRelayIdentity), any(), any())
+            fixture.engine.backupVaultKey(vaultKey, any(), any())
         } returns AccountConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = true,
@@ -130,7 +129,7 @@ class SetupServiceTest {
             failedSourceIds = emptySet(),
         )
 
-        val state = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity).getOrThrow()
+        val state = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey).getOrThrow()
 
         assertTrue(state.quorumReached)
         coVerify(exactly = 1) { fixture.appStorage.setVaultKeyQuorumReached(true) }
@@ -201,7 +200,7 @@ class SetupServiceTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getVaultKey() } returns vaultKey
         every { fixture.appStorage.setupComplete } returns flowOf(true)
-        val account = Account(20, "associated", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+        val account = Account(20, "associated")
 
         assertTrue(fixture.service.addAccount(vaultKey, account).isSuccess)
 
@@ -215,7 +214,7 @@ class SetupServiceTest {
     fun associated_account_is_rejected_when_vault_key_backup_quorum_is_incomplete() = runTest {
         val fixture = Fixture()
         every { fixture.appStorage.setupComplete } returns flowOf(false)
-        val account = Account(20, "associated", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+        val account = Account(20, "associated")
 
         val result = fixture.service.addAccount(vaultKey, account)
 
@@ -257,7 +256,7 @@ class SetupServiceTest {
         val fixture = Fixture()
         coEvery { fixture.precondition.check() } returns RemoteOperationReadiness.DEVICE_TIME_INCORRECT
 
-        val result = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity)
+        val result = fixture.service.persistGeneratedVaultKeyAndBackup(vaultKey)
 
         assertTrue(result.isSuccess)
         // A skipped backup is no evidence of coverage, so it clears any earlier quorum claim.
@@ -312,11 +311,9 @@ class SetupServiceTest {
     }
 
     companion object {
-        val createFlowRelayIdentity = NostrKeyPair("02".repeat(32), "03".repeat(32))
         val vaultKey = Account(
             createdAt = 1,
             zenTenKey = "vaultKey",
-            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )
     }
 }

@@ -26,7 +26,6 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
-import app.zenten.vault.domain.AccountService
 import app.zenten.vault.domain.BackupAccountId
 import app.zenten.vault.domain.BackupSourceRepository
 import app.zenten.vault.domain.BackupWorkScheduler
@@ -51,7 +50,6 @@ class VaultKeyDetailViewModel @Inject constructor(
     private val setupService: SetupService,
     private val scheduler: BackupWorkScheduler,
     private val secureStorage: SecureStorageService,
-    private val accountService: AccountService,
 ) : ViewModel() {
     val state = combine(sourceRepository.sources, appStorage.accountSourceStatuses, appStorage.setupComplete) { sources, statuses, complete ->
         VaultKeyDetailState(
@@ -71,17 +69,27 @@ class VaultKeyDetailViewModel @Inject constructor(
 
     fun retryVaultKey() { viewModelScope.launch { setupService.retryVaultKeyBackup() } }
 
+    /** Whether a stored Vault Key exists, so the export action can be offered. */
+    fun canExportVaultKey(): Boolean = secureStorage.getVaultKey() != null
+
     /**
      * Builds the Vault Key's self-describing export text, using the fixed "VaultKey" display
-     * name. Returns null when the Vault Key is not available for export.
+     * name. Returns null when the Vault Key is unavailable or [passphrase] does not decrypt it.
+     *
+     * The passphrase is needed because the export's npub line is derived on demand rather than
+     * read from a stored identity. Decrypting here is also the passphrase check, so the export is
+     * confirmed without a second, redundant bcrypt derivation.
      */
-    fun vaultKeyForExport(): String? = secureStorage.getVaultKey()?.let { vaultKey ->
-        runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey) }.getOrNull()
+    fun vaultKeyForExport(passphrase: String): String? = secureStorage.getVaultKey()?.let { vaultKey ->
+        // The caller already holds the passphrase as an immutable String, but zero the extra
+        // char copy so this module does not leave another long-lived copy for the GC to find.
+        val chars = passphrase.toCharArray()
+        try {
+            runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, chars) }.getOrNull()
+        } finally {
+            chars.fill('\u0000')
+        }
     }
-
-    /** Confirms the passphrase protecting the VaultKey before its encrypted key is exported. */
-    fun verifyExportPassphrase(passphrase: String): Boolean =
-        accountService.verifyVaultKeyPassphrase(passphrase).isSuccess
 
     /** Reconciles the Vault Key record only; associated accounts have their own actions. */
     fun consolidate() { scheduler.scheduleVaultKeyConsolidation() }
@@ -104,6 +112,10 @@ fun VaultKeyDetailScreen(
     var exportError by remember { mutableStateOf<String?>(null) }
     // Passphrase confirmation shown before the export target picker opens.
     var confirmExportPassphrase by remember { mutableStateOf(false) }
+    // The export text is built once the passphrase is verified, because its npub line is derived
+    // on demand rather than read from the account. Only this text is retained — never the
+    // passphrase — and it is dropped as soon as the target picker closes.
+    var exportText by remember { mutableStateOf<String?>(null) }
     VaultScreenScaffold(
         title = "VaultKey Account",
         onBack = navController::navigateUp,
@@ -113,7 +125,7 @@ fun VaultKeyDetailScreen(
                 Button(
                     onClick = {
                         exportError = null
-                        if (viewModel.vaultKeyForExport() == null) {
+                        if (!viewModel.canExportVaultKey()) {
                             exportError = "VaultKey is unavailable for export."
                         } else {
                             confirmExportPassphrase = true
@@ -143,11 +155,15 @@ fun VaultKeyDetailScreen(
             mismatchError = "That passphrase does not match this VaultKey.",
             onDismiss = { confirmExportPassphrase = false },
             onConfirmed = { passphrase ->
-                if (viewModel.verifyExportPassphrase(passphrase)) {
+                // Deriving the text decrypts the stored key, so a null result means the
+                // passphrase did not match and the export cannot be produced.
+                val text = viewModel.vaultKeyForExport(passphrase)
+                if (text == null) {
+                    false
+                } else {
+                    exportText = text
                     exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
                     true
-                } else {
-                    false
                 }
             },
         )
@@ -155,22 +171,25 @@ fun VaultKeyDetailScreen(
     exportTargets?.let { availableTargets ->
         ExportTargetDialog(
             targets = availableTargets,
-            onDismiss = { exportTargets = null },
+            onDismiss = {
+                exportTargets = null
+                // The export text is only kept alive for the action the user just confirmed.
+                exportText = null
+            },
             onTargetSelected = { target ->
-                val vaultKey = viewModel.vaultKeyForExport()
-                if (vaultKey == null) {
-                    exportTargets = null
+                // Every exit below drops the retained export text, whether the export succeeded.
+                val text = exportText
+                exportTargets = null
+                exportText = null
+                if (text == null) {
                     exportError = "VaultKey is unavailable for export."
                     return@ExportTargetDialog
                 }
                 try {
-                    context.startActivity(LocalAccountBackupShare.targetedSendIntent(vaultKey, target))
-                    exportTargets = null
+                    context.startActivity(LocalAccountBackupShare.targetedSendIntent(text, target))
                 } catch (_: ActivityNotFoundException) {
-                    exportTargets = null
                     exportError = "That app is no longer available. Choose another app."
                 } catch (_: SecurityException) {
-                    exportTargets = null
                     exportError = "Android did not allow this app to receive the export. Choose another app."
                 }
             },

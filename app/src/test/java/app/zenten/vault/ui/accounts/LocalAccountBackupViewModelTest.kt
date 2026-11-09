@@ -3,7 +3,6 @@ package app.zenten.vault.ui.accounts
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.domain.AccountService
 import io.mockk.every
 import io.mockk.mockk
@@ -67,8 +66,6 @@ class LocalAccountBackupViewModelTest {
         return Account(
             createdAt = generated.createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
-
-            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
             accountName = "Work account",
         )
     }

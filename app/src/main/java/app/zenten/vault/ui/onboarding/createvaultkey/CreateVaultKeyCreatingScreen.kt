@@ -57,7 +57,7 @@ fun CreateVaultKeyCreatingScreen(navController: NavHostController) {
 
     val progress = state.backupProgress
     val creatingText = stringResource(R.string.create_vault_key_creating_key)
-    val nostrText = stringResource(R.string.create_vault_key_deriving_nostr)
+    val seedText = stringResource(R.string.create_vault_key_deriving_seed)
     val syncCodeText = stringResource(R.string.create_vault_key_deriving_sync_code)
     val relayTexts = progress?.sources
         ?.filter { it.type == BackupSourceType.NOSTR_RELAY }
@@ -71,7 +71,7 @@ fun CreateVaultKeyCreatingScreen(navController: NavHostController) {
         stage = state.progressStage,
         progress = progress,
         creatingText = creatingText,
-        nostrText = nostrText,
+        seedText = seedText,
         syncCodeText = syncCodeText,
         relayTexts = relayTexts,
         syncServerTexts = syncServerTexts,
@@ -116,23 +116,23 @@ internal fun vaultKeyCreationTerminalLines(
     stage: VaultKeyCreationStage?,
     progress: AccountConsolidationEngine.VaultKeyBackupProgress?,
     creatingText: String,
-    nostrText: String,
+    seedText: String,
     syncCodeText: String,
     relayTexts: List<String>,
     syncServerTexts: List<String>,
 ): List<DecodeRevealLine> = when (stage) {
-        VaultKeyCreationStage.DERIVING_NOSTR_KEY_PAIR -> listOf(
+        VaultKeyCreationStage.DERIVING_VAULT_KEY_SEED -> listOf(
             DecodeRevealLine(creatingText, active = false),
-            DecodeRevealLine(nostrText, active = true),
+            DecodeRevealLine(seedText, active = true),
         )
         VaultKeyCreationStage.DERIVING_SYNC_CODE -> listOf(
             DecodeRevealLine(creatingText, active = false),
-            DecodeRevealLine(nostrText, active = false),
+            DecodeRevealLine(seedText, active = false),
             DecodeRevealLine(syncCodeText, active = true),
         )
         VaultKeyCreationStage.SYNCING_BACKUPS, VaultKeyCreationStage.COMPLETE -> buildList {
             add(DecodeRevealLine(creatingText, active = false))
-            add(DecodeRevealLine(nostrText, active = false))
+            add(DecodeRevealLine(seedText, active = false))
             add(DecodeRevealLine(syncCodeText, active = false))
             val sourceLines = backupSourceLines(progress, relayTexts, syncServerTexts)
             sourceLines.forEachIndexed { index, text ->

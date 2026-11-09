@@ -1,7 +1,6 @@
 package app.zenten.vault.ui.accounts
 
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.domain.AccountService
 import io.mockk.every
 import io.mockk.mockk
@@ -30,7 +29,7 @@ class AccountsViewModelTest {
 
     @Test
     fun shows_the_account_name_stored_with_the_account() = runTest(dispatcher) {
-        val account = Account(10L, "key", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)), accountName = "Cached")
+        val account = Account(10L, "key", accountName = "Cached")
         val accountService = mockk<AccountService>()
         val accounts = MutableStateFlow(listOf(account))
         every { accountService.accountUpdates } returns accounts
@@ -43,7 +42,7 @@ class AccountsViewModelTest {
 
     @Test
     fun displays_accounts_restored_after_the_list_is_already_visible() = runTest(dispatcher) {
-        val restored = Account(20L, "restored", nostr = NostrKeyPair("02".repeat(32), "03".repeat(32)))
+        val restored = Account(20L, "restored")
         val accountService = mockk<AccountService>()
         val accounts = MutableStateFlow<List<Account>>(emptyList())
         every { accountService.accountUpdates } returns accounts

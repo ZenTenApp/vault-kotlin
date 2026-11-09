@@ -1,10 +1,8 @@
 package app.zenten.vault.domain
 
-import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import io.mockk.coJustRun
 import io.mockk.coVerify
@@ -22,8 +20,7 @@ class AccountServiceTest {
     fun create_associated_account_generates_microsecond_id_comment_and_persists_through_setup() = runTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()
-        val keys = NostrKeyDerivation.derive("alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady")
-        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE), nostr = NostrKeyPair(keys.publicKey.hex(), keys.privateKey.hex()))
+        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE))
         every { storage.getAccounts() } returns emptyList()
         coJustRun { setup.addAccount(any(), any()) }
 
@@ -36,12 +33,6 @@ class AccountServiceTest {
         assertEquals(created.createdAt.toString(), SshKeyCodec.parse(created.zenTenKey, VAULT_PASSPHRASE.toCharArray()).comment)
         assertTrue(SshKeyCodec.parse(created.zenTenKey, VAULT_PASSPHRASE.toCharArray()).encrypted)
         assertEquals("Work account", created.accountName)
-        assertEquals(
-            NostrKeyDerivation.derive(
-                app.zenten.vault.crypto.Seedify.fromSshKey(created.zenTenKey, VAULT_PASSPHRASE.toCharArray()),
-            ).publicKey.hex(),
-            created.nostr.pubkey,
-        )
         coVerify(exactly = 1) { setup.addAccount(any(), created) }
     }
 
@@ -49,7 +40,7 @@ class AccountServiceTest {
     fun create_associated_account_rejects_a_nonmatching_vault_key_passphrase() = runTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()
-        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE), nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE))
 
         val result = AccountService(storage, setup, appStorage()).createAssociatedAccount("wrong-passphrase", "Work account")
 
@@ -61,7 +52,7 @@ class AccountServiceTest {
     @Test
     fun verify_account_passphrase_accepts_that_accounts_own_passphrase() {
         val storage = mockk<SecureStorageService>()
-        every { storage.getAccountById(42L) } returns Account(42L, encryptedKey("account-passphrase"), nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+        every { storage.getAccountById(42L) } returns Account(42L, encryptedKey("account-passphrase"))
 
         val result = AccountService(storage, mockk<SetupService>(), appStorage()).verifyAccountPassphrase(42L, "account-passphrase")
 
@@ -71,7 +62,7 @@ class AccountServiceTest {
     @Test
     fun verify_account_passphrase_rejects_a_different_passphrase() {
         val storage = mockk<SecureStorageService>()
-        every { storage.getAccountById(42L) } returns Account(42L, encryptedKey("account-passphrase"), nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+        every { storage.getAccountById(42L) } returns Account(42L, encryptedKey("account-passphrase"))
 
         val result = AccountService(storage, mockk<SetupService>(), appStorage()).verifyAccountPassphrase(42L, "wrong-passphrase")
 
@@ -94,8 +85,8 @@ class AccountServiceTest {
     fun create_associated_account_is_rejected_at_the_99_account_ceiling() = runTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()
-        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE), nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
-        every { storage.getAccounts() } returns List(99) { Account(it + 1L, "key", nostr = NostrKeyPair("00".repeat(32), "01".repeat(32))) }
+        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE))
+        every { storage.getAccounts() } returns List(99) { Account(it + 1L, "key") }
 
         val result = AccountService(storage, setup, appStorage()).createAssociatedAccount(VAULT_PASSPHRASE, "Work account")
 
@@ -108,7 +99,7 @@ class AccountServiceTest {
     fun create_associated_account_requires_a_3_to_128_character_trimmed_name() = runTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()
-        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE), nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)))
+        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE))
 
         val result = AccountService(storage, setup, appStorage()).createAssociatedAccount(VAULT_PASSPHRASE, " ab ")
 
@@ -120,8 +111,6 @@ class AccountServiceTest {
     private fun appStorage(rounds: Int = SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS) = mockk<AppStorageService> {
         every { sshKdfRounds } returns flowOf(rounds)
     }
-
-    private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
 
     private companion object {
         const val VAULT_PASSPHRASE = "vaultKey-passphrase"

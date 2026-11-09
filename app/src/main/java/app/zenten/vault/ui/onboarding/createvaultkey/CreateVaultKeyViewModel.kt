@@ -6,10 +6,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateVaultKeyStep
 import app.zenten.vault.data.model.Account
@@ -209,30 +207,27 @@ class CreateVaultKeyViewModel @Inject constructor(
                         rounds = rounds,
                     )
                 }
-                _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.DERIVING_NOSTR_KEY_PAIR)
-                val (vaultKey, createFlowRelayIdentity, parsedSeed) = withContext(Dispatchers.Default) {
+                _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.DERIVING_VAULT_KEY_SEED)
+                val (vaultKey, parsedSeed) = withContext(Dispatchers.Default) {
                     // Parsing is another bcrypt operation, so it must remain on the worker
-                    // dispatcher along with every identity derived from the decrypted seed.
+                    // dispatcher along with the seed-derived values read from it.
                     val parsed = SshKeyCodec.parse(key.privateKeyPem, passphrase.toCharArray())
-                    val mnemonic = Seedify.toMnemonic(parsed.seed)
                     val vaultKey = Account(
                         createdAt = key.createdAt,
                         // Associated-account exports use canonical base64 without PEM wrappers
                         // or line breaks; store generated Vault Keys in that same format.
                         zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
-                        nostr = NostrKeyDerivation.derive(mnemonic).toPersistedKeyPair(),
                     )
-                    val createFlowRelayIdentity = NostrKeyDerivation.derive(
-                        Seedify.toVaultKeyBackupMnemonic(parsed.seed),
-                    ).toPersistedKeyPair()
-                    Triple(vaultKey, createFlowRelayIdentity, parsed.seed)
+                    // The seed is used only to compute the secret-combination indices below; no
+                    // identity derived from it is stored on the account.
+                    vaultKey to parsed.seed
                 }
                 _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.DERIVING_SYNC_CODE)
                 val secretCombinationIndices = withContext(Dispatchers.Default) {
                     Seedify.toVaultKeyBackupWordIndices(parsedSeed)
                 }
-                Triple(vaultKey, createFlowRelayIdentity, secretCombinationIndices)
-            }.mapCatching { (vaultKey, createFlowRelayIdentity, secretCombinationIndices) ->
+                vaultKey to secretCombinationIndices
+            }.mapCatching { (vaultKey, secretCombinationIndices) ->
                 _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.SYNCING_BACKUPS)
                 // The new key was just parsed with this passphrase, so remember it in the session
                 // (never on disk) before the backup and the later secret-combination steps.
@@ -240,7 +235,7 @@ class CreateVaultKeyViewModel @Inject constructor(
                 // Local commit happens before any network call. The setup service records
                 // BACKUP_INTRO even if one or more configured sources are unavailable, and
                 // reports the quorum outcome rather than failing the wizard for it.
-                setupService.persistGeneratedVaultKeyAndBackup(vaultKey, createFlowRelayIdentity) { progress ->
+                setupService.persistGeneratedVaultKeyAndBackup(vaultKey) { progress ->
                     _state.value = _state.value.copy(
                         progressStage = VaultKeyCreationStage.SYNCING_BACKUPS,
                         backupProgress = progress,
@@ -294,13 +289,25 @@ class CreateVaultKeyViewModel @Inject constructor(
         }
     }
 
+    /** Whether a generated Vault Key is stored, so the export action can be offered. */
+    fun canExportVaultKey(): Boolean = secureStorage.getVaultKey() != null
+
     /**
      * Builds the Vault Key's self-describing export text. It shares the associated-account
      * local-backup format so exported copies read the same way, but uses the fixed "VaultKey"
      * display name because the Vault Key has none.
+     *
+     * The wizard just established the passphrase in [VaultKeySession], and the export's npub line
+     * is derived from it here rather than read from a stored identity, so this suspends and
+     * returns null when the session is locked.
      */
-    fun vaultKeyForExport(): String? = secureStorage.getVaultKey()?.let { vaultKey ->
-        runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey) }.getOrNull()
+    suspend fun vaultKeyForExport(): String? = secureStorage.getVaultKey()?.let { vaultKey ->
+        val passphrase = vaultKeySession.snapshot() ?: return@let null
+        try {
+            runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, passphrase) }.getOrNull()
+        } finally {
+            passphrase.fill('\u0000')
+        }
     }
 
     /** Marks confirmation as resumable only after Android accepted the targeted export intent. */
@@ -531,7 +538,7 @@ data class CreateVaultKeyState(
 
 enum class VaultKeyCreationStage {
     CREATING_KEY,
-    DERIVING_NOSTR_KEY_PAIR,
+    DERIVING_VAULT_KEY_SEED,
     DERIVING_SYNC_CODE,
     SYNCING_BACKUPS,
     COMPLETE,

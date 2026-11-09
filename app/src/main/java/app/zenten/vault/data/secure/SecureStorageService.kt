@@ -36,7 +36,9 @@ import kotlinx.serialization.json.Json
 class SecureStorageService(
     context: Context,
     private val crypto: KeystoreCryptoService = KeystoreCryptoService(),
-    private val json: Json = Json,
+    // Unknown keys are ignored so a record written by an older build still decodes after a field
+    // is removed from the model. Without this, such a record silently disappears from the list.
+    private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     private val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
     private val _accounts = MutableStateFlow(readAccounts())
