@@ -79,7 +79,7 @@ These were recorded in round 1 and constrain this round. Do not reopen them with
 | D7 | **Vault Key writes are read back** before a source counts toward quorum. Closes H7. |
 | D8 | Nigori compatibility is a **restricted contract**: one key set per chain, no keybag rotation. |
 | D9 | Passphrase strength is **not enforced outside in-app creation**. **Paste VaultKey** and **Recover VaultKey** accept any passphrase and show no warning: an imported passphrase is a property of an existing key the user did not choose, and refusing it would leave a user with a valid key unable to onboard or recover. Accepted business decision, recorded 2026-11-04. Closes H5 with no code change. |
-| D12 | The `bcrypt_pbkdf` work factor is bounded to **128–8192 for generation and selection**, default 128. Parsing accepts declared factors down to 1 for foreign-key compatibility and rejects anything above 8192 as hostile input. Recorded 2026-11-04. Closes H6 and the rounds row of H14. |
+| D12 | The `bcrypt_pbkdf` work factor is bounded to **128–8192 on every path**: generation, selection, and parsing. Generation and the Settings menu offer only the powers of two in the band, default 128; the container reader accepts any declared count in the band and rejects anything outside it before the KDF runs. Revised 2026-11-09: the original version let parsing accept factors down to 1 for foreign-key compatibility, which is removed while Vault is pre-release. Recorded 2026-11-04. Closes H6 and the rounds row of H14. |
 
 ---
 
@@ -211,15 +211,26 @@ Three things the original wording got wrong, now recorded in the code and docs:
    band is now documented with real numbers rather than asserted.
 3. **The floor must not apply to parsing.** Vault imports foreign keys and `ssh-keygen` defaults
    to 16 rounds, so a 128-round parse floor would make a user's existing key impossible to paste
-   or unlock. Parsing still accepts any declared factor from 1, and only the ceiling binds it —
-   as an input-safety limit (H14), not a strength policy.
+   or unlock. At the time, parsing still accepted any declared factor from 1, and only the ceiling
+   bound it — as an input-safety limit (H14), not a strength policy.
+
+   **Revised 2026-11-09:** this third point no longer holds. Vault is still pre-release and holds
+   no keys, so there is no "existing key" to keep working, and the carve-out instead left every
+   intake path open to a container that is cheap to attack offline once it is stored and
+   re-exported. The floor now applies to parsing too, enforced in `readEncryptedContainer` so it
+   covers **Paste VaultKey**, **Recover VaultKey**, associated-account restore from relay or Brave
+   Sync, unlock, Account Details, and export. The accepted range is therefore `128`–`8192`
+   inclusive on every path; the security model records the revised D12.
 
 `AppStorageService.setSshKdfRounds` now rejects anything outside the offered list, and the existing
 `sshKdfRounds` clamp still maps a previously stored weak value (e.g. `64`) to 128, so no migration
 is needed and nothing is destroyed. Tests: band boundaries and non-power-of-two rejection in
 `generation_accepts_only_rounds_inside_the_supported_band`, list shape and
-default-selectability in `offers_a_contiguous_power_of_two_band_for_generation`, and the
-compatibility carve-out in `parsing_still_accepts_a_foreign_key_below_the_generation_floor`.
+default-selectability in `offers_a_contiguous_power_of_two_band_for_generation`, the accepted
+non-menu value and both ends of the band in
+`parsing_accepts_any_declared_factor_inside_the_accepted_band`, and out-of-band rejection at both
+ends in `rejects_a_container_declaring_a_work_factor_outside_the_accepted_band` plus the
+associated-account restore case in `AssociatedAccountLabelTest`.
 
 ### H10 — Unreadable records are indistinguishable from absent ones
 
@@ -310,7 +321,7 @@ multiple batches, and repeated markers.
 
 | Surface | Gap |
 | --- | --- |
-| `crypto/SshKeyCodec.readEncryptedContainer` | Accepts any `rounds > 0`; a synthetic container with `2,147,483,647` passed metadata validation. `parse` then runs bcrypt synchronously. ✅ **Fixed** — capped at `MAX_BCRYPT_PBKDF_ROUNDS` (8192) while reading metadata, before any KDF work. Still open: `parse` is synchronous (H15). |
+| `crypto/SshKeyCodec.readEncryptedContainer` | Accepts any `rounds > 0`; a synthetic container with `2,147,483,647` passed metadata validation. `parse` then runs bcrypt synchronously. ✅ **Fixed** — the declared factor must be within `MIN_BCRYPT_PBKDF_ROUNDS`..`MAX_BCRYPT_PBKDF_ROUNDS` (128–8192), checked while reading metadata, before any KDF work. Still open: `parse` is synchronous (H15). |
 | `bravesync/transport/BraveSyncTransport.post` | Buffers the whole body, then expands gzip with unbounded `readBytes()`. |
 | `bravesync/proto/ProtoWire` | No field-count or group-recursion cap, so a crafted payload can exhaust the stack. |
 | `network/nostr/NostrRelayService` + Quartz | No event-count or payload-volume limit; Quartz uses an unbounded incoming channel. |
@@ -516,6 +527,36 @@ Newest first. Each entry records what changed, what was verified, and which docs
   generation/storage/parse bounds with measured costs), `docs/stakeholder/screens-and-states.md`
   (Settings dropdown values 128–8192 plus the clamp behaviour),
   `docs/technical/security-model.md` (review item 10 → D12).
+
+### D12 revision — the work-factor floor now binds parsing
+
+- `crypto/SshKeyCodec.kt`: `readEncryptedContainer` now requires the declared factor to be inside
+  `MIN_BCRYPT_PBKDF_ROUNDS`..`MAX_BCRYPT_PBKDF_ROUNDS` (128–8192) rather than only under the
+  ceiling. It is still one range check, still made while only metadata has been read, so no
+  out-of-band container reaches `bcrypt_pbkdf`.
+- `domain/BackupSourceAdapters.kt`: `accountFromSshKey` now canonicalizes through
+  `validateAndNormalizeEncryptedPrivateKey` instead of the plain Base64 normalizer, so restore
+  intake enforces the band and canonicalizes in one step. `domain/RecoveryService.kt` uses the same
+  helper, so Nostr automatic recovery and consolidation cannot disagree about which records are
+  valid. `BraveSyncBackupService.decodeAssociatedAccount` already mapped a failure to `null`.
+- `app/src/test/resources/golden/crypto-vectors.json`: `keys.encryptedEd25519Pem` was a 1-round
+  container that the new floor would reject. It is the same Ed25519 material re-encrypted with
+  `ssh-keygen -p -a 128`, so the seed, fingerprint, and mnemonic assertions are unchanged.
+  `tools/gen-golden-vectors.mjs` embeds the same constant so regenerating does not reintroduce a
+  fixture the parser refuses.
+- **Verified:** the full `:app:testDebugUnitTest` suite passes. New and rewritten tests cover both
+  band ends as positive controls, `1`, `0`, `127`, `8193`, and `Int.MAX_VALUE` as rejects on every
+  metadata-only path plus `parse`, a legal non-menu value (`200`), and an automatic-recovery case
+  whose 1-round payload is skipped rather than stored.
+- **Consequence accepted:** a Vault Key or account already stored with an out-of-band factor can no
+  longer be unlocked, exported, or listed on Account Details. That is why the change is safe now —
+  Vault is pre-release and has no keys in the field.
+- **Docs moved:** `docs/technical/security-model.md` (D12 revision),
+  `docs/technical/ssh-key-seed-derivation.md` (bounds section rewritten: one band, two enforcement
+  points, both ends explained), `docs/features/vault-key-setup.md`,
+  `docs/features/automatic-account-recovery.md`, `docs/features/encrypted-backup.md`,
+  `docs/stakeholder/screens-and-states.md`, `docs/stakeholder/flowcharts.md`,
+  `app/src/test/resources/golden/README.md`, and this plan's decision table and H14 row.
 
 **Scope note:** H14 is only partially closed. The Brave transport body/gzip bounds, the ProtoWire
 field-count and group-depth caps, and the Nostr event-count/volume limits are untouched. The Nostr

@@ -72,7 +72,7 @@ class AccountsListFormattingTest {
             .groupValues[1]
             .replace("\\n", "\n")
 
-        assertEquals("1", formatKdfRounds(encodedKey))
+        assertEquals("128", formatKdfRounds(encodedKey))
         assertEquals("Unavailable", formatKdfRounds(null))
         assertEquals("Unavailable", formatKdfRounds("invalid"))
     }

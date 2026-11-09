@@ -5,16 +5,20 @@ import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.network.nostr.NostrEvent
+import app.zenten.vault.network.nostr.NostrEventCodec
 import app.zenten.vault.network.nostr.NostrRelayGateway
 import app.zenten.vault.network.nostr.PublishResult
 import io.mockk.every
 import io.mockk.mockk
+import java.nio.ByteBuffer
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.Base64
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 /**
@@ -110,10 +114,54 @@ class AssociatedAccountLabelTest {
         assertNull(restored.accountName)
     }
 
+    @Test
+    fun recovery_skips_a_backup_record_whose_work_factor_is_outside_the_accepted_band() = runTest {
+        // A record written by an older build (or by a hostile peer) can carry any declared work
+        // factor. Intake routes it through the same container reader the rest of the app uses, so
+        // a 1-round key is rejected here rather than being restored and later failing to unlock.
+        val weakKey = withDeclaredRounds(
+            SshKeyCodec.normalizeToSingleLineBase64(
+                SshKeyCodec.generateEncrypted(10L, PASSPHRASE, rounds = SshKeyCodec.MIN_BCRYPT_PBKDF_ROUNDS).privateKeyPem,
+            ),
+            rounds = 1,
+        )
+        // The event is signed directly: building one keeps raw ciphertext, so this is the only way
+        // to publish a payload that a reader must reject.
+        val event = NostrEventCodec.sign(
+            privateKey = accountIdentity.privateKey,
+            publicKey = accountIdentity.publicKey,
+            kind = BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+            tags = listOf(listOf("d", "10")),
+            content = weakKey,
+            createdAtSeconds = clock.instant().epochSecond,
+        )
+
+        assertNull(recoveryService().decodeAssociatedAccount(event, vaultKey, PASSPHRASE))
+        assertThrows(IllegalArgumentException::class.java) {
+            accountFromSshKey(10L, weakKey)
+        }
+    }
+
     private fun recoveryService(): RecoveryService = RecoveryService(
         RecordingGateway(),
         mockk<SecureStorageService> { every { getAccounts() } returns emptyList() },
     )
+
+    /**
+     * Rewrites the bcrypt work factor in an OpenSSH container's plaintext KDF options.
+     *
+     * The field sits immediately after the `[salt length][salt]` block, which follows the magic,
+     * cipher name, and KDF name. Walking the length prefixes keeps this correct if the layout
+     * above it ever changes.
+     */
+    private fun withDeclaredRounds(key: String, rounds: Int): String {
+        val bytes = Base64.getDecoder().decode(key)
+        var offset = "openssh-key-v1\u0000".length
+        repeat(2) { offset += 4 + ByteBuffer.wrap(bytes, offset, 4).int } // cipher name, KDF name
+        val optionsStart = offset + 4
+        val roundsOffset = optionsStart + 4 + ByteBuffer.wrap(bytes, optionsStart, 4).int // skip the salt
+        return Base64.getEncoder().encodeToString(bytes.copyOf().also { ByteBuffer.wrap(it).putInt(roundsOffset, rounds) })
+    }
 
     private fun account(createdAt: Long): Account = Account(
         createdAt = createdAt,

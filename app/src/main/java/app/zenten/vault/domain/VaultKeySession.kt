@@ -39,6 +39,10 @@ class VaultKeySession @Inject constructor(
      * keeps an in-memory copy. Verification is a real bcrypt decryption rather than a
      * comparison against a stored value, which is only possible now that the passphrase is
      * not persisted.
+     *
+     * The stored container was already checked against the accepted work-factor band when it
+     * was imported or generated, and [SshKeyCodec.parse] re-checks it, so a failure here is a
+     * wrong passphrase rather than an unsupported key.
      */
     suspend fun unlock(candidate: CharArray): Result<Unit> = withContext(Dispatchers.Default) {
         runCatching {

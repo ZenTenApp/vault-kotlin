@@ -42,7 +42,7 @@ Fields per vector:
 | `mnemonic12`       | 12-word BIP39 mnemonic (SHA256(prefixedSeed)[:16] path)       |
 | `nostrNip06`       | NIP-06 secp256k1 keys: `pubkey`,`privkey` (hex), `npub`,`nsec`|
 
-`keys.encryptedEd25519Pem` is a separate OpenSSH-generated `aes256-ctr` / bcrypt_pbkdf fixture (one KDF round), using the test-only passphrase `phase1-test-passphrase`. It encrypts the same Ed25519 material as the unencrypted vector and is exercised by `SshKeyCodecTest`.
+`keys.encryptedEd25519Pem` is a separate OpenSSH-generated `aes256-ctr` / bcrypt_pbkdf fixture at **128 KDF rounds**, the floor `SshKeyCodec` accepts, using the test-only passphrase `phase1-test-passphrase`. It is the same Ed25519 material as the unencrypted vector, re-encrypted with `ssh-keygen -p -a 128`, so the seed and fingerprint assertions still match; a weaker fixture could no longer be parsed at all. It is exercised by `SshKeyCodecTest`.
 
 No Kotlin code consumes `mnemonic12` or `passphrase`: `SshKeyCodec.parse` accepts
 only passphrase-protected keys, so this `passphrase: null` vector is reference
@@ -81,11 +81,10 @@ node tools/gen-golden-vectors.mjs   # rewrites crypto-vectors.json
 Requires the sibling reference repos to be present and built:
 `../vault` (node_modules installed) and `../seedify-ts` (`npm run build`).
 
-> Caution: the generator still embeds an older `encryptedEd25519Pem` whose
-> passphrase is unknown, so running it would overwrite the checked-in
-> `phase1-test-passphrase` fixture that `SshKeyCodecTest` decrypts. Update the
-> generator's `ENCRYPTED_ED25519` constant to the checked-in fixture (or restore
-> the `keys.encryptedEd25519Pem` value afterwards) before regenerating.
+> The generator's `ENCRYPTED_ED25519` constant is kept identical to the checked-in
+> `keys.encryptedEd25519Pem`, so regenerating preserves the `phase1-test-passphrase`
+> fixture that `SshKeyCodecTest` decrypts. Regenerating it with `ssh-keygen` at a
+> different `-a` value would produce a key `SshKeyCodec` rejects below 128 rounds.
 
 To refresh the official NIP-44 vectors:
 

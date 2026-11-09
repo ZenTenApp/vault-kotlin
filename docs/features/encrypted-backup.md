@@ -98,7 +98,7 @@ Errors, logs, analytics, WorkManager input, and UI status must follow the same r
 | NIP-42 authentication fails | Report authentication failure; fail that relay and do not count it toward quorum. |
 | Relay connection, timeout, or event rejection | Report the corresponding network, timeout, or remote-rejection category rather than authentication failure. |
 | Relay reports the exact event ID already exists | Treat the retry as an idempotently confirmed write. |
-| Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local accounts. |
+| Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local accounts. A key whose declared `bcrypt_pbkdf` work factor falls outside 128–8192 rounds is invalid for this purpose. |
 
 ## Key locations
 

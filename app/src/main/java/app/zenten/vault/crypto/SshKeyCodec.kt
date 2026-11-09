@@ -22,29 +22,36 @@ object SshKeyCodec {
     private const val AES_BLOCK_BYTES = 16
 
     /**
-     * Lowest work factor Vault will ever generate or let the user select. Each bcrypt_pbkdf round
-     * costs a full Blowfish key schedule — roughly 8 ms of deliberate work on a desktop CPU — so
-     * the default of 128 is about a second and a floor of 128 keeps generated keys in that range.
+     * Lowest work factor Vault accepts anywhere: generation, the Settings menu, and parsing.
      *
-     * This floor applies to **generation only**. Parsing accepts weaker values because the app
-     * imports foreign keys: `ssh-keygen` defaults to 16 rounds, and rejecting anything below the
-     * floor would make a user's own existing key impossible to paste or unlock. Those keys keep
-     * whatever work factor they were created with.
+     * Each bcrypt_pbkdf round costs a full Blowfish key schedule — roughly 8 ms of deliberate work
+     * on a desktop CPU — so 128 rounds is about a second, and anything below it would leave a
+     * container that leaves the device (Notes export, clipboard, sibling-app KeyHive reads) cheap
+     * to attack offline.
+     *
+     * Parsing used to accept weaker foreign keys for `ssh-keygen` compatibility (its default is
+     * 16 rounds). That carve-out is gone because Vault is still pre-release and holds no older
+     * keys: every container it can encounter was either generated inside this band or must be
+     * rejected at intake, before it is stored, unlocked, or re-exported.
      */
     const val MIN_BCRYPT_PBKDF_ROUNDS = 128
 
     /**
-     * Highest work factor accepted anywhere. It bounds both what the Settings menu offers and what
-     * a parsed container may declare, so a hostile pasted key cannot ask the app to run an
-     * effectively unbounded bcrypt_pbkdf loop. Parsing is the security-critical direction: a
-     * container declaring `rounds = 2_147_483_647` passes metadata validation today and then
-     * wedges the passphrase step forever, which would make recovery impossible to complete.
+     * Highest work factor accepted anywhere, for the same three paths.
+     *
+     * It is also a hostile-input bound: the declared value is attacker-controlled metadata, and
+     * bcrypt_pbkdf cost grows linearly with it, so a container claiming
+     * `rounds = 2_147_483_647` would otherwise pass metadata validation and then block every
+     * unlock and recovery attempt inside the KDF. Both ends are checked while only metadata has
+     * been read, so bcrypt never runs for an out-of-band container.
      */
     const val MAX_BCRYPT_PBKDF_ROUNDS = 8192
 
     /**
-     * Work factors Vault offers for *newly generated* keys, as powers of two inside the supported
-     * band. Kept as a list because the Settings dropdown renders it directly.
+     * Work factors Vault offers for *newly generated* keys, as powers of two inside the accepted
+     * band. Kept as a list because the Settings dropdown renders it directly. Parsing is more
+     * permissive inside the same band: a container may declare any count in
+     * [MIN_BCRYPT_PBKDF_ROUNDS]..[MAX_BCRYPT_PBKDF_ROUNDS], not only these values.
      */
     val SUPPORTED_BCRYPT_PBKDF_ROUNDS: List<Int> =
         generateSequence(MIN_BCRYPT_PBKDF_ROUNDS) { previous -> (previous * 2).takeIf { it <= MAX_BCRYPT_PBKDF_ROUNDS } }
@@ -139,7 +146,8 @@ object SshKeyCodec {
         random: SecureRandom = SecureRandom(),
     ): GeneratedKey {
         require(passphrase.isNotEmpty()) { "A passphrase is required to encrypt an SSH key" }
-        // Generation is held to the supported band; only parsing tolerates weaker foreign keys.
+        // Generation writes the same band the parser accepts, so a key this app creates can never
+        // be one it would later refuse to open.
         require(rounds in SUPPORTED_BCRYPT_PBKDF_ROUNDS) {
             "bcrypt KDF round count must be between $MIN_BCRYPT_PBKDF_ROUNDS and $MAX_BCRYPT_PBKDF_ROUNDS: $rounds"
         }
@@ -246,9 +254,15 @@ object SshKeyCodec {
         // repeats on every unlock and recovery attempt. Reject it here, while only metadata has
         // been read, rather than after the KDF has already been asked to run.
         val declaredRounds = optionsReader.uInt()
-        require(salt.isNotEmpty() && declaredRounds > 0 && optionsReader.atEnd()) { "Invalid bcrypt KDF options" }
-        require(declaredRounds <= MAX_BCRYPT_PBKDF_ROUNDS) {
-            "OpenSSH key uses $declaredRounds bcrypt KDF rounds; the supported maximum is $MAX_BCRYPT_PBKDF_ROUNDS"
+        require(salt.isNotEmpty() && optionsReader.atEnd()) { "Invalid bcrypt KDF options" }
+        // Every intake path — paste, recovery, restore, and the subsequent unlock and export —
+        // runs through this reader, so one range check here is what keeps an out-of-band key from
+        // ever being stored or used. The lower bound is a strength policy: below it a container is
+        // cheap to attack offline. The upper bound is both a policy ceiling and a denial-of-service
+        // control, since the declared value is trusted before any passphrase is checked.
+        require(declaredRounds in MIN_BCRYPT_PBKDF_ROUNDS.toLong()..MAX_BCRYPT_PBKDF_ROUNDS.toLong()) {
+            "OpenSSH key uses $declaredRounds bcrypt KDF rounds; Vault accepts keys with " +
+                "$MIN_BCRYPT_PBKDF_ROUNDS to $MAX_BCRYPT_PBKDF_ROUNDS rounds"
         }
         return EncryptedContainer(bytes, publicKey, encryptedPrivate, salt, declaredRounds.toInt())
     }
