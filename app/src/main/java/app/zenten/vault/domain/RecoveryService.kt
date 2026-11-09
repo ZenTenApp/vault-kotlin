@@ -2,8 +2,7 @@ package app.zenten.vault.domain
 
 import app.zenten.vault.crypto.Nip44
 import app.zenten.vault.crypto.NostrKeyDerivation
-import app.zenten.vault.crypto.Seedify
-import app.zenten.vault.crypto.toPersistedKeyPair
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.network.nostr.NostrEvent
@@ -17,11 +16,13 @@ class RecoveryService(
     private val braveSyncBackupService: BraveSyncBackupService? = null,
 ) {
     suspend fun discoverAssociatedAccounts(vaultKey: Account, passphrase: CharArray): RecoveryResult {
-        val nostr = vaultKey.nostr
+        // The Vault Key identity is derived from its seed: decrypting the container requires the
+        // passphrase this call already holds, so nothing needs to be stored to find the records.
+        val identity = NostrKeyDerivation.fromAccountSeed(SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed)
         val events = relayGateway.fetchAuthenticatedByAuthorAndKind(
-            nostr.pubkey,
+            identity.pubkey,
             BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
-            nostr.privateKey(),
+            identity.privateKey,
         )
         val recovered = mutableListOf<Account>()
         val skipped = mutableListOf<String>()
@@ -46,20 +47,17 @@ class RecoveryService(
     }
 
     fun decodeAssociatedAccount(event: NostrEvent, vaultKey: Account, passphrase: CharArray): Account? = runCatching {
-        val nostr = vaultKey.nostr
+        val identity = NostrKeyDerivation.fromAccountSeed(SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed)
         require(NostrEventCodec.isValid(event))
-        require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == nostr.pubkey)
+        require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == identity.pubkey)
         val dTag = event.tags.single { it.firstOrNull() == "d" }.getOrNull(1)
         require(!dTag.isNullOrBlank() && dTag.all(Char::isDigit))
         val createdAt = dTag.toLong()
-        val sshPrivateKey = Nip44.decryptSelf(event.content, nostr.privateKey(), nostr.publicKey())
+        val sshPrivateKey = Nip44.decryptSelf(event.content, identity.privateKey, identity.publicKey)
         require(sshPrivateKey.isNotBlank())
         Account(
             createdAt = createdAt,
-            zenTenKey = app.zenten.vault.crypto.SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
-            nostr = NostrKeyDerivation.derive(
-                Seedify.fromSshKey(sshPrivateKey, passphrase),
-            ).toPersistedKeyPair(),
+            zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
             // A missing or malformed label is not a reason to discard an otherwise valid key:
             // the account still restores and its card simply shows no name.
             accountName = event.accountLabel(),

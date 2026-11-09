@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import app.zenten.vault.crypto.KeystoreCryptoService
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.serialization.json.Json
@@ -175,7 +174,6 @@ class SecureStorageServiceTest {
     private fun account(id: Long, key: String = "private-key-$id") = Account(
         createdAt = id,
         zenTenKey = key,
-        nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
     )
 
     private companion object {

@@ -13,6 +13,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,6 +24,7 @@ import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import app.zenten.vault.ui.components.VaultPillButton
+import kotlinx.coroutines.launch
 
 /** Step 4: export the generated VaultKey through the local-backup target picker. */
 @Composable
@@ -34,6 +36,9 @@ fun CreateVaultKeyBackupIntroScreen(
     val state by viewModel.state.collectAsState()
     var targets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<Int?>(null) }
+    // Building the export derives the VaultKey npub from the session passphrase, which is
+    // suspending work (bcrypt decryption), so the click handlers run on a coroutine scope.
+    val scope = rememberCoroutineScope()
 
     // Generation is irreversible; users may only go back after reaching confirmation.
     BackHandler(enabled = true) {}
@@ -72,7 +77,7 @@ fun CreateVaultKeyBackupIntroScreen(
                 enabled = !state.advancing,
                 onClick = {
                     exportError = null
-                    if (viewModel.vaultKeyForExport() == null) {
+                    if (!viewModel.canExportVaultKey()) {
                         exportError = R.string.create_vault_key_backup_unavailable
                     } else {
                         targets = LocalAccountBackupShare.availableTargets(context.packageManager)
@@ -87,22 +92,24 @@ fun CreateVaultKeyBackupIntroScreen(
             targets = availableTargets,
             onDismiss = { targets = null },
             onTargetSelected = { target ->
-                val vaultKey = viewModel.vaultKeyForExport()
-                if (vaultKey == null) {
-                    targets = null
-                    exportError = R.string.create_vault_key_backup_unavailable
-                    return@BackupExportTargetDialog
-                }
-                try {
-                    context.startActivity(LocalAccountBackupShare.targetedSendIntent(vaultKey, target))
-                    targets = null
-                    viewModel.recordExportStarted()
-                } catch (_: ActivityNotFoundException) {
-                    targets = null
-                    exportError = R.string.create_vault_key_backup_target_missing
-                } catch (_: SecurityException) {
-                    targets = null
-                    exportError = R.string.create_vault_key_backup_target_denied
+                scope.launch {
+                    val vaultKey = viewModel.vaultKeyForExport()
+                    if (vaultKey == null) {
+                        targets = null
+                        exportError = R.string.create_vault_key_backup_unavailable
+                        return@launch
+                    }
+                    try {
+                        context.startActivity(LocalAccountBackupShare.targetedSendIntent(vaultKey, target))
+                        targets = null
+                        viewModel.recordExportStarted()
+                    } catch (_: ActivityNotFoundException) {
+                        targets = null
+                        exportError = R.string.create_vault_key_backup_target_missing
+                    } catch (_: SecurityException) {
+                        targets = null
+                        exportError = R.string.create_vault_key_backup_target_denied
+                    }
                 }
             },
         )

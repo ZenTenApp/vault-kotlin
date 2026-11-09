@@ -7,8 +7,6 @@ import app.zenten.vault.data.kv.BackupErrorCategory
 import app.zenten.vault.data.kv.ConsolidationTrigger
 import app.zenten.vault.data.kv.PendingWriteReason
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
-import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.data.secure.SecureStorageService
 import io.mockk.every
 import io.mockk.just
@@ -401,14 +399,8 @@ class AccountConsolidationEngineTest {
     ) : RemoteAccountCandidate
 
     companion object {
-        val nostr = NostrKeyPair(
-            NostrKeyDerivation.derive("alter gap broom kitten orient over settle work honey rule coach system wage effort mask void solid devote divert quarter quote broccoli jaguar lady").publicKey.hex(),
-            "01".repeat(32),
-        )
         val passphrase = "pass".toCharArray()
         val vaultKey = account(1, "vaultKey")
-        fun account(id: Long, key: String) = Account(id, key, nostr = nostr)
-
-        private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
+        fun account(id: Long, key: String) = Account(id, key)
     }
 }

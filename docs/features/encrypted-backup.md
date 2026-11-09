@@ -45,7 +45,7 @@ The relay identity depends on the record class, and the two are never mixed:
 | Record class | Relay identity | Recoverable from |
 | --- | --- | --- |
 | Vault Key (`37801`) | NIP-06 identity derived from the 24-word mnemonic of Seedify's deterministic `vkbckp` (Vault Key BacKup) associated account | the 24 written-down words |
-| Associated account (`37802`) | the stored Vault Key Nostr identity | the Vault Key private key and passphrase |
+| Associated account (`37802`) | the Vault Key's own Nostr identity, re-derived from its seed per run | the Vault Key private key and passphrase |
 
 That identity is used for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication of its own record class. The backed-up Vault Key plaintext is still the original VaultKey's canonical single-line Base64 OpenSSH private key. `DefaultBackupSourceFactory` derives the Vault Key backup identity once per engine operation and passes it to `NostrBackupSource`, so Vault Key creation, imported-Vault Key setup, retries, and Vault Key consolidation all address the same relay record instead of creating a duplicate under a second identity.
 

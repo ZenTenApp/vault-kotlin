@@ -1,7 +1,6 @@
 package app.zenten.vault.keyhive
 
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -27,7 +26,6 @@ class AssociatedAccountsProviderContractTest {
         val account = Account(
             createdAt = 1720000000000123,
             zenTenKey = "passphrase-protected-openssh-key",
-            nostr = NostrKeyPair(pubkeyHex, privkeyHex),
             accountName = "  Work account  ",
         )
 
@@ -46,7 +44,6 @@ class AssociatedAccountsProviderContractTest {
         val account = Account(
             createdAt = 1720000000000123,
             zenTenKey = "passphrase-protected-openssh-key",
-            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )
 
         val fields = Json.parseToJsonElement(Json.encodeToString(account.toSharedAssociatedAccount())).jsonObject

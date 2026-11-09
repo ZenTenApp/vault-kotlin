@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 
@@ -46,15 +47,24 @@ object LocalAccountBackupShare {
      * rather than any identifier.
      */
     internal fun accountExportText(account: Account): String =
-        selfDescribingExportText(account, account.accountName?.trim().orEmpty(), includeNpub = false)
+        selfDescribingExportText(account, account.accountName?.trim().orEmpty(), npub = null)
 
     /**
      * Builds the same self-describing export for the Vault Key. The Vault Key has no
      * user-set display name, so the fixed label "VaultKey" is written instead. The Vault Key's
      * npub stays in its export because that key pair is the Vault Key's own identity.
+     *
+     * [passphrase] is required only to derive that npub: the identity is no longer stored on the
+     * account, so it is rebuilt here from the seed inside the encrypted container. A passphrase
+     * that does not decrypt the key throws rather than producing an export whose npub line is
+     * silently missing.
      */
-    internal fun vaultKeyExportText(account: Account): String =
-        selfDescribingExportText(account, "VaultKey", includeNpub = true)
+    internal fun vaultKeyExportText(account: Account, passphrase: CharArray): String =
+        selfDescribingExportText(
+            account,
+            "VaultKey",
+            npub = NostrKeyDerivation.fromAccountSeed(SshKeyCodec.parse(account.zenTenKey, passphrase).seed).npub,
+        )
 
     /**
      * Builds the clipboard-only export: the passphrase-encrypted OpenSSH key wrapped in PEM
@@ -70,14 +80,18 @@ object LocalAccountBackupShare {
         "-----END OPENSSH PRIVATE KEY-----",
     ).joinToString("\n")
 
+    /**
+     * @param npub the Vault Key's derived identity, or `null` for an associated-account export.
+     *   Associated-account exports never carry an npub, so the text cannot link the account to
+     *   a Nostr identity.
+     */
     private fun selfDescribingExportText(
         account: Account,
         displayName: String,
-        includeNpub: Boolean,
+        npub: String?,
     ): String = listOfNotNull(
         pemBlock(account),
-        // Associated-account exports leave this out so the text never carries their npub.
-        formatNpub(account.nostr.pubkey).takeIf { includeNpub },
+        npub,
         account.createdAt.toString(),
         displayName,
         "Created on ${formatAccountCreatedAt(account.createdAt)}",

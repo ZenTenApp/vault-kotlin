@@ -16,7 +16,6 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
-import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import kotlinx.coroutines.Dispatchers
@@ -277,8 +276,12 @@ class CreateVaultKeyViewModelTest {
         )
     }
 
+    /**
+     * The create flow no longer derives an identity of its own: the engine derives both the
+     * Vault Key backup (`vkbckp`) and associated-account identities from the stored key's seed.
+     */
     @Test
-    fun initial_relay_backup_uses_the_vault_key_backup_sub_account_nostr_identity() = runTest(dispatcher) {
+    fun initial_relay_backup_is_handed_only_the_stored_key_material() = runTest(dispatcher) {
         val storedVaultKey = slot<Account>()
         val backedUpVaultKey = slot<Account>()
         val secureStorage = mockk<SecureStorageService>()
@@ -293,13 +296,7 @@ class CreateVaultKeyViewModelTest {
         viewModel.awaitVerificationResult()
         io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        val seed = SshKeyCodec.parse(storedVaultKey.captured.zenTenKey, passphrase.toCharArray()).seed
-        val expected = NostrKeyDerivation.derive(Seedify.toVaultKeyBackupMnemonic(seed))
-        assertEquals(expected.publicKey.joinToString("") { "%02x".format(it) }, backedUpVaultKey.captured.nostr.pubkey)
-        assertEquals(expected.privateKey.joinToString("") { "%02x".format(it) }, backedUpVaultKey.captured.nostr.privkey)
-        val expectedStored = NostrKeyDerivation.derive(Seedify.toMnemonic(seed))
-        assertEquals(expectedStored.publicKey.joinToString("") { "%02x".format(it) }, storedVaultKey.captured.nostr.pubkey)
-        assertTrue(storedVaultKey.captured.nostr != backedUpVaultKey.captured.nostr)
+        assertEquals(storedVaultKey.captured, backedUpVaultKey.captured)
         coVerify(exactly = 1) { engine.backupVaultKey(any(), any(), any()) }
     }
 

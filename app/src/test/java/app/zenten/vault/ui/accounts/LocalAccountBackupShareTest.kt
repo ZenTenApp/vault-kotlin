@@ -1,9 +1,9 @@
 package app.zenten.vault.ui.accounts
 
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -48,8 +48,6 @@ class LocalAccountBackupShareTest {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = encodedKey,
-
-            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
             accountName = " Personal account ",
         )
 
@@ -71,8 +69,6 @@ class LocalAccountBackupShareTest {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = goldenEncryptedKey(),
-
-            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )
 
         val lines = LocalAccountBackupShare.accountExportText(account).lines()
@@ -82,21 +78,20 @@ class LocalAccountBackupShareTest {
     }
 
     @Test
-    fun vault_key_export_keeps_its_npub_and_fixed_display_name() {
+    fun vault_key_export_keeps_its_derived_npub_and_fixed_display_name() {
         val encodedKey = goldenEncryptedKey()
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = encodedKey,
-
-            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
         )
 
-        val lines = LocalAccountBackupShare.vaultKeyExportText(account).lines()
+        val lines = LocalAccountBackupShare.vaultKeyExportText(account, GOLDEN_PASSPHRASE).lines()
 
         assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----", lines[0])
         assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
         assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
-        assertEquals(formatNpub(account.nostr.pubkey), lines[3])
+        // Derived on demand from the golden key's seed; nothing is stored on the account.
+        assertEquals(GOLDEN_NPUB, lines[3])
         assertEquals(account.createdAt.toString(), lines[4])
         assertEquals("VaultKey", lines[5])
         assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[6])
@@ -104,12 +99,24 @@ class LocalAccountBackupShareTest {
     }
 
     @Test
+    fun vault_key_export_fails_when_the_passphrase_does_not_decrypt_the_key() {
+        val account = Account(
+            createdAt = 1_700_000_000_000_000L,
+            zenTenKey = goldenEncryptedKey(),
+        )
+
+        // A wrong passphrase cannot derive the npub, and an export without its identity line
+        // would not match the key, so the attempt fails instead of producing partial text.
+        assertThrows(IllegalArgumentException::class.java) {
+            LocalAccountBackupShare.vaultKeyExportText(account, "wrong-passphrase".toCharArray())
+        }
+    }
+
+    @Test
     fun clipboard_export_contains_only_single_line_pem() {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = goldenEncryptedKey(),
-
-            nostr = NostrKeyPair("00".repeat(32), "01".repeat(32)),
             accountName = "Personal account",
         )
 
@@ -143,4 +150,12 @@ class LocalAccountBackupShareTest {
         override val packageName: String,
         override val activityName: String,
     ) : LocalAccountBackupShare.Target
+
+    private companion object {
+        /** Passphrase protecting the golden `encryptedEd25519Pem` vector. */
+        val GOLDEN_PASSPHRASE = "phase1-test-passphrase".toCharArray()
+
+        /** NIP-06 npub of the golden key's seed, from `crypto-vectors.json`. */
+        const val GOLDEN_NPUB = "npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w"
+    }
 }

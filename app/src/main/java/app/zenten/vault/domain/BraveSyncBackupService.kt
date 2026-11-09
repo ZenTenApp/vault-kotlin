@@ -39,10 +39,9 @@ class BraveSyncBackupService(
         // The vaultkey record has no numeric ID, so it is rejected here: normal recovery
         // deliberately restores associated accounts only.
         val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
-        accountFromSshKey(accountId, entry.password, passphrase)
-            // The note is the only place the account name survives a device change; a missing or
-            // blank one leaves the name unset, so the restored card shows no name.
-            .copy(accountName = entry.notesText())
+        // The note is the only place the account name survives a device change; a missing or
+        // blank one leaves the name unset, so the restored card shows no name.
+        accountFromSshKey(accountId, entry.password, entry.notesText())
     }.getOrNull()
 
     /** Checks the vaultKey record separately because normal recovery deliberately restores associated accounts only. */

@@ -5,7 +5,6 @@ import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.SecretCombinationsViewStep
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountService
 import app.zenten.vault.domain.VaultKeySession
@@ -59,8 +58,6 @@ class SecretCombinationsViewModelTest {
         every { secureStorage.getVaultKey() } returns Account(
             createdAt = generated.createdAt,
             zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
-
-            nostr = NostrKeyPair(pubkey = "", privkey = ""),
         )
         appStorage = mockk()
         coJustRun { appStorage.setSecretCombinationsViewStep(any()) }

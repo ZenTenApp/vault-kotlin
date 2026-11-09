@@ -212,7 +212,7 @@
     <string name="create_vault_key_creating_title">Creating VaultKey</string>
     <string name="create_vault_key_creating_warning">Warning: Don’t close the app during this process.</string>
     <string name="create_vault_key_creating_key">Created Encrypted VaultKey</string>
-    <string name="create_vault_key_deriving_nostr">Derived Nostr Key Pair</string>
+    <string name="create_vault_key_deriving_seed">Derived VaultKey Seed</string>
     <string name="create_vault_key_deriving_sync_code">Derived Sync Code</string>
     <string name="create_vault_key_backup_relay">Backup VaultKey to Nostr Relay %1$d</string>
     <string name="create_vault_key_backup_sync_server">Backup VaultKey to Sync Server %1$d</string>

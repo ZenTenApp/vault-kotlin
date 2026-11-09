@@ -1,8 +1,9 @@
 package app.zenten.vault.domain
 
 import app.zenten.vault.crypto.Nip44
+import app.zenten.vault.crypto.NostrKeyDerivation
+import app.zenten.vault.crypto.NostrKeyDerivation.NostrKeys
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
 import app.zenten.vault.network.nostr.NostrRelayGateway
@@ -14,32 +15,39 @@ class BackupService(
     private val relayGateway: NostrRelayGateway,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    suspend fun backupVaultKey(vaultKey: Account): PublishResult {
-        val nostr = vaultKey.nostr
-        return relayGateway.publishAuthenticated(
-            buildBackupEvent(vaultKey, vaultKey, VAULT_KEY_D_TAG, VAULT_KEY_BACKUP_KIND),
-            nostr.privateKey(),
+    suspend fun backupVaultKey(vaultKey: Account, identity: NostrKeys): PublishResult =
+        relayGateway.publishAuthenticated(
+            buildBackupEvent(vaultKey, vaultKey, VAULT_KEY_D_TAG, VAULT_KEY_BACKUP_KIND, identity),
+            identity.privateKey,
         )
-    }
 
-    suspend fun backupAssociatedAccount(vaultKey: Account, account: Account): PublishResult {
-        val nostr = vaultKey.nostr
-        return relayGateway.publishAuthenticated(
-            buildBackupEvent(vaultKey, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND),
-            nostr.privateKey(),
+    suspend fun backupAssociatedAccount(vaultKey: Account, account: Account, identity: NostrKeys): PublishResult =
+        relayGateway.publishAuthenticated(
+            buildBackupEvent(vaultKey, account, account.createdAt.toString(), ASSOCIATED_ACCOUNT_BACKUP_KIND, identity),
+            identity.privateKey,
         )
-    }
 
-    /** Builds the signed backup event; the same vault key signs an optional NIP-42 challenge. */
-    fun buildBackupEvent(vaultKey: Account, account: Account, dTag: String, kind: Int): NostrEvent {
-        val nostr = vaultKey.nostr
+    /**
+     * Builds the signed backup event; the same identity signs an optional NIP-42 challenge.
+     *
+     * [identity] is derived by the caller from the Vault Key seed: [NostrKeyDerivation.fromVaultKeyBackupSeed]
+     * for a Vault Key record, [NostrKeyDerivation.fromAccountSeed] for an associated-account record.
+     * It is not stored on [vaultKey], so nothing can drift from the seed that produced it.
+     */
+    fun buildBackupEvent(
+        vaultKey: Account,
+        account: Account,
+        dTag: String,
+        kind: Int,
+        identity: NostrKeys,
+    ): NostrEvent {
         validateContract(account, dTag, kind)
         if (kind == ASSOCIATED_ACCOUNT_BACKUP_KIND) requireEncryptedAssociatedKey(account)
         // The NIP-44 plaintext is exactly the single-line base64 OpenSSH private key.
-        val encrypted = Nip44.encryptSelf(account.zenTenKey, nostr.privateKey(), nostr.publicKey())
+        val encrypted = Nip44.encryptSelf(account.zenTenKey, identity.privateKey, identity.publicKey)
         return NostrEventCodec.sign(
-            privateKey = nostr.privateKey(),
-            publicKey = nostr.publicKey(),
+            privateKey = identity.privateKey,
+            publicKey = identity.publicKey,
             kind = kind,
             // Associated-account events carry the account label as a plain tag. The content is
             // still encrypted, so the label is the only readable field; it is optional because
@@ -91,9 +99,4 @@ class BackupService(
     }
 }
 
-internal fun NostrKeyPair.privateKey(): ByteArray = privkey.hexToBytes()
-internal fun NostrKeyPair.publicKey(): ByteArray = pubkey.hexToBytes()
-internal fun String.hexToBytes(): ByteArray {
-    require(length % 2 == 0 && all { it.digitToIntOrNull(16) != null }) { "Invalid hexadecimal Nostr key" }
-    return ByteArray(length / 2) { index -> substring(index * 2, index * 2 + 2).toInt(16).toByte() }
-}
+

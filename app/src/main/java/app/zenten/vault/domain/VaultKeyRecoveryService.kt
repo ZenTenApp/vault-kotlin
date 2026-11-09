@@ -7,10 +7,8 @@ import app.zenten.vault.crypto.Nip44
 import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.crypto.toPersistedKeyPair
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
-import app.zenten.vault.data.model.NostrKeyPair
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
@@ -49,12 +47,12 @@ class VaultKeyRecoveryService(
     suspend fun recover(indices: List<Int>, passphrase: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val words = mnemonicWords(indices)
-            val vaultKeyBackupNostr = NostrKeyDerivation.derive(words).toPersistedKeyPair()
+            val vaultKeyBackupIdentity = NostrKeyDerivation.derive(words)
             val syncCode = "$words ${braveSync25thWord()}"
 
             // Nostr relays are queried first because a relay record needs only the 24 words,
             // while every Brave lookup also depends on Brave Sync's date-derived 25th word.
-            val lookups = lookupNostrSources(vaultKeyBackupNostr) + lookupBraveSources(syncCode)
+            val lookups = lookupNostrSources(vaultKeyBackupIdentity) + lookupBraveSources(syncCode)
             val candidates = lookups.flatMap { it.candidates }
             if (candidates.isEmpty()) {
                 // A reachable source that simply holds no Vault Key proves absence; only when
@@ -87,15 +85,12 @@ class VaultKeyRecoveryService(
                 throw (lastFailure ?: IllegalArgumentException("No VaultKey backup was found for these Secret Combinations."))
             }
 
-            val (normalized, parsed) = recovered
-            val nostr = NostrKeyDerivation.derive(
-                Bip39Mnemonics.toMnemonics(parsed.seed).joinToString(" "),
-            ).toPersistedKeyPair()
+            // Only the SSH container is stored; every identity derived from it is rebuilt on demand.
+            val normalized = recovered.first
             secureStorage.addVaultKey(
                 Account(
                     createdAt = clock.millis() * 1_000L,
                     zenTenKey = normalized,
-                    nostr = nostr,
                 ),
             )
             // The passphrase was just used to decrypt the recovered key, so record it in the
@@ -116,17 +111,17 @@ class VaultKeyRecoveryService(
     private data class Lookup(val candidates: List<String>, val error: Throwable?)
 
     /** Reads Vault Key records from enabled relays under the 24-word-derived Vault Key backup identity. */
-    private suspend fun lookupNostrSources(vaultKeyBackupNostr: NostrKeyPair): List<Lookup> =
+    private suspend fun lookupNostrSources(vaultKeyBackupIdentity: NostrKeyDerivation.NostrKeys): List<Lookup> =
         enabledSources(BackupSourceType.NOSTR_RELAY).map { source ->
             runCatching {
                 relayGateway.fetchAuthenticatedByRelay(
                     source.endpoint,
-                    vaultKeyBackupNostr.pubkey,
+                    vaultKeyBackupIdentity.pubkey,
                     BackupService.VAULT_KEY_BACKUP_KIND,
-                    vaultKeyBackupNostr.privateKey(),
+                    vaultKeyBackupIdentity.privateKey,
                 ).getOrThrow()
                     .sortedByDescending(NostrEvent::createdAt)
-                    .mapNotNull { decodeVaultKeyEvent(it, vaultKeyBackupNostr) }
+                    .mapNotNull { decodeVaultKeyEvent(it, vaultKeyBackupIdentity) }
             }.fold(
                 onSuccess = { Lookup(it, null) },
                 onFailure = { Lookup(emptyList(), it) },
@@ -140,12 +135,12 @@ class VaultKeyRecoveryService(
      * the single-line encrypted OpenSSH private key. Returns `null` for anything that does not
      * satisfy the Vault Key event contract instead of handing bad material to the parser.
      */
-    private fun decodeVaultKeyEvent(event: NostrEvent, vaultKeyBackupNostr: NostrKeyPair): String? = runCatching {
+    private fun decodeVaultKeyEvent(event: NostrEvent, vaultKeyBackupIdentity: NostrKeyDerivation.NostrKeys): String? = runCatching {
         require(NostrEventCodec.isValid(event))
-        require(event.kind == BackupService.VAULT_KEY_BACKUP_KIND && event.pubkey == vaultKeyBackupNostr.pubkey)
+        require(event.kind == BackupService.VAULT_KEY_BACKUP_KIND && event.pubkey == vaultKeyBackupIdentity.pubkey)
         val dTag = event.tags.singleOrNull { it.firstOrNull() == "d" }?.getOrNull(1)
         require(dTag == BackupService.VAULT_KEY_D_TAG) { "VaultKey event is missing its d tag" }
-        Nip44.decryptSelf(event.content, vaultKeyBackupNostr.privateKey(), vaultKeyBackupNostr.publicKey())
+        Nip44.decryptSelf(event.content, vaultKeyBackupIdentity.privateKey, vaultKeyBackupIdentity.publicKey)
             .takeIf { it.isNotBlank() }
     }.getOrNull()
 
