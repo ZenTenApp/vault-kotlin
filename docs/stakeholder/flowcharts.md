@@ -34,9 +34,9 @@ flowchart TD
     RecoverValid -->|No| RecoverSecrets
     RecoverValid -->|Yes| RecoverPassphrase["Enter VaultKey passphrase"]
     RecoverPassphrase --> RecoverSources["Query enabled Nostr relay and Brave Sync sources for the vaultkey record"]
-    RecoverSources -->|Missing / network / invalid passphrase| RecoverError["Show safe error and allow retry"]
+    RecoverSources -->|"Missing / network / invalid passphrase / out-of-band KDF rounds in every copy"| RecoverError["Show safe error and allow retry"]
     RecoverError --> RecoverPassphrase
-    RecoverSources -->|Recovered and decrypted| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
+    RecoverSources -->|"Recovered, decrypted, and inside the KDF band"| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
     RecoverStore --> RecoverSession["Establish in-memory passphrase session"]
     RecoverSession --> Accounts
     Welcome -->|"Create VaultKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
@@ -112,7 +112,7 @@ After passphrase verification, the dedicated **Creating VaultKey** screen blocks
 flowchart TD
     Start["Select Paste VaultKey"] --> Clipboard{"Clipboard text read and current entry cleared?"}
     Clipboard -->|No| PasteError["Show safe error and remain on paste step"]
-    Clipboard -->|Yes| KeyFormat{"Supported encrypted OpenSSH-v1 Ed25519 container?"}
+    Clipboard -->|Yes| KeyFormat{"Supported encrypted OpenSSH-v1 Ed25519 container with 128-8192 bcrypt rounds?"}
     KeyFormat -->|No| PasteError
     KeyFormat -->|Yes| Passphrase["Keep key off-screen and enter key passphrase"]
     Passphrase --> Validate{"Key and passphrase valid?"}

@@ -54,10 +54,12 @@ class RecoveryService(
         require(!dTag.isNullOrBlank() && dTag.all(Char::isDigit))
         val createdAt = dTag.toLong()
         val sshPrivateKey = Nip44.decryptSelf(event.content, identity.privateKey, identity.publicKey)
-        require(sshPrivateKey.isNotBlank())
-        Account(
+        // Intake is shared with consolidation so both restore paths reject the same records:
+        // this validates the encrypted container (including its bcrypt work factor) and
+        // canonicalizes it, throwing for a record that must not be restored.
+        accountFromSshKey(
             createdAt = createdAt,
-            zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
+            sshPrivateKey = sshPrivateKey,
             // A missing or malformed label is not a reason to discard an otherwise valid key:
             // the account still restores and its card simply shows no name.
             accountName = event.accountLabel(),

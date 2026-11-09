@@ -233,6 +233,8 @@ class BraveBackupSource(
     }
 
     override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
+        // `decodeAssociatedAccount` returns null for a record that fails intake, which also covers
+        // a key whose declared work factor is outside the accepted band.
         requireNotNull(service.decodeAssociatedAccount(secrets.vaultKey, (candidate as BraveCandidate).entry, secrets.passphrase)) {
             "Invalid Brave Sync backup record"
         }
@@ -270,8 +272,13 @@ private class SourceIndexBuilder(private var invalidRecordCount: Int = 0) {
 /**
  * Rebuilds an [Account] from a restored OpenSSH private key.
  *
- * The key is normalized to the canonical single-line Base64 form that every source stores. Nothing
- * derived from it is persisted: every consumer re-derives what it needs from this container.
+ * The key is normalized to the canonical single-line Base64 form that every source stores. Intake
+ * is deliberately routed through [SshKeyCodec.validateAndNormalizeEncryptedPrivateKey] rather than
+ * the plain normalizer: that reader enforces the supported structure and the accepted
+ * `bcrypt_pbkdf` work-factor band without needing the passphrase. A record outside the band is
+ * therefore rejected here, before it can be stored, instead of becoming an account the app would
+ * later refuse to unlock or export. Nothing derived from the key is persisted: every consumer
+ * re-derives what it needs from this container.
  *
  * @param sshPrivateKey the passphrase-encrypted OpenSSH key read from the backup record.
  * @param accountName the label carried by the record, or `null` when it carried none.
@@ -279,6 +286,6 @@ private class SourceIndexBuilder(private var invalidRecordCount: Int = 0) {
 internal fun accountFromSshKey(createdAt: Long, sshPrivateKey: String, accountName: String? = null): Account =
     Account(
         createdAt = createdAt,
-        zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(sshPrivateKey),
+        zenTenKey = SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(sshPrivateKey),
         accountName = accountName,
     )

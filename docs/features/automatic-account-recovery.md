@@ -32,9 +32,11 @@ A Nostr candidate is eligible only when:
 - author matches the Vault Key-derived Nostr public key;
 - the single `d` tag is a decimal associated-account ID;
 - NIP-44 self-decryption succeeds; and
-- the decrypted value normalizes and parses as an Ed25519 OpenSSH private key with the retained Vault Key passphrase.
+- the decrypted value normalizes and parses as an Ed25519 OpenSSH private key, including a `bcrypt_pbkdf` work factor between 128 and 8192 rounds, with the retained Vault Key passphrase.
 
 The account name is not part of eligibility. When the event carries a `label` tag its trimmed first value becomes the restored account's name; a missing or blank label is accepted and the account restores without a name.
+
+A record outside the work-factor band is rejected at intake, before it is stored, by the same container reader the rest of the app uses. It is skipped like any other invalid record, so a poisoned or legacy copy cannot occupy the local slot for an account ID and then fail to unlock.
 
 Source reads use NIP-42 authentication on the same connection when a relay challenges the client.
 
@@ -45,7 +47,7 @@ A Brave candidate is eligible only when:
 - username is a decimal account ID;
 - URL is exactly `https://<accountId>.zenten/`;
 - the record has at most one note; and
-- password normalizes and parses as an Ed25519 OpenSSH private key with the retained Vault Key passphrase.
+- password normalizes and parses as an Ed25519 OpenSSH private key, with a `bcrypt_pbkdf` work factor between 128 and 8192 rounds, using the retained Vault Key passphrase.
 
 The single note, when present and nonblank, supplies the restored account's name after its `label: ` prefix is removed; a record with no note restores without a name.
 

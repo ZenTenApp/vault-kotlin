@@ -50,16 +50,18 @@ AAAEAHa+hzPanJO/Ef7G03pLLub2KNYh+szqeY/1e7ADjdy8lBKiSzOJLCh5/M3g7uPNG/
 q8mnI5b0KcZeCRSNVqMcAAAAAAECAwQF
 -----END OPENSSH PRIVATE KEY-----`;
 
-// Encrypted with aes256-ctr + bcrypt; passphrase is unknown here so it is only
-// used to prove "wrong/missing passphrase throws". The Kotlin suite generates
-// its own encrypted keys with a known passphrase + 1-round KDF for decrypt.
+// Encrypted with aes256-ctr + bcrypt at 128 KDF rounds, the floor SshKeyCodec accepts. It is the
+// same Ed25519 material as the unencrypted fixture, re-encrypted with `ssh-keygen -p -a 128` under
+// the test-only passphrase `phase1-test-passphrase`, so the Kotlin suite can decrypt it and check
+// the parsed seed against the vector. Keep this constant identical to the checked-in
+// `keys.encryptedEd25519Pem`, or regenerating this fixture will break that test.
 const ENCRYPTED_ED25519 = `-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABBmspXicJ
-4jGegEfhH7XJL4AAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIEB88EAE2ZbegKkK
-QHkWryJW725cojU6GJ8rAMjx7lKQAAAAoMr2Uq9ybH6oQGlZiiiUd0xDrPjTRtoxkTUVTC
-GYlCzWodcB0N8w+AzvHpYhjRridHK+QwJoaooJXNYcNF+amSoJm8BoPPnqPF1f5GBF/cc3
-IUQzBJEmktr0aTXUMVXKJffCejcHUpDR4QVfaSU3Sczuj3cv/iG+TWzjnw4ouOTdIWr/f8
-ttX/inpncyZFV0Ddvm/IvIdd+ldRkskiV51Ko=
+b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABBxUYTAqm
+qSbCjVOnig7yf6AAAAgAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIMlBKiSzOJLCh5/M
+3g7uPNG/q8mnI5b0KcZeCRSNVqMcAAAAkDL/BerzYkhNS2wat06Ofv7/sAy85QetRGvRdI
+IvJvtBldNWUieyIb9nlx4lnD5byQsznF0OfHsERVdqO1TzEhMtpImICbjtqoRREr/1Saoh
+xI4s757doE2fLFLWsklZ1SMFDP9wubjzSt6gdsCTcRBRn/brzFBl3nIiNk0gQR0YLL6v+4
+SqPF2eK3pnFaiA3w==
 -----END OPENSSH PRIVATE KEY-----`;
 
 function sshString(buf) {

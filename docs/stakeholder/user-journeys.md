@@ -37,7 +37,7 @@ flowchart LR
 
 **Success:** The vault is ready for use, and any valid discovered associated accounts are added to **Accounts**.
 
-**Important failure behavior:** An invalid key or wrong passphrase is explained without displaying the supplied secret. If the required initial backup cannot be confirmed, setup remains incomplete and the user can retry rather than being told the vault is ready. This applies to both the imported-key path and the in-app generation wizard, which keeps the user on its final verification screen until a retry reaches quorum.
+**Important failure behavior:** An invalid key or wrong passphrase is explained without displaying the supplied secret. A key whose declared bcrypt work factor is outside 128–8192 rounds is refused as unsupported at the paste step, before any passphrase is asked for. If the required initial backup cannot be confirmed, setup remains incomplete and the user can retry rather than being told the vault is ready. This applies to both the imported-key path and the in-app generation wizard, which keeps the user on its final verification screen until a retry reaches quorum.
 
 ## 2. Create an associated account
 
