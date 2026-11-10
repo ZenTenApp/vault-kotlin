@@ -49,7 +49,7 @@ A Brave candidate is eligible only when:
 - the record has at most one note; and
 - password normalizes and parses as an Ed25519 OpenSSH private key, with a `bcrypt_pbkdf` work factor between 128 and 8192 rounds, using the retained Vault Key passphrase.
 
-The single note, when present and nonblank, supplies the restored account's name after its `label: ` prefix is removed; a record with no note restores without a name.
+The single note, when present and nonblank, supplies the restored account's name: the note is `label:<account name>`, with no space after the colon, and the name may itself contain spaces. Readers strip the `label:` prefix and use the remainder as written. A note that omits the prefix or carries extra surrounding whitespace restores no name, and a record with no note restores without a name.
 
 Each Brave-compatible server is queried independently with the Vault Key-derived sync code.
 

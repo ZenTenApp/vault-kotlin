@@ -234,8 +234,9 @@ class BraveBackupSource(
 
     override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
         // `decodeAssociatedAccount` returns null for a record that fails intake, which also covers
-        // a key whose declared work factor is outside the accepted band.
-        requireNotNull(service.decodeAssociatedAccount(secrets.vaultKey, (candidate as BraveCandidate).entry, secrets.passphrase)) {
+        // a key whose declared work factor is outside the accepted band and a record whose key
+        // does not open with the session passphrase.
+        requireNotNull(service.decodeAssociatedAccount((candidate as BraveCandidate).entry, secrets.passphrase)) {
             "Invalid Brave Sync backup record"
         }
     }
