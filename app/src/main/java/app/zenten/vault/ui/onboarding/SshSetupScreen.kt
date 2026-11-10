@@ -36,6 +36,7 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.ui.VaultDestinations
+import app.zenten.vault.ui.components.PasteError
 import app.zenten.vault.ui.components.VaultScreenScaffold
 
 /**
@@ -52,9 +53,10 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
     var keyInput by remember { mutableStateOf("") }
     var passphrase by remember { mutableStateOf("") }
     var step by remember { mutableStateOf(SetupStep.PRIVATE_KEY) }
-    // A string resource id, not text: the paste handler below is not a composable and
-    // cannot call stringResource, so the error is resolved where it is rendered.
-    var clipboardError by remember { mutableStateOf<Int?>(null) }
+    // A string resource id (plus an optional format argument), not text: the paste handler below
+    // is not a composable and cannot call stringResource, so the error is resolved where it is
+    // rendered. The bcrypt round count is public container metadata, never key material.
+    var clipboardError by remember { mutableStateOf<PasteError?>(null) }
     val state by viewModel.state.collectAsState()
     val passphraseFeedback by viewModel.passphraseFeedback.collectAsState()
     // Once the key is committed only the backup is missing, so the two paste/derive steps are
@@ -187,7 +189,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
             when (step) {
                 SetupStep.PRIVATE_KEY -> {
                     clipboardError?.let {
-                        Text(stringResource(it), color = MaterialTheme.colorScheme.error)
+                        Text(it.render(), color = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.height(8.dp))
                     }
                     Button(
@@ -201,7 +203,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                                     ?.toString()
                                     .orEmpty()
                             }.getOrElse {
-                                clipboardError = R.string.ssh_setup_clipboard_read_error
+                                clipboardError = PasteError(R.string.ssh_setup_clipboard_read_error)
                                 return@Button
                             }
 
@@ -213,17 +215,25 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                                 }
                             }.isSuccess
                             if (!clipboardCleared) {
-                                clipboardError = R.string.ssh_setup_clipboard_clear_error
+                                clipboardError = PasteError(R.string.ssh_setup_clipboard_clear_error)
                                 return@Button
                             }
                             if (pastedKey.isBlank()) {
-                                clipboardError = R.string.ssh_setup_clipboard_empty_error
+                                clipboardError = PasteError(R.string.ssh_setup_clipboard_empty_error)
                                 return@Button
                             }
                             val validatedKey = runCatching {
                                 SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pastedKey)
-                            }.getOrElse {
-                                clipboardError = R.string.ssh_setup_clipboard_invalid_error
+                            }.getOrElse { error ->
+                                // A well-formed key with an out-of-band work factor is explained
+                                // on its own terms: the generic "unsupported key" wording would
+                                // suggest the paste was malformed, when the real problem is the
+                                // key's declared KDF cost.
+                                clipboardError = when (error) {
+                                    is SshKeyCodec.UnsupportedKdfRoundsException ->
+                                        PasteError(R.string.ssh_setup_clipboard_kdf_rounds_error, error.declaredRounds)
+                                    else -> PasteError(R.string.ssh_setup_clipboard_invalid_error)
+                                }
                                 return@Button
                             }
 

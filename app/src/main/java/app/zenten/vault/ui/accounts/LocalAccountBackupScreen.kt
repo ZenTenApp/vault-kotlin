@@ -42,6 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
+import app.zenten.vault.ui.components.PasteError
 import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.components.VaultScreenScaffold
 
@@ -148,7 +149,7 @@ fun LocalAccountBackupConfirmScreen(
     LaunchedEffect(accountId) { viewModel.load(accountId) }
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    var confirmError by remember { mutableStateOf<String?>(null) }
+    var confirmError by remember { mutableStateOf<PasteError?>(null) }
     val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
 
     VaultScreenScaffold(
@@ -165,7 +166,7 @@ fun LocalAccountBackupConfirmScreen(
             ExportDescription("Copy the saved key back from the app you sent it to, then paste it below so Vault can confirm you kept it.")
             confirmError?.let {
                 Spacer(Modifier.height(12.dp))
-                Text(it, color = MaterialTheme.colorScheme.error)
+                Text(it.render(), color = MaterialTheme.colorScheme.error)
             }
         },
         actions = {
@@ -182,7 +183,7 @@ fun LocalAccountBackupConfirmScreen(
                             ?.toString()
                             .orEmpty()
                     }.getOrElse {
-                        confirmError = "Vault could not read the clipboard. Copy the saved key and try again."
+                        confirmError = PasteError(R.string.local_account_confirm_backup_read_error)
                         return@VaultPillButton
                     }
                     // Clear the clipboard immediately so the sensitive export is not left behind.
@@ -194,21 +195,28 @@ fun LocalAccountBackupConfirmScreen(
                         }
                     }.isSuccess
                     if (!clipboardCleared) {
-                        confirmError = "Vault could not clear the clipboard. Clear it manually, then try again."
+                        confirmError = PasteError(R.string.local_account_confirm_backup_clear_error)
                         return@VaultPillButton
                     }
                     if (pastedKey.isBlank()) {
-                        confirmError = "The clipboard does not contain the saved account key. Copy it and try again."
+                        confirmError = PasteError(R.string.local_account_confirm_backup_empty_error)
                         return@VaultPillButton
                     }
-                    when (viewModel.confirmPastedAccountKey(pastedKey)) {
+                    when (val result = viewModel.confirmPastedAccountKey(pastedKey)) {
                         AccountBackupConfirmationResult.MATCHED -> viewModel.complete()
                         AccountBackupConfirmationResult.INVALID ->
-                            confirmError = "The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key."
+                            confirmError = PasteError(R.string.local_account_confirm_backup_invalid_error)
+                        is AccountBackupConfirmationResult.UnsupportedKdfRounds ->
+                            // A structurally valid key whose declared KDF cost is out of band: the
+                            // generic "unsupported key" wording would misdescribe it.
+                            confirmError = PasteError(
+                                R.string.local_account_confirm_backup_kdf_rounds_error,
+                                result.declaredRounds,
+                            )
                         AccountBackupConfirmationResult.MISMATCHED ->
-                            confirmError = "That key does not match this account. Paste the key you saved during this step."
+                            confirmError = PasteError(R.string.local_account_confirm_backup_mismatch_error)
                         AccountBackupConfirmationResult.UNAVAILABLE ->
-                            confirmError = "Vault cannot verify the saved key right now. Try again."
+                            confirmError = PasteError(R.string.local_account_confirm_backup_unavailable_error)
                     }
                 },
             )

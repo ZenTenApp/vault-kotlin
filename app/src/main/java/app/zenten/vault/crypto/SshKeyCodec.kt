@@ -68,6 +68,18 @@ object SshKeyCodec {
      */
     const val MAX_SERIALIZED_KEY_CHARS = 16 * 1024
 
+    /**
+     * Signals a container whose declared bcrypt work factor is outside the accepted band.
+     *
+     * Kept as its own [IllegalArgumentException] so screens can explain the actual problem
+     * instead of falling back to "not a supported key", which reads as a malformed paste. The
+     * declared count is non-secret header metadata and is safe to show.
+     */
+    class UnsupportedKdfRoundsException(val declaredRounds: Long) : IllegalArgumentException(
+        "OpenSSH key uses $declaredRounds bcrypt KDF rounds; Vault accepts keys with " +
+            "$MIN_BCRYPT_PBKDF_ROUNDS to $MAX_BCRYPT_PBKDF_ROUNDS rounds",
+    )
+
     data class ParsedKey(
         val seed: ByteArray,
         val publicKey: ByteArray,
@@ -260,9 +272,10 @@ object SshKeyCodec {
         // ever being stored or used. The lower bound is a strength policy: below it a container is
         // cheap to attack offline. The upper bound is both a policy ceiling and a denial-of-service
         // control, since the declared value is trusted before any passphrase is checked.
-        require(declaredRounds in MIN_BCRYPT_PBKDF_ROUNDS.toLong()..MAX_BCRYPT_PBKDF_ROUNDS.toLong()) {
-            "OpenSSH key uses $declaredRounds bcrypt KDF rounds; Vault accepts keys with " +
-                "$MIN_BCRYPT_PBKDF_ROUNDS to $MAX_BCRYPT_PBKDF_ROUNDS rounds"
+        // Thrown rather than returned as a plain message because the paste screens distinguish
+        // "weak or excessive work factor" from "not a supported key" when explaining the refusal.
+        if (declaredRounds !in MIN_BCRYPT_PBKDF_ROUNDS.toLong()..MAX_BCRYPT_PBKDF_ROUNDS.toLong()) {
+            throw UnsupportedKdfRoundsException(declaredRounds)
         }
         return EncryptedContainer(bytes, publicKey, encryptedPrivate, salt, declaredRounds.toInt())
     }

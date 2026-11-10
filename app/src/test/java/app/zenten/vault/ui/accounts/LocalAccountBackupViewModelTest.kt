@@ -9,6 +9,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.nio.ByteBuffer
+import java.util.Base64
 
 class LocalAccountBackupViewModelTest {
     @Test
@@ -55,6 +57,28 @@ class LocalAccountBackupViewModelTest {
         assertEquals(AccountBackupConfirmationResult.INVALID, result)
     }
 
+    @Test
+    fun reports_the_declared_rounds_for_a_valid_key_outside_the_accepted_band() = runTest {
+        val viewModel = viewModelFor(accountWith("pass"))
+        // A real container re-labelled with an out-of-band work factor: structurally valid, so
+        // the generic "unsupported key" message would misdescribe it.
+        val outOfBand = Base64.getEncoder().encodeToString(
+            Base64.getDecoder().decode(
+                SshKeyCodec.normalizeToSingleLineBase64(
+                    SshKeyCodec.generateEncrypted(
+                        1_700_000_000_000_000L,
+                        "pass".toCharArray(),
+                        rounds = SshKeyCodec.MIN_BCRYPT_PBKDF_ROUNDS,
+                    ).privateKeyPem,
+                ),
+            ).withRounds(16),
+        )
+
+        val result = viewModel.confirmPastedAccountKey(outOfBand)
+
+        assertEquals(AccountBackupConfirmationResult.UnsupportedKdfRounds(16), result)
+    }
+
     private fun accountWith(passphrase: String): Account {
         // Generated at the floor rather than a fast test-only value: generation now refuses
         // anything below MIN_BCRYPT_PBKDF_ROUNDS, so a weaker fixture cannot be built at all.
@@ -79,5 +103,15 @@ class LocalAccountBackupViewModelTest {
         )
         viewModel.load(account.createdAt)
         return viewModel
+    }
+
+    /** Rewrites only the plaintext four-byte bcrypt work factor inside an OpenSSH-v1 container. */
+    private fun ByteArray.withRounds(rounds: Int): ByteArray {
+        val magicSize = "openssh-key-v1\u0000".toByteArray(Charsets.US_ASCII).size
+        var offset = magicSize
+        repeat(2) { offset += 4 + ByteBuffer.wrap(this, offset, 4).int } // cipher name, KDF name
+        val optionsStart = offset + 4
+        val roundsOffset = optionsStart + 4 + ByteBuffer.wrap(this, optionsStart, 4).int // skip the salt
+        return copyOf().also { ByteBuffer.wrap(it).putInt(roundsOffset, rounds) }
     }
 }

@@ -51,7 +51,11 @@ class LocalAccountBackupViewModel @Inject constructor(
         val account = _state.value.account ?: return AccountBackupConfirmationResult.UNAVAILABLE
         val normalized = runCatching {
             SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pastedKey)
-        }.getOrElse { return AccountBackupConfirmationResult.INVALID }
+        }.getOrElse { error ->
+            return (error as? SshKeyCodec.UnsupportedKdfRoundsException)
+                ?.let { AccountBackupConfirmationResult.UnsupportedKdfRounds(it.declaredRounds) }
+                ?: AccountBackupConfirmationResult.INVALID
+        }
         val stored = runCatching {
             SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey)
         }.getOrNull() ?: return AccountBackupConfirmationResult.UNAVAILABLE
@@ -65,12 +69,20 @@ class LocalAccountBackupViewModel @Inject constructor(
     }
 }
 
-/** Outcome of comparing a pasted account export against the stored encrypted key. */
-enum class AccountBackupConfirmationResult {
-    MATCHED,
-    INVALID,
-    MISMATCHED,
-    UNAVAILABLE,
+/**
+ * Outcome of comparing a pasted account export against the stored encrypted key.
+ *
+ * Sealed rather than an enum so an out-of-band work factor can carry its declared round count,
+ * which is public container metadata, to the screen that explains the refusal.
+ */
+sealed interface AccountBackupConfirmationResult {
+    data object MATCHED : AccountBackupConfirmationResult
+    data object INVALID : AccountBackupConfirmationResult
+    data object MISMATCHED : AccountBackupConfirmationResult
+    data object UNAVAILABLE : AccountBackupConfirmationResult
+
+    /** A valid container whose declared bcrypt work factor is outside the accepted band. */
+    data class UnsupportedKdfRounds(val declaredRounds: Long) : AccountBackupConfirmationResult
 }
 
 data class LocalAccountBackupState(

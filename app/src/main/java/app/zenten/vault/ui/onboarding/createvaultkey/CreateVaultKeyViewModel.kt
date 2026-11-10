@@ -415,7 +415,12 @@ class CreateVaultKeyViewModel @Inject constructor(
     fun confirmPastedVaultKey(pastedKey: String): BackupConfirmationResult {
         val normalized = runCatching {
             SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pastedKey)
-        }.getOrElse { return BackupConfirmationResult.INVALID }
+        }.getOrElse { error ->
+            // An out-of-band work factor keeps its own outcome so the screen can explain it.
+            return (error as? SshKeyCodec.UnsupportedKdfRoundsException)
+                ?.let { BackupConfirmationResult.UnsupportedKdfRounds(it.declaredRounds) }
+                ?: BackupConfirmationResult.INVALID
+        }
         val stored = secureStorage.getVaultKey()?.zenTenKey
             ?.let { runCatching { SshKeyCodec.normalizeToSingleLineBase64(it) }.getOrNull() }
             ?: return BackupConfirmationResult.UNAVAILABLE
@@ -544,9 +549,23 @@ enum class VaultKeyCreationStage {
     COMPLETE,
 }
 
-enum class BackupConfirmationResult {
-    MATCHED,
-    INVALID,
-    MISMATCHED,
-    UNAVAILABLE,
+/**
+ * Outcome of comparing the pasted export against the stored VaultKey.
+ *
+ * A sealed type rather than an enum because an out-of-band work factor must carry its declared
+ * round count to the screen; the count is public container metadata, never key material.
+ */
+sealed interface BackupConfirmationResult {
+    data object MATCHED : BackupConfirmationResult
+    data object INVALID : BackupConfirmationResult
+    data object MISMATCHED : BackupConfirmationResult
+    data object UNAVAILABLE : BackupConfirmationResult
+
+    /**
+     * A well-formed container whose declared bcrypt work factor is outside the accepted band.
+     *
+     * Reported separately from [INVALID] so the screen names the real problem instead of calling
+     * a valid key "unsupported". It is still a failed paste and feeds the lockout.
+     */
+    data class UnsupportedKdfRounds(val declaredRounds: Long) : BackupConfirmationResult
 }

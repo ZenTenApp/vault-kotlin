@@ -234,6 +234,20 @@ class SshKeyCodecTest {
     }
 
     @Test
+    fun reports_the_declared_work_factor_when_a_container_is_out_of_band() {
+        val container = Base64.getEncoder().encodeToString(goldenContainer().withRounds(16))
+
+        // Paste screens distinguish this from a malformed key, so the exception must be typed and
+        // carry the declared count; the count is public header metadata.
+        val error = assertThrows(SshKeyCodec.UnsupportedKdfRoundsException::class.java) {
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(container)
+        }
+
+        assertEquals(16L, error.declaredRounds)
+        assertTrue(error.message!!.contains("16"))
+    }
+
+    @Test
     fun rejects_a_container_declaring_a_work_factor_outside_the_accepted_band() {
         val bytes = goldenContainer()
 
