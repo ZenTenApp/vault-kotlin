@@ -9,7 +9,7 @@ import app.zenten.vault.bravesync.transport.BraveSyncTransport
 
 /** App-facing, password-only Brave Sync API. Instances retain keys only in memory. */
 class BravePasswordService(
-    private val transport: BraveSyncTransport = BraveSyncTransport(),
+    private val transport: BraveSyncTransport,
     private val cacheSession: Boolean = false,
 ) {
 

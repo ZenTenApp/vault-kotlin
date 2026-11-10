@@ -77,18 +77,6 @@ object DefaultBackupSources {
             trustedForRestore = true,
             authentication = SourceAuthentication.BRAVE_SYNC_TOKEN,
         ),
-        BackupSourceConfig(
-            id = "default-brave-official",
-            label = "brave sync",
-            type = BackupSourceType.BRAVE_SYNC,
-            endpoint = "https://sync-v2.brave.com/v2",
-            order = 5,
-            isDefault = true,
-            removable = false,
-            countsTowardQuorum = true,
-            trustedForRestore = true,
-            authentication = SourceAuthentication.BRAVE_SYNC_TOKEN,
-        ),
     )
 }
 

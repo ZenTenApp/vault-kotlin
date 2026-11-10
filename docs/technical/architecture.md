@@ -45,7 +45,7 @@ flowchart TD
 
 ## Source-oriented model
 
-`BackupSourceConfig` represents one independently checked and written endpoint. Five fixed defaults (two Nostr relays and three Brave Sync servers) are merged with persisted custom sources in stable order. The default entries are immutable in repository operations. Each source declares type, endpoint, ordering, enabled/restore/trust/quorum policy, and authentication mode.
+`BackupSourceConfig` represents one independently checked and written endpoint. Four fixed defaults (two Nostr relays and two litesync Brave Sync servers) are merged with persisted custom sources in stable order. The default entries are immutable in repository operations. Each source declares type, endpoint, ordering, enabled/restore/trust/quorum policy, and authentication mode.
 
 `DefaultBackupSourceFactory` constructs one `AccountBackupSource` adapter per configuration. Nostr adapters address exactly one relay through `NostrRelayGateway`; Brave adapters construct `BraveSyncTransport` with exactly one configured server URL. Existing Nostr event and Brave password-record formats are preserved.
 
