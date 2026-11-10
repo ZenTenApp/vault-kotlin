@@ -51,7 +51,7 @@ flowchart TD
     Valid -->|No| Invalid["Counted as invalid; never treated as a backup"]
     Valid -->|Yes| Candidates["Group into RemoteAccountCandidate by BackupAccountId"]
     Candidates --> Absent{"Record absent in this cycle's index?"}
-    Absent -->|No| Identical{"Existing record has the identical canonical key?"}
+    Absent -->|No| Identical{"Existing record has the same canonical key and decoded label?"}
     Identical -->|Yes| Success["Idempotent success"]
     Identical -->|No| Conflict["Fail the source; never overwrite"]
     Absent -->|Yes| Canon["canonicalKey: normalize to single-line Base64 and validate the Ed25519 OpenSSH key"]
@@ -77,18 +77,18 @@ Backups are stored as **password records**, the same entity type Brave's passwor
 | Backup | URL | Username | Password field | Notes |
 | --- | --- | --- | --- | --- |
 | Vault Key | `https://vaultkey.zenten/` | `vaultkey` | Canonical single-line Base64 OpenSSH private key | Never any note |
-| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | Canonical single-line Base64 encrypted OpenSSH private key | Optional single `label: <account name>` note; absent when the account has no name |
+| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | Canonical single-line Base64 encrypted OpenSSH private key | Optional single `label:<account name>` note; absent when the account has no name |
 
 The password field holds the SSH key text, not JSON or an app-specific blob. The key remains passphrase-protected: the account passphrase is **never** uploaded. The Vault Key's own passphrase is also never stored remotely, which is why the Vault Key only re-enters the app through onboarding.
 
-The note is the only place an associated account's name survives a device change, and it is not encrypted: anyone who can list that account's records can read it. A missing or blank note leaves the restored account's name empty; the UI does not substitute the shortened `npub`. The remote copy is never rewritten just to add or change a name, because presence is decided by URL and username alone.
+The note is the only place an associated account's name survives a device change, and it is not encrypted: anyone who can list that account's records can read it. The note is exactly `label:<account name>`, with no space after the colon. The name itself may contain spaces, because labels are multi-word; only whitespace immediately after the colon (and around the whole value) is not part of the format. Readers accept only that form: the prefix is stripped and the remainder is used as-is (it is written already trimmed), and a note without the prefix or with surrounding whitespace is not a Vault label and restores no name. No legacy spelling is supported because the format has never shipped. A missing or blank note leaves the restored account's name empty; the UI does not substitute the shortened `npub`. The remote copy is never rewritten just to add or change a name, because presence is decided by URL and username alone.
 
 A record is recognized by URL **and** username matching its canonical backup ID (`vaultkey` or a decimal `createdAt`). The Vault Key record additionally requires an empty notes list; an associated-account record accepts zero or one note, which keeps the name out of record identity.
 
 Two encryption/validation layers must be distinguished:
 
 - **Outer layer — always done during indexing.** `PasswordReader.read` decrypts the Nigori payload of every non-deleted entity (`IV || AES-CBC ciphertext || HMAC-SHA256`), verifies the MAC, and parses URL/username/notes for each record. This is how presence is established, so a chain's record payloads are decrypted on every index pass; presence is not determined from ciphertext alone.
-- **Inner layer — deferred to restoration.** Parsing the SSH private key, checking that it decrypts with the account passphrase, and comparing it to the local key happen only when a candidate is restored (`accountFromSshKey`), or for the Vault Key in the narrower `hasVaultKeyBackup` check. A record whose outer payload decrypts and whose URL/username match the backup contract still counts as present even if its SSH key later fails to restore.
+- **Inner layer — done during restoration.** When a candidate is restored, its key is parsed with the session passphrase (`SshKeyCodec.parse` via `canonicalKey`) before anything is stored, so a record that does not decrypt with that passphrase is skipped as invalid rather than saved as an account that can never be unlocked or exported. The Vault Key's own inner check happens in the narrower `hasVaultKeyBackup` path. Because the index proves presence from IDs and the outer payload alone, a record whose outer payload decrypts and whose URL/username match the backup contract still counts as present even though restoration later rejects its key.
 
 Before any write, `canonicalKey` normalizes the value to the single-line Base64 form and parses it as an Ed25519 OpenSSH key. Malformed keys never reach the server.
 
@@ -186,7 +186,7 @@ A write happens only when the same operation's successful index proved the recor
 3. Send `COMMIT` with a random commit ID.
 4. Require `response_type == 1` for the entry result; anything else fails the source.
 
-Engine-driven writes use `createKnownMissing`, avoiding a second `GET_UPDATES` because the current cycle already listed the source. Standalone callers keep an idempotency list-and-compare step: an existing identical record is success, and an existing record with a different key is a failure that is never overwritten.
+Engine-driven writes use `createKnownMissing`, avoiding a second `GET_UPDATES` because the current cycle already listed the source. Standalone callers keep an idempotency list-and-compare step: an existing record with the same key and the same decoded account label is success, and an existing record with a different key or a different label is a failure that is never overwritten. The comparison is against the decoded label, not the raw note text, so a matching record is recognized as unchanged; a differing label is treated exactly like a differing key.
 
 The service also exposes `update` and `delete`, but the backup flow only ever creates records.
 
@@ -219,10 +219,10 @@ Both workers require a connected network and refuse to produce timestamped token
 | Source index fails | Mark the source `UNKNOWN`; never infer absence and never write that source in the cycle |
 | Commit rejected / entry result not success | Source write fails and is queued for retry |
 | Write acknowledged but not visible on read-back | Treated as failure and queued for retry (both Vault Key and associated-account writes) |
-| Existing record with a different payload | Fail the source; never overwrite |
+| Existing record with a different key or decoded label | Fail the source; never overwrite |
 | Record fails outer decryption or URL/username contract | Counted as invalid and skipped |
 | Record uses a key name this implementation does not hold | Its outer decryption fails, so it is counted as invalid and skipped |
-| Record decrypts but its SSH key fails inner validation | Still counted as present by the index; invalid only at restoration |
+| Record decrypts but its SSH key does not open with the session passphrase | Still counted as present by the index, because presence is ID-only; skipped as invalid at restoration instead of being stored |
 | Device clock known incorrect | Worker retries without touching remote state |
 | Sync code cannot be derived | Operation fails before any network call |
 

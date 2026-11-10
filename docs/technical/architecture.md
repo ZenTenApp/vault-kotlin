@@ -81,7 +81,7 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 - Pending-write retry is unique work.
 - Immediate consolidation is unique work after setup.
 - Consolidation has no periodic schedule. Because the VaultKey passphrase is never persisted, two independent one-time jobs (Vault Key and associated accounts) are enqueued after each successful passphrase unlock, and user actions enqueue targeted work. Both carry a connected-network constraint and take the passphrase from the in-memory `VaultKeySession`; they fail closed when it is locked and are never given the passphrase through WorkManager input.
-- No profile publication work exists. The account label travels with the account's backup record instead: the `label` tag on its kind `37802` relay event and the `label: <name>` note on its Brave Sync record, exactly as documented in [Encrypted backup](../features/encrypted-backup.md). No kind `0` profile or kind `10050` DM relay list is published, and no relay profile read path remains.
+- No profile publication work exists. The account label travels with the account's backup record instead: the `label` tag on its kind `37802` relay event and the `label:<name>` note on its Brave Sync record, exactly as documented in [Encrypted backup](../features/encrypted-backup.md). No kind `0` profile or kind `10050` DM relay list is published, and no relay profile read path remains.
 - `VaultApplication` supplies WorkManager's Hilt worker factory through `Configuration.Provider`; the manifest removes the default WorkManager startup initializer to avoid initializing it without that configuration.
 - A persisted checkpoint describes interrupted progress; operations are idempotent by canonical account ID.
 

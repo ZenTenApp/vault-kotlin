@@ -71,9 +71,9 @@ The sync code is derived from the parsed Vault Key seed by `Seedify.toBraveSyncC
 | Backup | URL | Username | Password | Note |
 | --- | --- | --- | --- | --- |
 | Vault Key | `https://vaultkey.zenten/` | `vaultkey` | normalized Vault Key private key | none |
-| Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key | `label: <account name>`, when the account has a name |
+| Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key | `label:<account name>`, when the account has a name |
 
-The Vault Key record must keep an empty note; the associated-account note is the mirror of the Nostr `label` tag and is how a restored account keeps its name. Writing an associated account with no name (or a blank one) stores no note, and a record with more than one note is not treated as a Vault backup. Before writing, the service parses the key as Ed25519 OpenSSH. An identical matching record is success; a conflicting matching record fails and is not overwritten.
+The Vault Key record must keep an empty note; the associated-account note is the mirror of the Nostr `label` tag and is how a restored account keeps its name. The note is `label:<account name>` with no space directly after the colon, though the account name itself may contain spaces. Writing an associated account with no name (or a blank one) stores no note, and a record with more than one note is not treated as a Vault backup. Before writing, the service parses the key as Ed25519 OpenSSH. An existing record with the same key and the same decoded account label is success; one that differs in either is a conflict that fails and is not overwritten.
 
 For the protocol-level walkthrough (Nigori encryption, credential derivation, transport, and session lifecycle), see [Brave Sync and litesync backup protocol](../technical/brave-sync-backup-protocol.md).
 
@@ -98,7 +98,7 @@ Errors, logs, analytics, WorkManager input, and UI status must follow the same r
 | NIP-42 authentication fails | Report authentication failure; fail that relay and do not count it toward quorum. |
 | Relay connection, timeout, or event rejection | Report the corresponding network, timeout, or remote-rejection category rather than authentication failure. |
 | Relay reports the exact event ID already exists | Treat the retry as an idempotently confirmed write. |
-| Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local accounts. A key whose declared `bcrypt_pbkdf` work factor falls outside 128–8192 rounds is invalid for this purpose. |
+| Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local accounts. A key that does not open with the session passphrase is invalid, as is one whose declared `bcrypt_pbkdf` work factor falls outside 128–8192 rounds. |
 
 ## Key locations
 
