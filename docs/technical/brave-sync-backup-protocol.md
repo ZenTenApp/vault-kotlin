@@ -132,7 +132,6 @@ Default Brave Sync sources from `domain/BackupSources.kt`:
 | --- | --- | --- |
 | `litesync1` | `https://litesync1.zentext.me/litesync` | Yes |
 | `litesync2` | `https://litesync2.nostr.box/litesync` | Yes |
-| `brave sync` | `https://sync-v2.brave.com/v2` | Yes |
 
 Each source is an independent chain with its own transport, in-memory session, Nigori settings, and operation. `BravePasswordService` caches a session per endpoint for the duration of a run (`cacheSession = true`), so authentication and KDF work are not repeated per record within that endpoint.
 

@@ -12,7 +12,6 @@ The replacement will use a **source-oriented architecture**. Each endpoint is an
 | 2 | `default-nostr-appdata2` | appdata2 | Nostr | `wss://appdata2.nostr.box` |
 | 3 | `default-brave-zenten` | zenten sync | Brave Sync | `https://litesync1.zentext.me/litesync` |
 | 4 | `default-brave-nostr-box` | nostr.box sync | Brave Sync | `https://litesync2.nostr.box/litesync` |
-| 5 | `default-brave-official` | brave sync | Brave Sync | `https://sync-v2.brave.com/v2` |
 
 These sources will be fixed, enabled, non-removable, processed in stable order, eligible for setup quorum, and trusted for restoration.
 
@@ -237,14 +236,14 @@ After validation and deterministic Nostr/Brave derivation:
 
 1. Store the Vault Key in secure storage.
 2. Mark onboarding as pending Vault Key backup.
-3. Process all five enabled default sources sequentially.
+3. Process all four enabled default sources sequentially.
 4. For each source:
    - index/check for `vaultkey` when appropriate;
    - if already present, count it as confirmed success by ID;
    - otherwise write the Vault Key backup;
    - accept an acknowledged Nostr write or successful Brave commit for initial quorum;
    - record source-level status and failure category.
-5. Continue through all five sources even if quorum is reached early.
+5. Continue through all four sources even if quorum is reached early.
 6. Evaluate quorum after all source attempts.
 
 Success requires:
@@ -814,12 +813,12 @@ Verify:
 
 Cover:
 
-- all five sources succeed;
+- all four sources succeed;
 - relay 1 plus Brave 1 succeeds;
 - relay 2 plus Brave 2 succeeds;
 - one category succeeds but the other fails;
 - neither category succeeds;
-- all five sources are attempted despite early quorum;
+- all four sources are attempted despite early quorum;
 - operations are sequential;
 - Vault Key is retained when quorum fails;
 - setup remains incomplete on quorum failure;
@@ -905,8 +904,8 @@ No production private keys or sync credentials will be committed.
 
 The implementation is complete when:
 
-1. The five default sources are represented and processed independently in fixed order.
-2. Vault Key import attempts all five sources sequentially.
+1. The four default sources are represented and processed independently in fixed order.
+2. Vault Key import attempts all four sources sequentially.
 3. Setup succeeds only with at least one eligible relay and one eligible Brave server.
 4. Failed quorum retains the Vault Key securely and permits retry without re-import.
 5. Successful quorum allows app entry and starts consolidation in the background.

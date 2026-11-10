@@ -16,7 +16,8 @@ import kotlinx.coroutines.withContext
  * the Vault Key record never has a note because the Vault Key has no user-set name.
  */
 class BraveSyncBackupService(
-    private val passwordService: BravePasswordService = BravePasswordService(),
+    // No default transport: a Brave source always names the endpoint it belongs to.
+    private val passwordService: BravePasswordService,
     private val runSyncCode: String? = null,
 ) {
     suspend fun backupVaultKey(vaultKey: Account, passphrase: CharArray): Result<Unit> = backup(vaultKey, VAULT_KEY_ID, passphrase)

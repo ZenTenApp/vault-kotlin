@@ -12,7 +12,6 @@ The fixed default sources, in processing order, are:
 | appdata2 | Nostr relay | `wss://appdata2.nostr.box` |
 | litesync1 | Brave Sync | `https://litesync1.zentext.me/litesync` |
 | litesync2 | Brave Sync | `https://litesync2.nostr.box/litesync` |
-| brave sync | Brave Sync | `https://sync-v2.brave.com/v2` |
 
 Defaults are enabled, trusted for restore, count toward Vault Key quorum, and cannot be removed or disabled. `BackupSourceRepository` supports persisted custom Nostr and Brave-compatible sources, but source-management UI is not implemented yet.
 

@@ -10,7 +10,7 @@ import app.zenten.vault.bravesync.transport.BraveSyncTransport
  * this client currently authenticates, discovers, and derives a chain's Nigori keys.
  */
 internal class BraveSyncClient(
-    private val transport: BraveSyncTransport = BraveSyncTransport(),
+    private val transport: BraveSyncTransport,
 ) {
     data class Session(
         val clientId: String,

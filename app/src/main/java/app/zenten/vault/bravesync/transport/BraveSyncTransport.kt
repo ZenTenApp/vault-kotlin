@@ -11,9 +11,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 /** HTTP transport for Brave's gzip-capable protobuf Sync endpoint. */
 class BraveSyncTransport(
-    private val client: OkHttpClient = OkHttpClient(),
-    private val serverUrl: String = BraveSyncConfig.DEFAULT_SERVER_URL,
+    // Required, with no default: every endpoint Vault talks to comes from a configured
+    // BackupSourceConfig, so there is no implicit server to fall back to.
+    private val serverUrl: String,
     private val serviceKey: String = BraveSyncConfig.SERVICE_KEY,
+    private val client: OkHttpClient = OkHttpClient(),
 ) {
     fun post(clientIdHex: String, authToken: String, protobuf: ByteArray): ByteArray {
         val clientId = hexToBytes(clientIdHex)
