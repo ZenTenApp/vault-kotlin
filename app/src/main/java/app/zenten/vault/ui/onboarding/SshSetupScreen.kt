@@ -13,25 +13,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,6 +56,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
     // cannot call stringResource, so the error is resolved where it is rendered.
     var clipboardError by remember { mutableStateOf<Int?>(null) }
     val state by viewModel.state.collectAsState()
+    val passphraseFeedback by viewModel.passphraseFeedback.collectAsState()
     // Once the key is committed only the backup is missing, so the two paste/derive steps are
     // not meaningful: show the retry (in this process or a resumed one) instead.
     val resumingPendingBackup = state.canRetryStoredVaultKey && !state.completed
@@ -79,11 +77,18 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
         }
     }
 
+    // The measurement belongs to this step only; dropping it keeps a stale rating from being
+    // shown for a passphrase that is no longer in the field.
+    DisposableEffect(step) {
+        onDispose { if (step == SetupStep.PASSPHRASE) viewModel.clearPassphraseFeedback() }
+    }
+
     // Returning to the key step discards the imported key and any typed passphrase, so
     // it is blocked while setup is running rather than silently dropping that work.
     val back: () -> Unit = {
         if (step == SetupStep.PASSPHRASE) {
             viewModel.clearError()
+            viewModel.clearPassphraseFeedback()
             keyInput = ""
             passphrase = ""
             step = SetupStep.PRIVATE_KEY
@@ -139,14 +144,14 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
+                    OnboardingPassphraseField(
                         value = passphrase,
-                        onValueChange = { passphrase = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(R.string.ssh_setup_passphrase_placeholder)) },
-                        visualTransformation = PasswordVisualTransformation(),
-                        // Password input semantics stop IMEs from autocorrecting punctuation in the secret.
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        onValueChange = {
+                            passphrase = it
+                            viewModel.onPassphraseChanged(it)
+                        },
+                        measured = passphraseFeedback.measured,
+                        rejectedAsWeak = passphraseFeedback.rejectedAsWeak,
                         enabled = !state.inProgress,
                     )
                 }

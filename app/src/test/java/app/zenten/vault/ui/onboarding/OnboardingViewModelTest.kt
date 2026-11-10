@@ -3,6 +3,9 @@ package app.zenten.vault.ui.onboarding
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeyPersistedException
 import app.zenten.vault.domain.VaultKeySession
+import app.zenten.vault.ui.onboarding.createvaultkey.PassphraseStrengthChecker
+import app.zenten.vault.ui.onboarding.createvaultkey.VaultKeyPassphrasePolicy
+import app.zenten.vault.ui.onboarding.createvaultkey.passphraseStrengthForScore
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
@@ -18,6 +21,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -40,24 +44,56 @@ class OnboardingViewModelTest {
     /**
      * Builds a harness whose durable "imported backup pending" state defaults to false, so
      * individual tests only state the resume fact they care about.
+     *
+     * The measured strength defaults to a passing bucket so existing tests exercise the import
+     * rather than the new gate; tests that care about the gate set it explicitly.
      */
-    private fun fixture(pendingImport: Boolean = false): Fixture {
+    private fun fixture(
+        pendingImport: Boolean = false,
+        score: Int = VaultKeyPassphrasePolicy.MINIMUM_STRENGTH_SCORE,
+    ): Fixture {
         val setupService = mockk<SetupService>()
         val session = mockk<VaultKeySession>()
+        val strengthChecker = mockk<PassphraseStrengthChecker>()
         coJustRun { session.establish(any()) }
         coEvery { setupService.hasPendingImportedVaultKeyBackup() } returns pendingImport
-        return Fixture(setupService, session)
+        coEvery { strengthChecker.measure(any()) } returns passphraseStrengthForScore(score)
+        return Fixture(setupService, session, strengthChecker)
     }
 
-    private inner class Fixture(val setupService: SetupService, val session: VaultKeySession) {
-        val viewModel = OnboardingViewModel(setupService, session, clock)
+    private inner class Fixture(
+        val setupService: SetupService,
+        val session: VaultKeySession,
+        val strengthChecker: PassphraseStrengthChecker,
+    ) {
+        val viewModel = OnboardingViewModel(setupService, session, clock, strengthChecker)
+    }
+
+    @Test
+    fun a_weak_passphrase_is_rejected_before_anything_is_persisted() = runTest {
+        val fixture = fixture(score = VaultKeyPassphrasePolicy.MINIMUM_STRENGTH_SCORE - 1)
+
+        // The key itself is valid, so only the passphrase rule can explain the refusal.
+        fixture.viewModel.performSetup(goldenEncryptedKey(), "phase1-test-passphrase")
+        advanceUntilIdle()
+
+        val feedback = fixture.viewModel.passphraseFeedback.value
+        assertTrue(feedback.rejectedAsWeak)
+        assertEquals(
+            VaultKeyPassphrasePolicy.MINIMUM_STRENGTH_SCORE - 1,
+            feedback.measured?.strength?.score,
+        )
+        assertFalse(fixture.viewModel.state.value.inProgress)
+        assertFalse(fixture.viewModel.state.value.canRetryStoredVaultKey)
+        coVerify(exactly = 0) { fixture.setupService.performSetup(any()) }
     }
 
     @Test
     fun parse_failure_does_not_offer_stored_key_retry() = runTest {
         val fixture = fixture()
 
-        fixture.viewModel.performSetup("not-an-encrypted-openssh-key", "passphrase")
+        // Long enough to clear the passphrase policy, so the parse failure is what is reported.
+        fixture.viewModel.performSetup("not-an-encrypted-openssh-key", "long-enough-passphrase")
         advanceUntilIdle()
 
         val state = fixture.viewModel.state.value
