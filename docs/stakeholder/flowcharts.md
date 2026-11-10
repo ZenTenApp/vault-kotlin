@@ -117,6 +117,7 @@ flowchart TD
     Clipboard -->|No| PasteError["Show safe error and remain on paste step"]
     Clipboard -->|Yes| KeyFormat{"Supported encrypted OpenSSH-v1 Ed25519 container with 128-8192 bcrypt rounds?"}
     KeyFormat -->|No| PasteError
+    KeyFormat -->|Formatted key, work factor outside the band| RoundsError["Show the declared rounds and the accepted band, then remain on paste step"]
     KeyFormat -->|Yes| Passphrase["Keep key off-screen and enter key passphrase"]
     Passphrase --> Strength{"Passphrase meets the creation policy (12+ characters and strength floor)?"}
     Strength -->|No| Weak["Show the strength meter and a refusal; store nothing"]

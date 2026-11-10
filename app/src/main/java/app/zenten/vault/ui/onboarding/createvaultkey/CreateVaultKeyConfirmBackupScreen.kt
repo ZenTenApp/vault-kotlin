@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
+import app.zenten.vault.ui.components.PasteError
 import app.zenten.vault.ui.components.VaultPillButton
 import kotlinx.coroutines.delay
 
@@ -43,7 +44,7 @@ fun CreateVaultKeyConfirmBackupScreen(
 ) {
     val context = LocalContext.current
     val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
-    var error by remember { mutableStateOf<Int?>(null) }
+    var error by remember { mutableStateOf<PasteError?>(null) }
     val pasteGuard by viewModel.pasteGuard.collectAsState()
 
     // Drives the visible countdown. The remaining time is recomputed from the
@@ -101,7 +102,7 @@ fun CreateVaultKeyConfirmBackupScreen(
                 error?.let {
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = stringResource(it),
+                        text = it.render(),
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -121,7 +122,7 @@ fun CreateVaultKeyConfirmBackupScreen(
                                 ?.toString()
                                 .orEmpty()
                         }.getOrElse {
-                            error = R.string.create_vault_key_confirm_backup_read_error
+                            error = PasteError(R.string.create_vault_key_confirm_backup_read_error)
                             return@VaultPillButton
                         }
                         val clipboardCleared = runCatching {
@@ -132,11 +133,11 @@ fun CreateVaultKeyConfirmBackupScreen(
                             }
                         }.isSuccess
                         if (!clipboardCleared) {
-                            error = R.string.create_vault_key_confirm_backup_clear_error
+                            error = PasteError(R.string.create_vault_key_confirm_backup_clear_error)
                             return@VaultPillButton
                         }
                         if (pastedKey.isBlank()) {
-                            error = R.string.create_vault_key_confirm_backup_empty_error
+                            error = PasteError(R.string.create_vault_key_confirm_backup_empty_error)
                             return@VaultPillButton
                         }
                         error = when (val result = viewModel.confirmPastedVaultKey(pastedKey)) {
@@ -150,9 +151,11 @@ fun CreateVaultKeyConfirmBackupScreen(
                                 }
                                 null
                             }
-                            // Both an unreadable container and a well-formed key that does not
-                            // match count as a wrong paste and feed the escalating lockout.
+                            // An unreadable container, a valid container with an out-of-band work
+                            // factor, and a well-formed key that does not match all count as a
+                            // wrong paste and feed the escalating lockout.
                             BackupConfirmationResult.INVALID,
+                            is BackupConfirmationResult.UnsupportedKdfRounds,
                             BackupConfirmationResult.MISMATCHED -> {
                                 when (viewModel.registerFailedVaultKeyPaste()) {
                                     VaultKeyPasteFailure.ReturnToExport -> {
@@ -162,12 +165,18 @@ fun CreateVaultKeyConfirmBackupScreen(
                                     // The full-screen block below renders the countdown.
                                     is VaultKeyPasteFailure.Blocked -> when (result) {
                                         BackupConfirmationResult.INVALID ->
-                                            R.string.create_vault_key_confirm_backup_invalid_error
-                                        else -> R.string.create_vault_key_confirm_backup_mismatch_error
+                                            PasteError(R.string.create_vault_key_confirm_backup_invalid_error)
+                                        is BackupConfirmationResult.UnsupportedKdfRounds ->
+                                            PasteError(
+                                                R.string.create_vault_key_confirm_backup_kdf_rounds_error,
+                                                result.declaredRounds,
+                                            )
+                                        else -> PasteError(R.string.create_vault_key_confirm_backup_mismatch_error)
                                     }
                                 }
                             }
-                            BackupConfirmationResult.UNAVAILABLE -> R.string.create_vault_key_backup_unavailable
+                            BackupConfirmationResult.UNAVAILABLE ->
+                                PasteError(R.string.create_vault_key_backup_unavailable)
                         }
                     },
                 )
@@ -176,7 +185,7 @@ fun CreateVaultKeyConfirmBackupScreen(
 
         if (isLocked) {
             PasteLockoutOverlay(
-                message = error?.let { stringResource(it) },
+                message = error?.render(),
                 remainingMillis = remainingLockoutMillis,
             )
         }
