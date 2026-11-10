@@ -28,10 +28,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -55,7 +55,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -63,6 +62,7 @@ import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.components.VaultScreenHeader
 import app.zenten.vault.ui.components.sanitizeCombinationSegment
+import app.zenten.vault.ui.onboarding.OnboardingPassphraseField
 
 private val RecoveryRowHeight = 80.dp
 private val RecoveryRowSpacing = 12.dp
@@ -288,10 +288,16 @@ fun RecoverVaultKeyPassphraseScreen(
 ) {
     var passphrase by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
+    val passphraseFeedback by viewModel.passphraseFeedback.collectAsState()
     LaunchedEffect(state.completed) {
         if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {
             popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }
         }
+    }
+    // The measurement lives only while this step is composed, so a rating for text that has left
+    // the field cannot linger when the user backs out and returns.
+    DisposableEffect(Unit) {
+        onDispose { viewModel.clearPassphraseFeedback() }
     }
     Column(
         modifier = Modifier.fillMaxSize().imePadding().padding(16.dp),
@@ -308,15 +314,17 @@ fun RecoverVaultKeyPassphraseScreen(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(28.dp))
-        OutlinedTextField(
+        OnboardingPassphraseField(
             value = passphrase,
-            onValueChange = { passphrase = it; viewModel.clearError() },
-            label = { Text("VaultKey Passphrase") },
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            onValueChange = {
+                passphrase = it
+                viewModel.onPassphraseChanged(it)
+                viewModel.clearError()
+            },
+            measured = passphraseFeedback.measured,
+            rejectedAsWeak = passphraseFeedback.rejectedAsWeak,
             enabled = !state.inProgress,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            label = "VaultKey Passphrase",
         )
         Spacer(Modifier.height(16.dp))
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }

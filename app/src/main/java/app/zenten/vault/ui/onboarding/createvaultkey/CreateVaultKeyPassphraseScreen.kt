@@ -353,7 +353,7 @@ internal fun PassphraseStrengthBand.labelRes(): Int = when (this) {
 
 /** One requirement row: a filled state dot (or check) followed by its label. */
 @Composable
-private fun PassphraseRequirement(label: String, satisfied: Boolean, modifier: Modifier = Modifier) {
+internal fun PassphraseRequirement(label: String, satisfied: Boolean, modifier: Modifier = Modifier) {
     val success = LocalExtendedColors.current.success
     val stateDescription = stringResource(
         if (satisfied) {

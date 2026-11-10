@@ -46,6 +46,13 @@
     <string name="ssh_setup_clipboard_empty_error">The clipboard does not contain a private key. Copy the key and try again.</string>
     <string name="ssh_setup_clipboard_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
 
+    <!--
+        Import and recovery refuse a passphrase that cannot meet the same rules a newly created
+        VaultKey must meet. The message names the rule without echoing the passphrase, and the
+        meter above it shows how far the typed value is from passing.
+    -->
+    <string name="onboarding_passphrase_too_weak">This passphrase is not strong enough to protect a VaultKey backup. Use a different VaultKey whose passphrase meets the requirements above.</string>
+
     <!-- Create VaultKey flow: step 1, "Getting Started" intro/consent screen -->
     <string name="create_vault_key_intro_icon_description">Pen and paper reminder</string>
     <string name="create_vault_key_intro_title">Getting Started</string>

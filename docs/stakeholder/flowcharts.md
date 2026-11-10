@@ -33,7 +33,10 @@ flowchart TD
     RecoverSecrets --> RecoverValid{"24 values in range with valid BIP-39 checksum?"}
     RecoverValid -->|No| RecoverSecrets
     RecoverValid -->|Yes| RecoverPassphrase["Enter VaultKey passphrase"]
-    RecoverPassphrase --> RecoverSources["Query enabled Nostr relay and Brave Sync sources for the vaultkey record"]
+    RecoverPassphrase --> RecoverStrength{"Passphrase meets the creation policy (12+ characters and strength floor)?"}
+    RecoverStrength -->|No| RecoverWeak["Show the strength meter and a refusal; query no source"]
+    RecoverWeak --> RecoverPassphrase
+    RecoverStrength -->|Yes| RecoverSources["Query enabled Nostr relay and Brave Sync sources for the vaultkey record"]
     RecoverSources -->|"Missing / network / invalid passphrase / out-of-band KDF rounds in every copy"| RecoverError["Show safe error and allow retry"]
     RecoverError --> RecoverPassphrase
     RecoverSources -->|"Recovered, decrypted, and inside the KDF band"| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
@@ -115,7 +118,10 @@ flowchart TD
     Clipboard -->|Yes| KeyFormat{"Supported encrypted OpenSSH-v1 Ed25519 container with 128-8192 bcrypt rounds?"}
     KeyFormat -->|No| PasteError
     KeyFormat -->|Yes| Passphrase["Keep key off-screen and enter key passphrase"]
-    Passphrase --> Validate{"Key and passphrase valid?"}
+    Passphrase --> Strength{"Passphrase meets the creation policy (12+ characters and strength floor)?"}
+    Strength -->|No| Weak["Show the strength meter and a refusal; store nothing"]
+    Weak --> Passphrase
+    Strength -->|Yes| Validate{"Key and passphrase valid?"}
     Validate -->|No| Error["Show safe error and remain on setup"]
     Validate -->|Yes| Store["Store Vault Key securely"]
     Store --> Sources["Check enabled backup sources sequentially"]
