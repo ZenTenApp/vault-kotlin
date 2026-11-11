@@ -20,10 +20,17 @@ class NewAccountViewModel @Inject constructor(
     private val _state = MutableStateFlow(NewAccountState())
     val state: StateFlow<NewAccountState> = _state.asStateFlow()
 
+    /** Guards a running check so double taps cannot start parallel bcrypt derivations. */
     fun verifyPassphrase(vaultKeyPassphrase: String) {
-        accountService.verifyVaultKeyPassphrase(vaultKeyPassphrase)
-            .onSuccess { _state.value = NewAccountState(passphraseVerified = true) }
-            .onFailure { _state.value = NewAccountState(error = it.message ?: "Could not verify passphrase") }
+        if (_state.value.verifying) return
+        _state.value = _state.value.copy(verifying = true, error = null)
+        viewModelScope.launch {
+            // The verifier dispatches the multi-second bcrypt work to Dispatchers.Default, so
+            // this launch can stay on Main and report the outcome safely to the state flow.
+            accountService.verifyVaultKeyPassphrase(vaultKeyPassphrase)
+                .onSuccess { _state.value = NewAccountState(passphraseVerified = true) }
+                .onFailure { _state.value = NewAccountState(error = it.message ?: "Could not verify passphrase") }
+        }
     }
 
     fun create(vaultKeyPassphrase: String, accountName: String) {
@@ -47,6 +54,8 @@ class NewAccountViewModel @Inject constructor(
 
 data class NewAccountState(
     val passphraseVerified: Boolean = false,
+    /** True while the VaultKey passphrase is being checked; the field and action stay inert. */
+    val verifying: Boolean = false,
     val creating: Boolean = false,
     val created: Account? = null,
     val error: String? = null,

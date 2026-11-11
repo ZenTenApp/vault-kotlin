@@ -12,6 +12,7 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -67,6 +68,17 @@ class OnboardingViewModelTest {
         val strengthChecker: PassphraseStrengthChecker,
     ) {
         val viewModel = OnboardingViewModel(setupService, session, clock, strengthChecker)
+
+        /**
+         * Waits for the import to finish after it reaches the bcrypt parse.
+         *
+         * Parsing runs on [Dispatchers.Default], a real dispatcher the test scheduler cannot
+         * fast-forward, so `advanceUntilIdle` can return while the parse is still in flight.
+         * Suspending on the state flow lets that work actually settle before asserting.
+         */
+        suspend fun awaitSetupFinished() {
+            viewModel.state.first { !it.inProgress }
+        }
     }
 
     @Test
@@ -94,7 +106,7 @@ class OnboardingViewModelTest {
 
         // Long enough to clear the passphrase policy, so the parse failure is what is reported.
         fixture.viewModel.performSetup("not-an-encrypted-openssh-key", "long-enough-passphrase")
-        advanceUntilIdle()
+        fixture.awaitSetupFinished()
 
         val state = fixture.viewModel.state.value
         assertTrue(state.error != null)
@@ -110,7 +122,7 @@ class OnboardingViewModelTest {
             Result.failure(VaultKeyPersistedException("VaultKey saved locally; backup incomplete.", IllegalStateException("quorum")))
 
         fixture.viewModel.performSetup(goldenEncryptedKey(), "phase1-test-passphrase")
-        advanceUntilIdle()
+        fixture.awaitSetupFinished()
 
         val state = fixture.viewModel.state.value
         assertTrue(state.canRetryStoredVaultKey)

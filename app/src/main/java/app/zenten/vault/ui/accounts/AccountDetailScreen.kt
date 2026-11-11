@@ -67,7 +67,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     val account = state.account
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
-    val coroutineScope = rememberCoroutineScope()
     // Target picker shown while the user chooses where to send the account export.
     var exportTargets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
@@ -152,13 +151,15 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                 pendingExportAction = null
             },
             onConfirmed = { passphrase ->
+                // The now-suspend verifier moves its bcrypt work to Dispatchers.Default, so this
+                // callback can await it directly instead of blocking the click-handler thread.
                 if (viewModel.verifyExportPassphrase(passphrase)) {
                     // Run only the export the user tapped; the passphrase gate is shared so the
                     // destination is remembered while the dialog is open.
                     when (pendingExportAction) {
                         AccountExportAction.NOTES ->
                             exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
-                        AccountExportAction.CLIPBOARD -> coroutineScope.launch {
+                        AccountExportAction.CLIPBOARD ->
                             runCatching {
                                 clipboard.setClipEntry(
                                     ClipData.newPlainText(
@@ -171,7 +172,6 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                             }.onFailure {
                                 exportError = "Vault could not copy the account key to the clipboard. Try again."
                             }
-                        }
                         null -> Unit
                     }
                     true

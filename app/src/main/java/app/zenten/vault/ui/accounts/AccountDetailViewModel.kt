@@ -57,8 +57,14 @@ class AccountDetailViewModel @Inject constructor(
     }
     fun consolidate() { accountId.value?.let(scheduler::scheduleAccountConsolidation) }
 
-    /** Confirms the passphrase protecting the loaded account before its key is exported. */
-    fun verifyExportPassphrase(passphrase: String): Boolean =
+    /**
+     * Confirms the passphrase protecting the loaded account before its key is exported.
+     *
+     * Suspends because the check decrypts the account key with bcrypt_pbkdf; [AccountService]
+     * moves that derivation to [kotlinx.coroutines.Dispatchers.Default], so the caller must not
+     * invoke it directly from a Compose click handler on the main thread.
+     */
+    suspend fun verifyExportPassphrase(passphrase: String): Boolean =
         accountId.value?.let { accountService.verifyAccountPassphrase(it, passphrase).isSuccess } == true
 }
 

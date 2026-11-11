@@ -37,10 +37,12 @@ import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import app.zenten.vault.ui.accounts.SourceStatusRow
 import app.zenten.vault.ui.components.VaultScreenScaffold
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -79,15 +81,20 @@ class VaultKeyDetailViewModel @Inject constructor(
      * The passphrase is needed because the export's npub line is derived on demand rather than
      * read from a stored identity. Decrypting here is also the passphrase check, so the export is
      * confirmed without a second, redundant bcrypt derivation.
+     *
+     * Suspends on [Dispatchers.Default] because both the Keystore read and the bcrypt derivation
+     * can block for seconds; callers come from the export dialog's coroutine scope.
      */
-    fun vaultKeyForExport(passphrase: String): String? = secureStorage.getVaultKey()?.let { vaultKey ->
-        // The caller already holds the passphrase as an immutable String, but zero the extra
-        // char copy so this module does not leave another long-lived copy for the GC to find.
-        val chars = passphrase.toCharArray()
-        try {
-            runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, chars) }.getOrNull()
-        } finally {
-            chars.fill('\u0000')
+    suspend fun vaultKeyForExport(passphrase: String): String? = withContext(Dispatchers.Default) {
+        secureStorage.getVaultKey()?.let { vaultKey ->
+            // The caller already holds the passphrase as an immutable String, but zero the extra
+            // char copy so this module does not leave another long-lived copy for the GC to find.
+            val chars = passphrase.toCharArray()
+            try {
+                runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, chars) }.getOrNull()
+            } finally {
+                chars.fill('\u0000')
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +27,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -35,8 +35,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.rememberNavController
 import app.zenten.vault.ui.VaultNavGraph
 import app.zenten.vault.ui.auth.AppLockedScreen
-import app.zenten.vault.ui.auth.AppUnlockCoordinator
 import app.zenten.vault.ui.auth.AppUnlockState
+import app.zenten.vault.ui.auth.AppUnlockViewModel
 import app.zenten.vault.ui.auth.DeviceLockRequiredScreen
 import app.zenten.vault.ui.auth.VAULT_AUTHENTICATORS
 import app.zenten.vault.ui.auth.VaultPassphraseScreen
@@ -60,45 +60,65 @@ private fun deviceCredentialIntent(keyguardManager: KeyguardManager?): Intent? =
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+    /**
+     * Activity-scoped, so the unlock session survives a configuration change. A new Activity
+     * receives the same ViewModel instance and [AppUnlockViewModel.bind] re-attaches the prompt
+     * machinery to it; process death discards it and therefore relocks the vault.
+     */
+    private val unlockViewModel: AppUnlockViewModel by viewModels { AppUnlockViewModel.factory }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // A vault should never expose its contents in screenshots, recordings, or Recents previews.
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
-        setContent { VaultApp() }
+        // Bind before the composition can collect state, so the recreated Activity drives the
+        // retained session instead of showing a stale or prompt-less gate.
+        unlockViewModel.bind(this)
+        setContent { VaultApp(unlockViewModel) }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Evaluate the 30-second foreground boundary with the session retained by the ViewModel.
+        unlockViewModel.onForeground()
+    }
+
+    override fun onStop() {
+        // A configuration change tears the Activity down and immediately recreates it, but the
+        // user never left the app. Recording that as a background trip would start the grace
+        // clock and could relock the vault the user is still looking at.
+        if (!isChangingConfigurations) unlockViewModel.onBackground()
+        super.onStop()
     }
 }
 
 @Composable
-private fun VaultApp() {
+private fun VaultApp(unlockViewModel: AppUnlockViewModel) {
     ZenTenVaultTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             // LocalActivity is the Compose-safe way to obtain the host Activity;
             // casting LocalContext can fail when the context is a wrapper.
             val activity = LocalActivity.current as FragmentActivity
-            val lifecycleOwner = LocalLifecycleOwner.current
-            val unlockCoordinator = remember(activity) {
-                AppUnlockCoordinator(activity, ContextCompat.getMainExecutor(activity))
-            }
-            val unlockState by unlockCoordinator.state.collectAsState()
+            val unlockState by unlockViewModel.state.collectAsState()
 
             // API 28-29 cannot combine strong biometric and device credential in one prompt, so
             // the coordinator asks the activity to run the keyguard credential confirmation.
             val credentialLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.StartActivityForResult(),
             ) { result ->
-                unlockCoordinator.onDeviceCredentialResult(result.resultCode == Activity.RESULT_OK)
+                unlockViewModel.onDeviceCredentialResult(result.resultCode == Activity.RESULT_OK)
             }
             val keyguardManager = remember(activity) {
                 activity.getSystemService(KeyguardManager::class.java)
             }
-            LaunchedEffect(unlockCoordinator, keyguardManager) {
-                unlockCoordinator.deviceCredentialRequests.collect {
+            LaunchedEffect(unlockViewModel, keyguardManager) {
+                unlockViewModel.deviceCredentialRequests.collect {
                     val intent = deviceCredentialIntent(keyguardManager)
                     if (intent != null) {
                         credentialLauncher.launch(intent)
                     } else {
-                        unlockCoordinator.onDeviceCredentialResult(false)
+                        unlockViewModel.onDeviceCredentialResult(false)
                     }
                 }
             }
@@ -112,27 +132,16 @@ private fun VaultApp() {
                 if (unlockState !is AppUnlockState.Unlocked) gateViewModel.lockSession()
             }
 
-            DisposableEffect(lifecycleOwner, unlockCoordinator) {
-                val observer = object : DefaultLifecycleObserver {
-                    override fun onStart(owner: LifecycleOwner) = unlockCoordinator.onForeground()
-                    override fun onStop(owner: LifecycleOwner) {
-                        if (!activity.isChangingConfigurations) unlockCoordinator.onBackground()
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-            }
-
             when (unlockState) {
                 AppUnlockState.Checking -> AppLockedScreen(isAuthenticating = true, onUnlock = {})
                 AppUnlockState.DeviceLockRequired -> DeviceLockRequiredScreen(
                     onOpenSettings = { openSecuritySettings(activity) },
-                    onCheckAgain = unlockCoordinator::recheckDeviceLock,
+                    onCheckAgain = unlockViewModel::recheckDeviceLock,
                 )
                 AppUnlockState.Locked,
                 AppUnlockState.Authenticating -> AppLockedScreen(
                     isAuthenticating = unlockState == AppUnlockState.Authenticating,
-                    onUnlock = unlockCoordinator::authenticate,
+                    onUnlock = unlockViewModel::authenticate,
                 )
                 AppUnlockState.Unlocked -> when (val gate = gateState) {
                     // A stored VaultKey requires the passphrase before the vault opens; a fresh

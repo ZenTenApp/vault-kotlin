@@ -28,13 +28,21 @@ class AccountService(
      *
      * The passphrase is no longer persisted, so a real decryption replaces the old plaintext
      * comparison. A wrong passphrase fails the bcrypt container check.
+     *
+     * bcrypt_pbkdf at the configured work factor is seconds of CPU work, so it must never run on
+     * the main looper or the UI freezes and can ANR. This suspends on [Dispatchers.Default] and
+     * every caller is suspend/off-main by design.
      */
-    fun verifyVaultKeyPassphrase(vaultKeyPassphrase: String): Result<Unit> = runCatching {
-        val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
-        require(vaultKeyPassphrase.isNotBlank()) { "VaultKey account passphrase is required to create an associated account" }
-        runCatching { SshKeyCodec.parse(vaultKey.zenTenKey, vaultKeyPassphrase.toCharArray()) }
-            .getOrElse { throw IllegalArgumentException("The passphrase does not match the vaultKey account") }
-    }
+    suspend fun verifyVaultKeyPassphrase(vaultKeyPassphrase: String): Result<Unit> =
+        // `runCatching<Unit>` is explicit: with `withContext` in between, the declared
+        // `Result<Unit>` return type no longer propagates into inference, and the block's last
+        // expression (the parsed key) would otherwise make this a `Result<ParsedKey>`.
+        withContext(Dispatchers.Default) { runCatching<Unit> {
+            val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
+            require(vaultKeyPassphrase.isNotBlank()) { "VaultKey account passphrase is required to create an associated account" }
+            runCatching { SshKeyCodec.parse(vaultKey.zenTenKey, vaultKeyPassphrase.toCharArray()) }
+                .getOrElse { throw IllegalArgumentException("The passphrase does not match the vaultKey account") }
+        } }
 
     /**
      * Verifies the passphrase that protects one stored account's encrypted private key.
@@ -42,13 +50,17 @@ class AccountService(
      * Export uses this rather than [verifyVaultKeyPassphrase] because a restored account keeps
      * the passphrase it was originally imported with, which can differ from the current Vault
      * Key passphrase.
+     *
+     * Like [verifyVaultKeyPassphrase], the bcrypt derivation is seconds of CPU work and is moved
+     * off the caller's thread so a Main-dispatched caller cannot freeze the UI.
      */
-    fun verifyAccountPassphrase(accountId: Long, passphrase: String): Result<Unit> = runCatching {
-        val account = requireNotNull(secureStorage.getAccountById(accountId)) { "Account is unavailable" }
-        require(passphrase.isNotBlank()) { "The account passphrase is required to export the account" }
-        runCatching { SshKeyCodec.parse(account.zenTenKey, passphrase.toCharArray()) }
-            .getOrElse { throw IllegalArgumentException("The passphrase does not match this account") }
-    }
+    suspend fun verifyAccountPassphrase(accountId: Long, passphrase: String): Result<Unit> =
+        withContext(Dispatchers.Default) { runCatching<Unit> {
+            val account = requireNotNull(secureStorage.getAccountById(accountId)) { "Account is unavailable" }
+            require(passphrase.isNotBlank()) { "The account passphrase is required to export the account" }
+            runCatching { SshKeyCodec.parse(account.zenTenKey, passphrase.toCharArray()) }
+                .getOrElse { throw IllegalArgumentException("The passphrase does not match this account") }
+        } }
 
     suspend fun createAssociatedAccount(vaultKeyPassphrase: String, accountName: String): Result<Account> = withContext(Dispatchers.Default) { runCatching {
         verifyVaultKeyPassphrase(vaultKeyPassphrase).getOrThrow()

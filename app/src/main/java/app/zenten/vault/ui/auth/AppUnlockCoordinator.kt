@@ -37,13 +37,56 @@ sealed interface AppUnlockState {
     data object Unlocked : AppUnlockState
 }
 
+/**
+ * The unlock session that outlives a single Activity instance.
+ *
+ * A configuration change (rotation, theme/dark mode, locale, font size) destroys and recreates the
+ * Activity. This holder stays alive in the Activity-scoped `AppUnlockViewModel`, so the user does
+ * not have to authenticate again merely because the screen was recreated. Everything here is
+ * memory-only: process death discards the holder and the vault starts locked.
+ *
+ * It deliberately contains no Android types so the coordinator can be recreated against a new
+ * Activity without copying session state across, and so the policy remains unit-testable.
+ */
+internal class AppUnlockSessionState {
+    val state = MutableStateFlow<AppUnlockState>(AppUnlockState.Checking)
+
+    /** Requests the host Activity to run the API 28-29 keyguard credential prompt. */
+    val deviceCredentialRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** True once the prompt has succeeded; cleared whenever authentication is required again. */
+    var wasUnlocked = false
+
+    /**
+     * Monotonic time the Activity was last backgrounded, or null when the session has not been
+     * backgrounded since it was unlocked (including after an Activity recreation).
+     */
+    var backgroundAt: Long? = null
+
+    /** Guards against showing two biometric prompts at once. */
+    var promptRequested = false
+
+    /** True while the API 28-29 keyguard credential confirmation is outstanding. */
+    var credentialRequestInFlight = false
+}
+
 /** Pure mapping from capability/error outcomes to the fail-closed state used by the gate. */
 internal object DeviceLockPolicy {
     fun stateFor(canAuthenticate: Boolean): AppUnlockState =
         if (canAuthenticate) AppUnlockState.Locked else AppUnlockState.DeviceLockRequired
 
+    /**
+     * Decides whether the foreground boundary must re-prompt.
+     *
+     * `wasUnlocked` is memory-only, so a cold start or process death always passes false and
+     * authenticates. A real background trip records its start in `backgroundAt`. A null timestamp
+     * therefore means the Activity was recreated for a configuration change without the app being
+     * backgrounded: nothing was hidden from the user, so the unlocked session and its grace window
+     * are retained and no re-authentication is needed.
+     */
     fun requiresAuthentication(wasUnlocked: Boolean, backgroundAt: Long?, now: Long): Boolean {
-        if (!wasUnlocked || backgroundAt == null) return true
+        if (!wasUnlocked) return true
+        if (backgroundAt == null) return false
         return now - backgroundAt >= GRACE_PERIOD_MILLIS
     }
 
@@ -96,49 +139,56 @@ internal object AuthErrorPolicy {
 }
 
 /**
- * Owns the in-memory foreground session. No unlock status or timestamp is persisted, so process
- * death always returns the vault to a locked state.
+ * Owns the foreground unlock session and the Activity-bound prompt machinery.
+ *
+ * No unlock status or timestamp is persisted, so process death always returns the vault to a
+ * locked state. The session flags live in [AppUnlockSessionState], which `AppUnlockViewModel`
+ * retains across Activity recreation; a coordinator is rebound to each new Activity.
  *
  * The prompt always names its authenticator set explicitly. Leaving the set unset is what made
  * AndroidX Biometric 1.1.0 default a non-crypto prompt to `BIOMETRIC_WEAK | DEVICE_CREDENTIAL`,
  * which admitted Class 2 biometrics despite the strong-biometric policy.
  */
-class AppUnlockCoordinator(
+internal class AppUnlockCoordinator(
     private val activity: FragmentActivity,
     executor: Executor,
+    private val session: AppUnlockSessionState = AppUnlockSessionState(),
     private val elapsedRealtime: () -> Long = SystemClock::elapsedRealtime,
 ) {
     private val biometricManager = BiometricManager.from(activity)
     private val keyguardManager = activity.getSystemService(KeyguardManager::class.java)
     private val promptKind = DeviceLockPolicy.promptKind(Build.VERSION.SDK_INT)
-    private val _state = MutableStateFlow<AppUnlockState>(AppUnlockState.Checking)
-    val state: StateFlow<AppUnlockState> = _state
+
+    val state: StateFlow<AppUnlockState> = session.state
 
     /**
      * Emits when the host activity must launch the keyguard device-credential prompt. Only used
      * on API 28-29, where the strong biometric and the credential cannot share one prompt.
      */
-    private val _deviceCredentialRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val deviceCredentialRequests: SharedFlow<Unit> = _deviceCredentialRequests
+    val deviceCredentialRequests: SharedFlow<Unit> = session.deviceCredentialRequests
 
-    private var wasUnlocked = false
-    private var backgroundAt: Long? = null
-    private var promptRequested = false
-    private var credentialRequestInFlight = false
+    /**
+     * Set once this coordinator's Activity is being replaced or torn down. A prompt callback can
+     * arrive after the Activity is gone (for example, a cancel triggered by [close]), so every
+     * entry point checks this before mutating shared session state.
+     */
+    private var closed = false
 
     private val prompt = BiometricPrompt(
         activity,
         executor,
         object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                promptRequested = false
-                wasUnlocked = true
-                backgroundAt = null
-                _state.value = AppUnlockState.Unlocked
+                if (closed) return
+                session.promptRequested = false
+                session.wasUnlocked = true
+                session.backgroundAt = null
+                session.state.value = AppUnlockState.Unlocked
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                promptRequested = false
+                if (closed) return
+                session.promptRequested = false
                 if (promptKind == UnlockPromptKind.StrongBiometricOnly &&
                     DeviceLockPolicy.isCredentialFallbackError(errorCode)
                 ) {
@@ -146,82 +196,101 @@ class AppUnlockCoordinator(
                     return
                 }
                 val next = AuthErrorPolicy.stateFor(errorCode, canAuthenticate())
-                if (next == AppUnlockState.DeviceLockRequired) wasUnlocked = false
-                _state.value = next
+                if (next == AppUnlockState.DeviceLockRequired) session.wasUnlocked = false
+                session.state.value = next
             }
         },
     )
 
+    /**
+     * Detaches this coordinator from the session. Idempotent, and safe to call from
+     * `ViewModel.onCleared` or when the Activity is replaced for a configuration change.
+     *
+     * The in-flight prompt is cancelled so its window cannot outlive the Activity. Its callbacks
+     * are ignored because [closed] is already set.
+     */
+    fun close() {
+        if (closed) return
+        closed = true
+        runCatching { prompt.cancelAuthentication() }
+    }
+
     fun onForeground() {
+        if (closed) return
         if (!canAuthenticate()) {
-            wasUnlocked = false
-            backgroundAt = null
-            _state.value = AppUnlockState.DeviceLockRequired
+            session.wasUnlocked = false
+            session.backgroundAt = null
+            session.state.value = AppUnlockState.DeviceLockRequired
             return
         }
 
         // Returning from the keyguard credential activity: its result callback settles the state,
         // so evaluating the boundary here would race it and prompt twice.
-        if (credentialRequestInFlight) return
+        if (session.credentialRequestInFlight) return
 
         val mustAuthenticate = DeviceLockPolicy.requiresAuthentication(
-            wasUnlocked = wasUnlocked,
-            backgroundAt = backgroundAt,
+            wasUnlocked = session.wasUnlocked,
+            backgroundAt = session.backgroundAt,
             now = elapsedRealtime(),
         )
-        backgroundAt = null
+        session.backgroundAt = null
         if (mustAuthenticate) {
-            wasUnlocked = false
-            _state.value = AppUnlockState.Locked
+            session.wasUnlocked = false
+            session.state.value = AppUnlockState.Locked
             // On API 28-29 the credential fallback must stay an explicit user action. Auto-launching
             // it on every foreground would trap a user who cancels in a prompt loop.
             if (promptKind == UnlockPromptKind.Combined || strongBiometricAvailable()) {
                 authenticate()
             }
         } else {
-            _state.value = AppUnlockState.Unlocked
+            session.state.value = AppUnlockState.Unlocked
         }
     }
 
     fun onBackground() {
-        if (wasUnlocked) backgroundAt = elapsedRealtime()
+        if (closed) return
+        if (session.wasUnlocked) session.backgroundAt = elapsedRealtime()
     }
 
     fun authenticate() {
+        if (closed) return
         if (!canAuthenticate()) {
-            _state.value = AppUnlockState.DeviceLockRequired
+            session.state.value = AppUnlockState.DeviceLockRequired
             return
         }
-        if (promptRequested || credentialRequestInFlight) return
+        if (session.promptRequested || session.credentialRequestInFlight) return
         if (promptKind == UnlockPromptKind.StrongBiometricOnly && !strongBiometricAvailable()) {
             requestDeviceCredential()
             return
         }
-        promptRequested = true
-        _state.value = AppUnlockState.Authenticating
+        session.promptRequested = true
+        session.state.value = AppUnlockState.Authenticating
         prompt.authenticate(buildPromptInfo())
     }
 
     /** Called by the host activity with the result of the keyguard credential prompt. */
     fun onDeviceCredentialResult(succeeded: Boolean) {
-        credentialRequestInFlight = false
-        promptRequested = false
+        if (closed) return
+        session.credentialRequestInFlight = false
+        session.promptRequested = false
         if (succeeded) {
-            // Record the return as the start of a fresh grace window so the ON_START foreground
-            // check does not immediately relock the session this prompt just unlocked.
-            wasUnlocked = true
-            backgroundAt = elapsedRealtime()
-            _state.value = AppUnlockState.Unlocked
+            // The keyguard confirmation returned to this Activity, so the session is foregrounded
+            // and has not been backgrounded since unlocking. A null timestamp expresses exactly
+            // that and keeps the ON_START foreground check from immediately relocking.
+            session.wasUnlocked = true
+            session.backgroundAt = null
+            session.state.value = AppUnlockState.Unlocked
         } else {
-            wasUnlocked = false
-            backgroundAt = null
-            _state.value = AppUnlockState.Locked
+            session.wasUnlocked = false
+            session.backgroundAt = null
+            session.state.value = AppUnlockState.Locked
         }
     }
 
     fun recheckDeviceLock() {
-        wasUnlocked = false
-        backgroundAt = null
+        if (closed) return
+        session.wasUnlocked = false
+        session.backgroundAt = null
         onForeground()
     }
 
@@ -245,17 +314,18 @@ class AppUnlockCoordinator(
         )
 
     private fun requestDeviceCredential() {
+        if (closed) return
         if (!canAuthenticate()) {
-            _state.value = AppUnlockState.DeviceLockRequired
+            session.state.value = AppUnlockState.DeviceLockRequired
             return
         }
-        if (credentialRequestInFlight) return
-        credentialRequestInFlight = true
-        promptRequested = false
-        _state.value = AppUnlockState.Authenticating
-        if (!_deviceCredentialRequests.tryEmit(Unit)) {
-            credentialRequestInFlight = false
-            _state.value = AppUnlockState.Locked
+        if (session.credentialRequestInFlight) return
+        session.credentialRequestInFlight = true
+        session.promptRequested = false
+        session.state.value = AppUnlockState.Authenticating
+        if (!session.deviceCredentialRequests.tryEmit(Unit)) {
+            session.credentialRequestInFlight = false
+            session.state.value = AppUnlockState.Locked
         }
     }
 

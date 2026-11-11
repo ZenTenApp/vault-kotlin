@@ -12,8 +12,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicReference
 
 class AccountServiceTest {
     @Test
@@ -50,7 +53,7 @@ class AccountServiceTest {
     }
 
     @Test
-    fun verify_account_passphrase_accepts_that_accounts_own_passphrase() {
+    fun verify_account_passphrase_accepts_that_accounts_own_passphrase() = runTest {
         val storage = mockk<SecureStorageService>()
         every { storage.getAccountById(42L) } returns Account(42L, encryptedKey("account-passphrase"))
 
@@ -60,7 +63,7 @@ class AccountServiceTest {
     }
 
     @Test
-    fun verify_account_passphrase_rejects_a_different_passphrase() {
+    fun verify_account_passphrase_rejects_a_different_passphrase() = runTest {
         val storage = mockk<SecureStorageService>()
         every { storage.getAccountById(42L) } returns Account(42L, encryptedKey("account-passphrase"))
 
@@ -71,7 +74,7 @@ class AccountServiceTest {
     }
 
     @Test
-    fun verify_account_passphrase_reports_an_unavailable_account() {
+    fun verify_account_passphrase_reports_an_unavailable_account() = runTest {
         val storage = mockk<SecureStorageService>()
         every { storage.getAccountById(42L) } returns null
 
@@ -79,6 +82,28 @@ class AccountServiceTest {
 
         assertFalse(result.isSuccess)
         assertEquals("Account is unavailable", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun verify_account_passphrase_runs_its_bcrypt_check_off_the_calling_thread() = runTest {
+        // The multi-second bcrypt work must not run on the caller's (main) thread. The account
+        // read is the first thing the verifier does after switching dispatchers, so recording
+        // the thread there proves the switch happened.
+        val callerThread = Thread.currentThread().name
+        // Atomic because the answer runs on the worker pool while the test thread waits.
+        val workerThread = AtomicReference<String?>(null)
+        val storage = mockk<SecureStorageService>()
+        every { storage.getAccountById(42L) } answers {
+            workerThread.set(Thread.currentThread().name)
+            Account(42L, encryptedKey("account-passphrase"))
+        }
+
+        val result = AccountService(storage, mockk<SetupService>(), appStorage())
+            .verifyAccountPassphrase(42L, "account-passphrase")
+
+        assertTrue(result.isSuccess)
+        assertNotNull(workerThread.get())
+        assertNotEquals(callerThread, workerThread.get())
     }
 
     @Test
