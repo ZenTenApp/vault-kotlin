@@ -8,6 +8,7 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountService
 import app.zenten.vault.domain.VaultKeySession
+import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.every
@@ -63,7 +64,8 @@ class SecretCombinationsViewModelTest {
         coJustRun { appStorage.setSecretCombinationsViewStep(any()) }
         coJustRun { appStorage.clearSecretCombinationsViewStep() }
         accountService = mockk()
-        every { accountService.verifyVaultKeyPassphrase(any()) } answers {
+        // The verifier is suspend now: it dispatches bcrypt to Dispatchers.Default internally.
+        coEvery { accountService.verifyVaultKeyPassphrase(any()) } answers {
             if (firstArg<String>() == passphrase) Result.success(Unit)
             else Result.failure(IllegalArgumentException())
         }

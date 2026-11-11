@@ -30,9 +30,22 @@ class DeviceLockPolicyTest {
     }
 
     @Test
-    fun `cold or previously locked session always authenticates`() {
+    fun `previously locked session always authenticates`() {
         assertTrue(DeviceLockPolicy.requiresAuthentication(false, backgroundAt = 1_000L, now = 1_001L))
-        assertTrue(DeviceLockPolicy.requiresAuthentication(true, backgroundAt = null, now = 1_001L))
+    }
+
+    @Test
+    fun `activity recreation without a background event keeps the session unlocked`() {
+        // A configuration change recreates the Activity while the user never left the app, so no
+        // background timestamp is recorded. The retained session must not re-prompt.
+        assertFalse(DeviceLockPolicy.requiresAuthentication(true, backgroundAt = null, now = 1_001L))
+    }
+
+    @Test
+    fun `cold start has no unlocked session and always authenticates`() {
+        // `wasUnlocked` is memory-only, so process death always re-enters with false and a null
+        // timestamp. This must still authenticate, regardless of the grace-period clock.
+        assertTrue(DeviceLockPolicy.requiresAuthentication(false, backgroundAt = null, now = 1_001L))
     }
 
     @Test

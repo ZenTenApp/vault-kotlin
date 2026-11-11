@@ -10,6 +10,7 @@ import app.zenten.vault.domain.SetupService
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -17,7 +18,7 @@ import org.junit.jupiter.api.Test
 
 class VaultKeyDetailViewModelTest {
     @Test
-    fun export_text_is_built_from_the_stored_key_and_the_given_passphrase() {
+    fun export_text_is_built_from_the_stored_key_and_the_given_passphrase() = runTest {
         val viewModel = viewModelWithStoredVaultKey()
 
         val text = requireNotNull(viewModel.vaultKeyForExport("phase1-test-passphrase"))
@@ -28,7 +29,7 @@ class VaultKeyDetailViewModelTest {
     }
 
     @Test
-    fun export_text_is_null_when_the_passphrase_does_not_decrypt_the_stored_key() {
+    fun export_text_is_null_when_the_passphrase_does_not_decrypt_the_stored_key() = runTest {
         val viewModel = viewModelWithStoredVaultKey()
 
         // A partial export would be missing the npub line, so no text is produced at all.
@@ -36,7 +37,7 @@ class VaultKeyDetailViewModelTest {
     }
 
     @Test
-    fun export_is_unavailable_when_no_vault_key_is_stored() {
+    fun export_is_unavailable_when_no_vault_key_is_stored() = runTest {
         val viewModel = VaultKeyDetailViewModel(
             sourceRepository = mockk { every { sources } returns MutableStateFlow(emptyList()) },
             appStorage = mockk {

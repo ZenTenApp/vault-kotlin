@@ -10,10 +10,12 @@ import app.zenten.vault.domain.VaultKeySession
 import app.zenten.vault.ui.onboarding.createvaultkey.PassphraseStrengthChecker
 import app.zenten.vault.ui.onboarding.createvaultkey.VaultKeyPassphrasePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import javax.inject.Inject
 
@@ -106,7 +108,11 @@ class OnboardingViewModel @Inject constructor(
             val key = SshKeyCodec.normalizeToSingleLineBase64(keyInput)
             // Parsing proves the passphrase before anything is persisted; the identity the
             // backup step needs is derived later from the same seed, never stored here.
-            SshKeyCodec.parse(key, passphrase.toCharArray())
+            // Parsing decrypts with bcrypt_pbkdf, which can take seconds at high work factors,
+            // so keep it off the Main looper.
+            withContext(Dispatchers.Default) {
+                SshKeyCodec.parse(key, passphrase.toCharArray())
+            }
             val createdAt = clock.millis() * 1_000L
             // Only the encrypted container is stored: every derived value (Nostr identity,
             // Sync code) is rebuilt from the seed by the flow that needs it.

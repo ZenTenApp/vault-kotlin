@@ -10,8 +10,9 @@ Interactive vault screens are only reachable by someone who can unlock the Andro
 2. When available, the app presents Android's system authentication prompt.
 3. After successful device authentication, if a VaultKey is stored, the app shows a **VaultKey passphrase** screen. The passphrase is verified by decrypting the stored VaultKey and is kept only in memory (`VaultKeySession`) for the session; a fresh install with no stored VaultKey skips straight to onboarding, which collects the passphrase itself. The input is masked by default and a trailing eye toggle reveals it so the user can check for typos before submitting; the reveal state is UI-only and resets to masked when the screen is shown again. The internet/time gate and normal navigation follow only after the passphrase gate is passed.
 4. The 30-second boundary is evaluated when the app returns to the foreground; no timer locks the session while it is backgrounded, and a continuously foregrounded app is not locked for inactivity. A return within 30 seconds retains the session. Returning at or after 30 seconds requires authentication again and drops the foreground passphrase session, so the passphrase screen reappears. A consolidation job that started while the session was unlocked holds an independent passphrase copy, continues to completion after the foreground session locks, and zeroes that copy in a `finally` block; a job that has not started when the session locks fails closed and remains pending for the next unlock. Process death always clears the passphrase and relocks the app.
-5. If no accepted device lock is configured, a blocking screen directs the user to Android security enrollment and offers a recheck. There is no bypass.
-6. The whole activity uses Android's secure-window flag to prevent screenshots, screen recording, and sensitive Recents previews where the platform supports it.
+5. A configuration change that recreates the Activity (rotation, theme or dark-mode switch, locale or font-size change) does **not** count as a background trip. The unlock session and its 30-second grace window are retained in an Activity-scoped `AppUnlockViewModel`, so the user is not re-prompted and the foreground passphrase session is not dropped. The session remains memory-only: process death discards the ViewModel and therefore relocks the app. Adding `android:configChanges` is deliberately not used, because it would only suppress the recreation instead of retaining the session and would leave process-death handling unchanged.
+6. If no accepted device lock is configured, a blocking screen directs the user to Android security enrollment and offers a recheck. There is no bypass.
+7. The whole activity uses Android's secure-window flag to prevent screenshots, screen recording, and sensitive Recents previews where the platform supports it.
 
 ## Scope and threat model
 
@@ -38,6 +39,7 @@ The local Keystore-backed AES-GCM store (`KeystoreCryptoService` behind `SecureS
 - Cancellation and retryable errors stay on a locked screen; there is no path to navigation.
 - Errors that mean the device cannot satisfy the policy (no device credential, no enrolled biometric, no suitable hardware) route to the mandatory enrollment screen.
 - Unlock state and the monotonic grace-period timestamp exist only in memory.
+- An Activity recreation for a configuration change retains the unlocked session; it is not treated as a background trip because the user never left the app.
 - Removing the device lock causes the next foreground check to block the app.
 - Android owns all PIN, pattern, password, and biometric collection; Vault never receives or stores those credentials.
 
@@ -61,7 +63,8 @@ Covered configurations for manual verification: PIN/password only, strong biomet
 
 ## Primary implementation locations
 
-- Coordinator, policy, and error classification: `app/src/main/java/app/zenten/vault/ui/auth/AppUnlockCoordinator.kt`
+- Coordinator, policy, and error classification: `app/src/main/java/app/zenten/vault/ui/auth/AppUnlockCoordinator.kt` (the coordinator is Activity-bound and is rebound by `AppUnlockViewModel` to each recreated Activity)
+- Retained unlock session and Activity binding: `app/src/main/java/app/zenten/vault/ui/auth/AppUnlockViewModel.kt` (an Activity-scoped `ViewModel`; it is not persisted and is created through its own factory because it has no injected dependencies)
 - Blocking UI: `app/src/main/java/app/zenten/vault/ui/auth/AppUnlockScreen.kt`
 - Passphrase gate state and screen: `app/src/main/java/app/zenten/vault/ui/auth/VaultUnlockGateViewModel.kt`, `app/src/main/java/app/zenten/vault/ui/auth/VaultPassphraseScreen.kt`
 - In-memory passphrase holder: `app/src/main/java/app/zenten/vault/domain/VaultKeySession.kt`

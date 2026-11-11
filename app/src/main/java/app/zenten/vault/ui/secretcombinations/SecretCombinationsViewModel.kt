@@ -68,6 +68,9 @@ class SecretCombinationsViewModel @Inject constructor(
         if (_state.value.verifying || _state.value.passphraseVerified) return
         _state.value = _state.value.copy(verifying = true, passphraseError = false)
         viewModelScope.launch {
+            // [AccountService.verifyVaultKeyPassphrase] runs its bcrypt derivation on
+            // Dispatchers.Default, so this Main-dispatched launch never blocks the UI even at the
+            // highest accepted work factor.
             val verified = accountService.verifyVaultKeyPassphrase(passphrase).isSuccess
             if (verified) {
                 // The gate is a real decryption now, so the same passphrase can unlock the

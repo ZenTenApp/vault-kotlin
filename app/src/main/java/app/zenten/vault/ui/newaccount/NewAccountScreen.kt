@@ -59,11 +59,14 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
                     onValueChange = { vaultKeyPassphrase = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("VaultKey Passphrase") },
+                    // The passphrase check is a slow bcrypt derivation; freeze the field so the
+                    // secret being checked cannot change while it runs.
+                    enabled = !state.verifying,
                     visualTransformation = if (passphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     // Password input semantics stop IMEs from autocorrecting punctuation in the secret.
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     trailingIcon = {
-                        IconButton(onClick = { passphraseVisible = !passphraseVisible }) {
+                        IconButton(onClick = { passphraseVisible = !passphraseVisible }, enabled = !state.verifying) {
                             Icon(
                                 imageVector = if (passphraseVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                                 contentDescription = if (passphraseVisible) "Hide passphrase" else "Show passphrase",
@@ -91,8 +94,13 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
         },
         actions = {
             VaultPillButton(
-                label = if (state.creating) "Creating Account" else if (state.passphraseVerified) "Create Account" else "Verify Passphrase",
-                icon = if (state.creating) {
+                label = when {
+                    state.creating -> "Creating Account"
+                    state.verifying -> "Verifying Passphrase"
+                    state.passphraseVerified -> "Create Account"
+                    else -> "Verify Passphrase"
+                },
+                icon = if (state.creating || state.verifying) {
                     {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
@@ -103,11 +111,12 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
                 } else {
                     null
                 },
-                enabled = if (state.passphraseVerified) {
-                    accountName.trim().length in AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH &&
-                        !state.creating
-                } else {
-                    vaultKeyPassphrase.isNotBlank()
+                // No action runs while a slow passphrase check or account creation is in flight.
+                enabled = when {
+                    state.creating || state.verifying -> false
+                    state.passphraseVerified ->
+                        accountName.trim().length in AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH
+                    else -> vaultKeyPassphrase.isNotBlank()
                 },
                 onClick = {
                     if (state.passphraseVerified) viewModel.create(vaultKeyPassphrase, accountName)

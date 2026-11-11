@@ -299,14 +299,17 @@ class CreateVaultKeyViewModel @Inject constructor(
      *
      * The wizard just established the passphrase in [VaultKeySession], and the export's npub line
      * is derived from it here rather than read from a stored identity, so this suspends and
-     * returns null when the session is locked.
+     * returns null when the session is locked. The Keystore read and bcrypt derivation can block
+     * for seconds, so they run on [Dispatchers.Default] rather than the caller's (Main) thread.
      */
-    suspend fun vaultKeyForExport(): String? = secureStorage.getVaultKey()?.let { vaultKey ->
-        val passphrase = vaultKeySession.snapshot() ?: return@let null
-        try {
-            runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, passphrase) }.getOrNull()
-        } finally {
-            passphrase.fill('\u0000')
+    suspend fun vaultKeyForExport(): String? = withContext(Dispatchers.Default) {
+        secureStorage.getVaultKey()?.let { vaultKey ->
+            val passphrase = vaultKeySession.snapshot() ?: return@let null
+            try {
+                runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, passphrase) }.getOrNull()
+            } finally {
+                passphrase.fill('\u0000')
+            }
         }
     }
 
