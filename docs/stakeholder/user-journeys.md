@@ -87,7 +87,7 @@ flowchart LR
 
 **User goal:** Rebuild access to previously generated associated accounts after losing or replacing a device.
 
-1. The user installs the app on a new device.
+1. The user installs the app on a new device and starts from an empty vault; no local data is copied between devices (see [Device migration and backup](../features/device-migration-and-backup.md)). If unreadable local records do arrive, the app reports **Vault needs recovery** instead of showing an emptied vault, and its action continues to **Get started**.
 2. The user completes setup using the same Vault Key private key and passphrase, or by recovering it with the 24 saved Secret Combinations and passphrase.
 3. The app uses that identity to look for protected backup copies.
 4. Every valid discovered associated account is restored automatically.
