@@ -96,7 +96,7 @@ carries the v2 signature scheme only.
 
 Local builds export the variables in the shell that runs Gradle. Do not commit them,
 and do not write them into `gradle.properties` (tracked) or `local.properties` (not a
-secrets store). CI supplies them from repository secrets — see
+secrets store). CI supplies them from GitHub Environment secrets — see
 [Publishing to Google Play](play-store-release.md#phase-5--make-ci-produce-and-protect-the-release-artifact).
 
 ## Versioning shared APKs
