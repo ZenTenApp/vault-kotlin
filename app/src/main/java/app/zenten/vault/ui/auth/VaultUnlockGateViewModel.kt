@@ -41,10 +41,13 @@ sealed interface VaultUnlockGateState {
      * user an empty vault; reporting it as [PassphraseRequired] would loop them through failed
      * unlocks forever. The only accurate response is to offer recovery.
      *
-     * [reason] describes the VaultKey record when it is itself the unreadable one, and
-     * [UnreadableReason.KeystoreKeyMissing] when only account records are unreadable — a partial
-     * transfer where the VaultKey record did not arrive. Both mean the same thing to the user: the
-     * local ciphertext is unopenable and recovery has to come from outside this device.
+     * [reason] describes the VaultKey record when it is itself the unreadable one, and otherwise
+     * the most consequential reason found among the stored account records — a partial transfer
+     * where the VaultKey record did not arrive, or damaged account ciphertext. All of them mean the
+     * same thing to the user: the local ciphertext cannot be opened here and recovery has to come
+     * from outside this device. The distinct values are kept because a missing wrapping key, a
+     * damaged payload, and a Keystore that could not be read are not the same problem, and the
+     * recovery screen words each differently.
      */
     data class VaultUnreadable(val reason: UnreadableReason) : VaultUnlockGateState
     /** A VaultKey is stored and the session is unlocked. */
@@ -66,14 +69,18 @@ class VaultUnlockGateViewModel @Inject constructor(
     private val error = MutableStateFlow(false)
 
     /**
-     * Any stored record that cannot be read on this device, observed so the gate can leave the
-     * recovery screen as soon as the user sets the unreadable records aside.
+     * The most consequential reason any stored record cannot be read on this device, observed so
+     * the gate can leave the recovery screen as soon as the user sets the unreadable records aside.
+     *
+     * The reason rather than a Boolean, because a vault whose VaultKey is absent but whose account
+     * records are damaged is not the same state as one whose wrapping key is gone, and the screen
+     * must not describe the wrong cause.
      */
-    private val hasUnreadableRecords = secureStorage.unreadableRecords
+    private val unreadableReason = secureStorage.unreadableRecords
 
     val state: StateFlow<VaultUnlockGateState> = combine(
         secureStorage.vaultKeyState,
-        hasUnreadableRecords,
+        unreadableReason,
         vaultKeySession.isUnlocked,
         verifying,
         error,
@@ -86,9 +93,10 @@ class VaultUnlockGateViewModel @Inject constructor(
                 VaultUnlockGateState.VaultUnreadable(vaultKey.reason)
             // A partial transfer can leave account ciphertext behind without a VaultKey record. The
             // VaultKey looks absent, but this is not a fresh install: onboarding would silently
-            // orphan the unreadable accounts on disk.
-            unreadable && vaultKey is SecureRecordState.Absent ->
-                VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreKeyMissing)
+            // orphan the unreadable accounts on disk. The reported reason is the scan's, so the
+            // screen explains the actual cause instead of assuming a missing key.
+            unreadable != null && vaultKey is SecureRecordState.Absent ->
+                VaultUnlockGateState.VaultUnreadable(unreadable)
             unlocked -> VaultUnlockGateState.Unlocked
             vaultKey is SecureRecordState.Absent -> VaultUnlockGateState.Onboarding
             else -> VaultUnlockGateState.PassphraseRequired(isVerifying, hasError)

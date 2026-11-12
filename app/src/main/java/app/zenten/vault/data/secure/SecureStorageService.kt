@@ -2,6 +2,7 @@ package app.zenten.vault.data.secure
 
 import android.content.Context
 import androidx.core.content.edit
+import app.zenten.vault.crypto.KeyPresence
 import app.zenten.vault.crypto.KeystoreCryptoService
 import app.zenten.vault.data.model.Account
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,7 +72,7 @@ class SecureStorageService(
     val vaultKeyState: StateFlow<SecureRecordState<Account>> = _vaultKeyState.asStateFlow()
 
     /**
-     * Whether any stored record — VaultKey or account — exists but cannot be read.
+     * The worst unreadability reason among stored records, or `null` when all are readable.
      *
      * Exposed as a flow rather than a one-shot read because [quarantineUnreadableRecords] changes
      * the answer, and the launch gate must leave the recovery screen without the Activity being
@@ -86,7 +87,7 @@ class SecureStorageService(
      * them would keep the app on the recovery screen after the user cleared it.
      */
     private val _unreadableRecords = MutableStateFlow(scanForUnreadableRecords())
-    val unreadableRecords: StateFlow<Boolean> = _unreadableRecords.asStateFlow()
+    val unreadableRecords: StateFlow<UnreadableReason?> = _unreadableRecords.asStateFlow()
 
     fun addVaultKey(account: Account) {
         write(VAULT_KEY, account)
@@ -141,12 +142,12 @@ class SecureStorageService(
     /**
      * Reports whether any quarantined (unreadable) record is still held on this device.
      *
-     * Quarantined records are ciphertext the app could not decrypt, kept so a future build or a
-     * recovered key could still attempt them. Their presence is what tells the recovery screen
-     * that reset will discard data rather than being a no-op.
+     * Quarantined records are ciphertext the app could not decrypt, parked by a reset so the app
+     * is not the thing that destroyed the user's last local copy. Their presence is what tells the
+     * recovery screen that reset discarded data rather than being a no-op.
      *
-     * In practice no build can ever read them again — they need the old device's Keystore key — so
-     * this is a record that the data exists, not a promise that it can be recovered.
+     * This is not a promise of recovery. The bytes need the original device's Keystore key, so no
+     * build can open them here; this is a record that the data exists.
      */
     fun hasQuarantinedRecords(): Boolean =
         preferences.all.keys.any { it.startsWith(QUARANTINE_KEY_PREFIX) }
@@ -157,11 +158,39 @@ class SecureStorageService(
      * One-shot read of the same scan [unreadableRecords] publishes. Prefer the flow anywhere the
      * answer has to change without recreating the caller.
      */
-    fun hasUnreadableRecords(): Boolean = scanForUnreadableRecords()
+    fun hasUnreadableRecords(): Boolean = scanForUnreadableRecords() != null
 
-    private fun scanForUnreadableRecords(): Boolean = preferences.all.keys.any { key ->
-        (key == VAULT_KEY || accountIdFromKey(key) != null) &&
-            readState(key) is SecureRecordState.Unreadable
+    /**
+     * Worst unreadability reason across every live record, or `null` when the store is healthy.
+     *
+     * "Worst" means the most permanent cause wins, because that is the one that decides the
+     * advice. [UnreadableReason.KeystoreKeyMissing] outranks [UnreadableReason.PayloadInvalid]
+     * outranks [UnreadableReason.KeystoreUnavailable]: a record that can never be opened here
+     * matters more than one that might be repaired or re-checked.
+     */
+    private fun scanForUnreadableRecords(): UnreadableReason? = preferences.all.keys
+        .asSequence()
+        .filter { it == VAULT_KEY || accountIdFromKey(it) != null }
+        .mapNotNull { key -> (readState(key) as? SecureRecordState.Unreadable)?.reason }
+        .maxByOrNull(::severity)
+
+    /** Orders reasons from least to most consequential for the advice the user receives. */
+    private fun severity(reason: UnreadableReason): Int = when (reason) {
+        UnreadableReason.KeystoreUnavailable -> 0
+        UnreadableReason.PayloadInvalid -> 1
+        UnreadableReason.KeystoreKeyMissing -> 2
+    }
+
+    /**
+     * Re-reads the VaultKey and re-scans record health, republishing both.
+     *
+     * Needed because [readState] answers from the Keystore at the moment it runs: a scan that hit
+     * [UnreadableReason.KeystoreUnavailable] is only a statement about that attempt. A caller that
+     * offers the user a retry calls this so a transient Keystore failure can clear without an
+     * Activity restart.
+     */
+    fun refreshRecordHealth() {
+        publishVaultKey()
     }
 
     private fun publishRecordHealth() {
@@ -178,25 +207,51 @@ class SecureStorageService(
      * device that is gone, so neither a future build nor a recovered passphrase can open it here.
      * Keeping it costs nothing and avoids the app being the thing that destroyed the last copy.
      *
-     * A previous quarantine generation's entries are dropped at the same time so repeated resets
-     * cannot accumulate them without bound.
+     * A record whose cause is [UnreadableReason.KeystoreUnavailable] is left in place. That answer
+     * means the Keystore could not be queried, so the record may well be readable on the next
+     * launch; setting it aside could park a perfectly healthy vault. Refusing here is what keeps
+     * the recovery action safe to offer on an uncertain state.
      *
-     * Readable records are never quarantined. A record that decrypts is moved back into service by
-     * the same single preference edit, so a partial-failure state cannot lose it.
+     * Refusing also matters for the count: returning 0 tells the caller nothing was set aside,
+     * which is accurate because nothing was.
+     *
+     * Readable records are never quarantined. A record that decrypts is never touched by this
+     * operation, so a partial-failure state cannot lose it.
+     *
+     * Quarantine is a single generation: any records parked by a previous reset are dropped in the
+     * same edit, so repeated resets cannot accumulate unreadable ciphertext without bound.
      */
     fun quarantineUnreadableRecords(): Int {
-        val unreadable = preferences.all.entries
-            .filter { (key, _) ->
-                key == VAULT_KEY || accountIdFromKey(key) != null
+        val unreadable = preferences.all.mapNotNull { (key, value) ->
+            when {
+                key != VAULT_KEY && accountIdFromKey(key) == null -> null
+                // A non-String value would abort the whole edit and leave a half-applied
+                // quarantine, so it is skipped rather than cast blindly.
+                value !is String -> null
+                else -> {
+                    val reason = (readState(key) as? SecureRecordState.Unreadable)?.reason
+                    // `KeystoreUnavailable` means "could not check", not "cannot read". Parking
+                    // the record would be acting on an unknown, so it is left alone.
+                    if (reason == null || reason == UnreadableReason.KeystoreUnavailable) null
+                    else key to value
+                }
             }
-            .filter { (key, _) -> readState(key) is SecureRecordState.Unreadable }
+        }
 
         if (unreadable.isEmpty()) return 0
 
+        // Snapshot the previous generation's names before the edit: the editor does not expose the
+        // key set, and iterating it while deleting would be unsafe in any case.
+        val previousGeneration = preferences.all.keys
+            .filter { it.startsWith(QUARANTINE_KEY_PREFIX) }
+
         preferences.edit {
+            // One generation only: dropping the previous set keeps the retained copy bounded by
+            // the number of live records instead of growing with every reset.
+            previousGeneration.forEach { remove(it) }
             unreadable.forEach { (key, value) ->
                 remove(key)
-                putString("$QUARANTINE_KEY_PREFIX$key", value as String)
+                putString("$QUARANTINE_KEY_PREFIX$key", value)
             }
         }
         publishAccounts()
@@ -215,18 +270,25 @@ class SecureStorageService(
      * Reads a record while preserving *why* it is unavailable.
      *
      * The order of the checks carries the meaning. A missing preference is [Absent] regardless of
-     * the Keystore, because nothing was ever stored. Only once ciphertext is known to exist does a
-     * missing wrapping key become the explanation ([UnreadableReason.KeystoreKeyMissing]); with the
-     * key present, any remaining failure is attributed to the stored bytes
-     * ([UnreadableReason.PayloadInvalid]).
+     * the Keystore, because nothing was ever stored. Only once ciphertext is known to exist does
+     * the wrapping key's presence become the explanation; with the key present, any remaining
+     * failure is attributed to the stored bytes ([UnreadableReason.PayloadInvalid]).
+     *
+     * A Keystore that cannot be queried is reported as
+     * [UnreadableReason.KeystoreUnavailable], not as a missing key. `decrypt` returns `null` for
+     * both, so only the presence check can separate them, and claiming the key is gone would offer
+     * a permanent-recovery action for a state that may be transient.
      */
     private fun readState(key: String): SecureRecordState<Account> {
         val stored = preferences.getString(key, null) ?: return SecureRecordState.Absent
 
         val decrypted = crypto.decrypt(stored)
             ?: return SecureRecordState.Unreadable(
-                if (crypto.isKeyPresent()) UnreadableReason.PayloadInvalid
-                else UnreadableReason.KeystoreKeyMissing,
+                when (crypto.keyPresence()) {
+                    KeyPresence.Present -> UnreadableReason.PayloadInvalid
+                    KeyPresence.Missing -> UnreadableReason.KeystoreKeyMissing
+                    KeyPresence.Unavailable -> UnreadableReason.KeystoreUnavailable
+                },
             )
 
         val account = runCatching { json.decodeFromString<Account>(decrypted) }.getOrNull()

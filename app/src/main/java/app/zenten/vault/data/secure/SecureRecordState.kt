@@ -54,4 +54,15 @@ enum class UnreadableReason {
      * points at the stored bytes rather than the device change.
      */
     PayloadInvalid,
+
+    /**
+     * The Keystore could not be queried, so it is unknown whether the wrapping key is there.
+     *
+     * This is deliberately not folded into [KeystoreKeyMissing] or [PayloadInvalid]: the first
+     * would offer the user a recovery action for a vault that may be perfectly fine, and the
+     * second would blame the stored bytes for a transient platform failure. Both causes here are
+     * retryable, so the only honest response is to say the device could not check and let the
+     * user try again — nothing may be set aside on this answer.
+     */
+    KeystoreUnavailable,
 }

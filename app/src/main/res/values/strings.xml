@@ -310,9 +310,12 @@
     -->
     <string name="stranded_vault_title">Vault needs recovery</string>
     <string name="stranded_vault_body">This device has encrypted Vault records that it cannot open. The key that protects them stays behind on the original device and cannot be moved, so no passphrase will decrypt them here.</string>
+    <string name="stranded_vault_body_payload_invalid">This device has encrypted Vault records that it cannot open. The key that protects them is still on this device, but the stored records are damaged or were written by an incompatible version of Vault, so no passphrase will decrypt them here.</string>
+    <string name="stranded_vault_body_keystore_unavailable">This device has encrypted Vault records, and Vault could not access its own key store to check whether they can be opened. This is usually temporary. Nothing has been changed, and your records may still be readable.</string>
     <string name="stranded_vault_body_records_kept">Nothing has been deleted. The unreadable records are kept on this device, but they cannot be opened here.</string>
-    <string name="stranded_vault_body_recover">If you kept your VaultKey backup and your 24 Secret Combinations, you can recover your VaultKey and restore your accounts from backup.</string>
+    <string name="stranded_vault_body_recover">If you kept your VaultKey backup and your Secret Combinations, you can recover your VaultKey and restore your accounts from backup.</string>
     <string name="stranded_vault_action_records_kept_continue">Continue to recovery</string>
+    <string name="stranded_vault_action_check_again">Check again</string>
     <string name="stranded_vault_action_failed">Vault could not clear this vault for recovery. Try again.</string>
 
     <!-- Settings Secret Combinations review flow -->

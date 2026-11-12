@@ -130,6 +130,15 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
      * longer exists on this device, so resuming mid-wizard would ask the user to confirm a backup
      * of something they cannot reach.
      *
+     * The Secret Combinations review marker is cleared because the launch router checks it *before*
+     * setup completion, so leaving it set would reopen the review flow ahead of onboarding even
+     * though there is no readable VaultKey left to review. That flow would land on its
+     * "combinations unavailable" exit rather than the recovery path this reset exists to expose.
+     *
+     * The Confirm Backup paste guard is cleared because it is keyed to a completing wizard that no
+     * longer exists here; a carried-over counter would show a countdown for pastes this device
+     * never made, and could block a genuine export in the new vault.
+     *
      * Custom backup sources, per-source statuses, the consolidation checkpoint, and the
      * consolidation timestamps are deliberately kept. They are device-local *configuration and
      * history*, not claims about the vault, they contain no secrets, and they remain valid after
@@ -142,6 +151,9 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
             it.remove(VAULT_KEY_QUORUM_REACHED)
             it.remove(IMPORTED_VAULT_KEY_SETUP_PENDING)
             it.remove(CREATE_VAULT_KEY_STEP)
+            it.remove(SECRET_COMBINATIONS_VIEW_STEP)
+            it.remove(VAULT_KEY_PASTE_ATTEMPTS)
+            it.remove(VAULT_KEY_PASTE_BLOCKED_UNTIL)
             it.remove(PENDING_LOCAL_BACKUP_ACCOUNT_IDS)
             it.remove(LOCALLY_BACKED_UP_ACCOUNT_IDS)
         }

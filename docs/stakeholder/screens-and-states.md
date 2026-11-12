@@ -12,6 +12,7 @@ The palette also includes light, medium-contrast, and high-contrast variants. Th
 | --- | --- | --- | --- |
 | Vault locked | Require Android device authentication before any vault navigation | Unlock | Prompt active, cancelled, failed, or retry available |
 | VaultKey passphrase | Require the unpersisted VaultKey passphrase after device authentication, before the vault opens | Unlock | Verifying, wrong/blank passphrase, no VaultKey stored (skipped for onboarding) |
+| Vault needs recovery | Explain that stored records exist but cannot be opened on this device, and open the path to **Recover VaultKey** | Continue to recovery; Check again when the device could not read its Keystore | Missing wrapping key, damaged records, Keystore unreadable (records may still be readable), working, failed |
 | Device lock required | Block use until a secure device lock is configured | Open security settings; check again | No accepted device credential configured |
 | App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Check again | No verified internet, device clock differs from HTTPS server time by over two minutes, or both |
 | Get started | Introduce the vault and offer first-run entry paths | Login with VaultKey | New installation; unimplemented action tapped ("coming soon") |
@@ -49,8 +50,12 @@ flowchart TD
     AU -- No --> L[Vault locked]
     L --> AU
     AU -- Yes --> VK{VaultKey stored?}
-    VK -- No --> P
-    VK -- Yes --> PP{Passphrase decrypts stored VaultKey?}
+    VK -- No --> UR{"Any stored record unreadable?"}
+    VK -- Yes --> KR{"Stored VaultKey readable on this device?"}
+    KR -- No --> SV[Vault needs recovery]
+    UR -- Yes --> SV
+    UR -- No --> P
+    KR -- Yes --> PP{Passphrase decrypts stored VaultKey?}
     PP -- No --> PG[VaultKey passphrase]
     PG --> PP
     PP -- Yes --> P{Verified internet and clock within 2 min of HTTPS server time?}
