@@ -22,7 +22,7 @@ app/build/outputs/apk/debug/app-debug.apk
 ## Release build status
 
 ```bash
-# Compile and minify an unsigned release APK
+# Compile and minify the release APK (signed when keystore.properties is present)
 ./gradlew :app:assembleRelease
 
 # Run release lint (includes R8/resource-shrinker checks)
@@ -31,27 +31,52 @@ app/build/outputs/apk/debug/app-debug.apk
 
 The release variant is minified by R8 and has resource shrinking enabled
 (`app/build.gradle.kts`). It compiles, minifies, and passes `lintRelease`, and the
-unsigned artifact is produced at:
+artifact is produced at:
 
 ```text
-app/build/outputs/apk/release/app-release-unsigned.apk
+app/build/outputs/apk/release/app-release.apk        # signing configured
+app/build/outputs/apk/release/app-release-unsigned.apk  # no signing material
 ```
 
-**This artifact is not shippable yet.** Two gaps remain:
+**This artifact is not shippable yet** because:
 
-- **No release signing configuration.** `app/build.gradle.kts` defines no
-  `signingConfigs`, so the APK is unsigned. A signing config fed from CI secrets,
-  documented key custody/rotation, and an incident plan for a compromised signing
-  key are still needed before any Play Store submission.
 - **The minified build has not been smoke-tested on a device or emulator.** R8
   keep rules for interfaces and libraries reached only by reflection (Quartz
   serialization, Hilt, JNI bindings) are verified by compilation, not by runtime
   behavior. Any release-track claim of correctness rests on the debug build until
   an on-device pass of the minified APK is recorded.
+- **Signing material is local only.** The signing configuration reads credentials
+  from an untracked `keystore.properties` (see below); CI secrets, documented key
+  custody/rotation, and an incident plan for a compromised signing key are still
+  needed before any Play Store submission.
 
 The R8 keep/dontwarn rules that make the current release build succeed are in
 `app/proguard-rules.pro`; the comments there explain why each suppressed
 reference is optional.
+
+## Release signing
+
+`app/build.gradle.kts` declares a `release` signing config only when an untracked
+`keystore.properties` exists at the repository root. The file is machine-local and
+listed in `.gitignore`; it must never be committed.
+
+```properties
+# keystore.properties (repository root, untracked)
+storeFile=vault.jks
+storePassword=…
+keyAlias=…
+keyPassword=…
+```
+
+All four values are required. If the file is absent or any value is blank, the
+release variant still configures and builds but produces the unsigned artifact,
+so a contributor without signing rights is not blocked. A signed build is
+produced at `app/build/outputs/apk/release/app-release.apk`.
+
+Passwords are kept in this file rather than in `gradle.properties` or the build
+script because both of those are committed. `storeFile` is resolved relative to
+the repository root. The current keystore is `vault.jks` in the project root,
+which is untracked through the `*.jks` rule in `.gitignore`; never commit it.
 
 ## Versioning shared APKs
 
