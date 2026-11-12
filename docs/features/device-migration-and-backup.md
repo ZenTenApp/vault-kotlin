@@ -57,21 +57,42 @@ state where a copy exists anyway — an OEM that ignores the rules, a partial tr
 backup-tool file restore, or damaged bytes.
 
 - `SecureRecordState` (`data/secure/`) keeps "nothing was ever stored" apart from "something is
-  stored and cannot be decrypted", with `UnreadableReason.KeystoreKeyMissing` and
-  `UnreadableReason.PayloadInvalid`.
-- `SecureStorageService.hasUnreadableRecords()` reports whether any VaultKey **or account** record
-  is present but unreadable. Checking only the VaultKey would misreport a partial transfer as a
-  fresh install.
-- `VaultUnlockGateViewModel` reports `VaultUnreadable` instead of `Onboarding` in that state, so the
-  user is not shown an empty vault.
-- `StrandedVaultScreen` explains the state and leads to **Get started** → **Recover VaultKey**.
-- `StrandedVaultResetService` moves unreadable ciphertext under the `quarantined_` prefix and clears
-  the routing flags (`setup_complete`, quorum, pending-import, wizard step, pending/local-backed-up
-  account IDs) so onboarding and recovery are reachable. Storage is set aside **before** the flags
-  are cleared, so an interrupted reset cannot leave the router treating the device as a fresh
-  install while the gate still sees an unreadable vault.
+  stored and cannot be decrypted", with `UnreadableReason.KeystoreKeyMissing`,
+  `UnreadableReason.PayloadInvalid`, and `UnreadableReason.KeystoreUnavailable`. The third value
+  exists because "the key is gone" and "the Keystore could not be queried" look identical to
+  `decrypt`, which returns `null` for both, but they need opposite responses: the first is
+  permanent, the second may clear on retry.
+- `SecureStorageService.getVaultKeyState()` reports the VaultKey's state and why it is unavailable;
+  `unreadableRecords` publishes the most consequential reason found across **any** VaultKey or
+  account record. Checking only the VaultKey would misreport a partial transfer as a fresh install.
+- `VaultUnlockGateViewModel` reports `VaultUnreadable` instead of `Onboarding` in that state, and
+  carries the scan's reason rather than assuming a missing key, so the screen describes the actual
+  cause.
+- `StrandedVaultScreen` explains the state in copy chosen by that reason and leads to **Get
+  started** → **Recover VaultKey**. When the reason is `KeystoreUnavailable` it offers **Check
+  again** instead of the set-aside action, because nothing may be set aside on an unknown answer.
+- `StrandedVaultResetService` clears the routing flags first and then moves unreadable ciphertext
+  under the `quarantined_` prefix. Flags cleared: `setup_complete`, quorum, pending-import, wizard
+  step, Secret Combinations review step, the Confirm Backup paste guard, and the pending/local-
+  backed-up account IDs. The review step matters because the launch router checks it *before*
+  setup completion, so leaving it set would reopen the review flow ahead of onboarding with no
+  readable VaultKey to review.
 
-Two limits are deliberate:
+The reset order is flags first, then storage, and the reason is not the obvious one. Both steps are
+retryable and neither deletes anything, so ordering only decides what the user sees if the process
+dies between them. The launch gate is evaluated **before** the router, so:
+
+- flags cleared but storage not yet moved → the gate still finds the unreadable record and keeps
+  showing the recovery screen; the user retries and nothing is orphaned;
+- storage moved but flags not yet cleared → the gate no longer sees an unreadable record, reports a
+  fresh install while `setup_complete` still says otherwise, and the router opens an empty account
+  list — the silent-loss presentation this feature exists to prevent.
+
+Quarantine is a single generation: a previous reset's parked records are dropped in the same
+preference edit, so repeated resets cannot accumulate unreadable ciphertext without bound. Records
+whose cause is `KeystoreUnavailable` are never quarantined.
+
+Three limits are deliberate:
 
 - Quarantined ciphertext is **retained, not recoverable**. It needs the original device's Keystore
   key, so neither a future build nor a recovered passphrase can open it here. Keeping it only avoids
@@ -79,6 +100,50 @@ Two limits are deliberate:
 - Device-local configuration and history — custom backup sources, per-source statuses, the
   consolidation checkpoint, and consolidation timestamps — are **not** cleared, because they stay
   valid after recovery and contain no secrets.
+- A Keystore that cannot be queried makes the vault state **unknown** rather than stranded. The app
+  says so and offers a re-check; it never offers to set records aside on that answer.
+
+## Why this is not simply "reset the vault"
+
+The obvious alternative — wipe the local vault and send the user to **Get started** — is closer to
+what the app already does than it first appears, so the distinction is worth stating precisely
+rather than leaving it implicit.
+
+What a reset could change is only the third row here; the user's recovery outcome is identical.
+
+| Step | Reset | Shipped behaviour |
+| --- | --- | --- |
+| Clear launch-routing flags | yes | yes |
+| Reach **Get started** → **Recover VaultKey** | yes | yes |
+| Local ciphertext | deleted | re-keyed to `quarantined_*` |
+| Remote relay and Brave Sync backups | untouched | untouched |
+
+Remote backups are the only thing that actually restores the user's accounts, and they live off the
+device: no local action, reset or otherwise, can affect them. So this is not a recovery mechanism
+versus a reset — both land the user on the same recovery path. The difference is only what happens
+to the unreadable local bytes.
+
+Deleting them is rejected for two reasons, one of which is load-bearing:
+
+- **The action is triggered by detection, not by request.** The screen appears because the app
+  concluded its own records are unreadable. If that conclusion is wrong — an OEM Keystore quirk, a
+  transient failure, a bug in this detection — a delete destroys a working vault with no undo.
+  A few kilobytes of retained ciphertext is cheap insurance against the app being the thing that
+  destroyed the user's last local copy, and quarantine is bounded to one generation.
+- **In the third case a reset is simply incorrect.** `UnreadableReason.KeystoreUnavailable` means
+  the device could not read its own key store, not that the records are broken. Resetting there
+  would be data loss masquerading as recovery, which is why that state offers **Check again** and
+  refuses to set anything aside.
+
+The retention argument is therefore strongest for the unavailable-Keystore case and weakest for
+`PayloadInvalid`, where the bytes truly cannot be read here. It is kept uniform because a single
+rule is easier to reason about and verify than a per-reason matrix, and because the cost is one
+bounded preference entry.
+
+A genuine **delete my local records** action is a different feature with different consent
+requirements: it would need an explicit, user-initiated confirmation rather than reuse of this
+recovery screen. That is the still-open M-06 delete/reset item and is deliberately not folded into
+this path.
 
 ## Known limitation
 

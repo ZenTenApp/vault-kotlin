@@ -10,6 +10,24 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
+ * Outcome of [KeystoreCryptoService.keyPresence].
+ *
+ * Three values rather than a Boolean because "the key is missing" and "the Keystore could not be
+ * queried" lead to opposite conclusions: the first is permanent and needs recovery from an
+ * external copy, the second may resolve on retry and must not trigger anything destructive.
+ */
+enum class KeyPresence {
+    /** The alias exists and holds this app's wrapping key. */
+    Present,
+
+    /** The Keystore was read successfully and no entry exists at the alias. */
+    Missing,
+
+    /** The Keystore could not be queried, so presence is unknown. */
+    Unavailable,
+}
+
+/**
  * AES-256-GCM encryption backed by an Android Keystore key.
  *
  * The key never leaves the Keystore. Each [encrypt] call lets the Keystore generate a fresh
@@ -73,10 +91,20 @@ class KeystoreCryptoService {
      * from "the ciphertext itself is bad". Those two states need different user-facing advice and
      * different recovery paths, and a null from [decrypt] cannot distinguish them.
      *
+     * A failure to query the Keystore is reported as [KeyPresence.Unavailable], never as
+     * [KeyPresence.Missing]. Conflating the two would let a transient KeyStore error look like a
+     * permanently stranded vault, and the recovery action built on that answer sets the user's
+     * records aside. `Missing` therefore means the alias was read successfully and held no entry.
+     *
      * This is a presence check only. It never returns key material and never reveals anything
      * about the key beyond whether an entry exists at the alias.
      */
-    fun isKeyPresent(): Boolean = runCatching { loadKey() != null }.getOrDefault(false)
+    fun keyPresence(): KeyPresence = runCatching { loadKey() }.fold(
+        onSuccess = { key -> if (key != null) KeyPresence.Present else KeyPresence.Missing },
+        // The store itself failed (locked, unavailable, or a vendor KeyStore error). The key may
+        // well exist; this answer says "unknown", not "gone".
+        onFailure = { KeyPresence.Unavailable },
+    )
 
     /** Reads the existing key without creating one, so a missing key never silently rotates. */
     private fun loadKey(): SecretKey? {

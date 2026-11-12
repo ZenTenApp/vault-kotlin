@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -38,6 +39,64 @@ class AppStorageServiceTest {
             assertTrue(service.importedVaultKeySetupPending.first())
             service.clearSetupComplete()
             assertFalse(service.importedVaultKeySetupPending.first())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    /**
+     * The stranded-vault reset must clear every flag that outranks onboarding, and keep the
+     * device-local configuration and history it has no reason to drop.
+     *
+     * Written against a real DataStore rather than a mock so the actual key list is exercised.
+     * The previous reset was only tested through a mocked `AppStorageService`, which meant the
+     * one thing that could be wrong — which keys are removed — was never asserted.
+     */
+    @Test
+    fun stranded_vault_reset_clears_routing_state_and_keeps_device_local_history() = runTest {
+        val directory = Files.createTempDirectory("vault-datastore").toFile()
+        try {
+            val service = AppStorageService(PreferenceDataStoreFactory.create(scope = backgroundScope) {
+                File(directory, "settings.preferences_pb")
+            })
+            service.setSetupComplete()
+            service.setVaultKeyQuorumReached(true)
+            service.requireImportedVaultKeyBackup()
+            service.setCreateVaultKeyStep(CreateVaultKeyStep.CONFIRM_BACKUP)
+            service.setSecretCombinationsViewStep(SecretCombinationsViewStep.SHOW)
+            service.setVaultKeyPasteGuard(attempts = 2, blockedUntilMillis = 99_000L)
+            service.requireAccountLocalBackup(10L)
+            service.markAccountLocallyBackedUp(20L)
+
+            // Device-local history that must survive: it stays valid after recovery.
+            val source = BackupSourceConfig(
+                "custom", "custom", BackupSourceType.NOSTR_RELAY, "wss://relay.example", 5,
+                authentication = SourceAuthentication.NIP42_OPTIONAL,
+            )
+            service.setCustomBackupSources(listOf(source))
+            service.upsertAccountSourceStatus(
+                AccountSourceStatus("10", "custom", AccountSourceBackupState.BACKUP_FAILED),
+            )
+            service.markConsolidationCompleted(42L)
+
+            service.clearStateForStrandedVaultReset()
+
+            assertFalse(service.setupComplete.first())
+            assertFalse(service.vaultKeyQuorumReached.first())
+            assertFalse(service.importedVaultKeySetupPending.first())
+            assertNull(service.createVaultKeyStep.first())
+            // The review marker is checked before setup completion by the launch router, so it
+            // would otherwise reopen the review flow instead of reaching onboarding.
+            assertNull(service.secretCombinationsViewStep.first())
+            assertEquals(0, service.vaultKeyPasteAttempts.first())
+            assertNull(service.vaultKeyPasteBlockedUntilMillis.first())
+            assertTrue(service.pendingLocalBackupAccountIds.first().isEmpty())
+            assertTrue(service.locallyBackedUpAccountIds.first().isEmpty())
+
+            // Device-local configuration and history stay valid after recovery, so they are kept.
+            assertEquals(listOf(source), service.customBackupSources.first())
+            assertEquals(1, service.accountSourceStatuses.first().size)
+            assertEquals(42L, service.lastConsolidationCompletedAtMillis.first())
         } finally {
             directory.deleteRecursively()
         }

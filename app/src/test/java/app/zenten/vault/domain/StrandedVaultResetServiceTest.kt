@@ -16,10 +16,11 @@ import org.junit.jupiter.api.Test
  * Verifies the stranded-vault reset keeps the user's data while clearing the state that blocks
  * recovery.
  *
- * The ordering assertion matters more than it looks: storage must be set aside before the routing
- * flags are cleared. If the flags were cleared first and the process died between the two steps,
- * the router would treat the device as a fresh install while the gate still saw an unreadable
- * vault — the exact inconsistent state this service exists to remove.
+ * The ordering assertion matters more than it looks: the routing flags must be cleared before the
+ * records are set aside. The gate outranks the router, so an interrupted run that cleared flags
+ * but did not quarantine still shows the recovery screen — nothing is orphaned. The opposite order
+ * would leave the gate reporting onboarding while `setup_complete` still claimed otherwise, which
+ * is the empty-vault presentation this service exists to remove.
  */
 class StrandedVaultResetServiceTest {
     private val secureStorage = mockk<SecureStorageService>()
@@ -27,21 +28,21 @@ class StrandedVaultResetServiceTest {
     private val service = StrandedVaultResetService(secureStorage, appStorage)
 
     @Test
-    fun reset_quarantines_records_then_clears_routing_flags() = runTest {
+    fun reset_clears_routing_flags_then_quarantines_records() = runTest {
         // Recorded explicitly rather than with verifyOrder: the flag-clearing call is suspending,
         // and verifyOrder's block is not a coroutine scope.
         val order = mutableListOf<String>()
+        coEvery { appStorage.clearStateForStrandedVaultReset() } answers {
+            order += "clearFlags"
+        }
         every { secureStorage.quarantineUnreadableRecords() } answers {
             order += "quarantine"
             2
         }
-        coEvery { appStorage.clearStateForStrandedVaultReset() } answers {
-            order += "clearFlags"
-        }
 
         service.reset()
 
-        assertEquals(listOf("quarantine", "clearFlags"), order)
+        assertEquals(listOf("clearFlags", "quarantine"), order)
     }
 
     @Test

@@ -25,11 +25,20 @@ import javax.inject.Singleton
  * remote backup. Recovering the key itself is the separate, existing **Recover VaultKey** flow;
  * this class only clears the way to it.
  *
- * The ordering matters. Storage is set aside first, then the flags are cleared. If the process dies
- * between the two, the vault is already out of the way and a later launch re-runs the same steps
- * harmlessly. Clearing flags first would make the router treat the device as a fresh install while
- * an unreadable vault was still the first thing the gate saw, which is the inconsistent state this
- * class exists to remove.
+ * The ordering matters, and it is flags first, then storage. Both steps are retryable and neither
+ * deletes anything, so the only thing ordering decides is what the user sees if the process dies
+ * between them:
+ *
+ * - Flags cleared, storage not yet moved: the gate still finds the unreadable record and keeps
+ *   showing this screen, so the user simply retries. Nothing is orphaned and no routing flag is
+ *   inconsistent with it.
+ * - Storage moved, flags not yet cleared (the opposite order): the gate no longer sees an
+ *   unreadable record, so it reports a fresh install while `setup_complete` still says otherwise.
+ *   The router then sends the user to an empty account list — the silent-loss presentation this
+ *   whole feature exists to prevent.
+ *
+ * The gate outranks the router, so clearing flags early cannot expose a half-reset device; the
+ * router is only reached once the gate reports onboarding.
  */
 @Singleton
 class StrandedVaultResetService @Inject constructor(
@@ -37,14 +46,13 @@ class StrandedVaultResetService @Inject constructor(
     private val appStorage: AppStorageService,
 ) {
     /**
-     * Quarantines unreadable records and clears the launch-routing flags.
+     * Clears the launch-routing flags and quarantines the unreadable records.
      *
      * Returns the number of records set aside. Zero is a valid outcome: it means every stored
      * record turned out to be readable, so nothing was taken out of service.
      */
     suspend fun reset(): Int {
-        val quarantined = secureStorage.quarantineUnreadableRecords()
         appStorage.clearStateForStrandedVaultReset()
-        return quarantined
+        return secureStorage.quarantineUnreadableRecords()
     }
 }

@@ -2,6 +2,7 @@ package app.zenten.vault.data.secure
 
 import android.app.Application
 import android.content.Context
+import app.zenten.vault.crypto.KeyPresence
 import app.zenten.vault.crypto.KeystoreCryptoService
 import app.zenten.vault.data.model.Account
 import io.mockk.every
@@ -53,7 +54,7 @@ class SecureStorageServiceTest {
         }
         // Stands in for the wrap key being healthy: these tests are about the record store, and
         // the real Keystore is unavailable to host-side tests.
-        every { isKeyPresent() } returns true
+        every { keyPresence() } returns KeyPresence.Present
     }
 
     @Test
@@ -204,7 +205,7 @@ class SecureStorageServiceTest {
         val keyless = mockk<KeystoreCryptoService> {
             every { encrypt(any()) } answers { crypto.encrypt(firstArg()) }
             every { decrypt(any()) } returns null
-            every { isKeyPresent() } returns false
+            every { keyPresence() } returns KeyPresence.Missing
         }
 
         assertEquals(
@@ -350,6 +351,58 @@ class SecureStorageServiceTest {
         assertEquals(false, storage.hasQuarantinedRecords())
         storage.quarantineUnreadableRecords()
         assertEquals(true, newStorage().hasQuarantinedRecords())
+    }
+
+    /**
+     * Quarantine is one generation, not an ever-growing archive.
+     *
+     * The contract says a previous reset's parked records are dropped when a new one runs. Without
+     * that, every reset would leave another copy behind, and the "retained copy" would become an
+     * unbounded pile of ciphertext nothing can ever read.
+     */
+    @Test
+    fun a_second_quarantine_replaces_the_previous_generation() {
+        val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+        preferences.edit().putString("vault_key", "first-generation").apply {
+            putString("quarantined_accounts_99", "stale-generation")
+        }.commit()
+
+        assertEquals(1, newStorage().quarantineUnreadableRecords())
+
+        // The fresh copy is parked; the previous generation is gone rather than accumulating.
+        assertEquals(
+            "first-generation",
+            preferences.getString("quarantined_vault_key", null),
+        )
+        assertNull(preferences.getString("quarantined_accounts_99", null))
+    }
+
+    /**
+     * A Keystore that cannot be queried must not license setting the records aside.
+     *
+     * `UnreadableReason.KeystoreUnavailable` means "the device could not check". Parking the
+     * records then could strand a vault that is perfectly readable on the next launch, so the
+     * operation refuses and reports that it moved nothing.
+     */
+    @Test
+    fun quarantining_refuses_when_the_keystore_could_not_be_queried() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+        val unqueryable = mockk<KeystoreCryptoService> {
+            every { encrypt(any()) } answers { crypto.encrypt(firstArg()) }
+            every { decrypt(any()) } returns null
+            every { keyPresence() } returns KeyPresence.Unavailable
+        }
+
+        assertEquals(0, SecureStorageService(context, unqueryable).quarantineUnreadableRecords())
+
+        // The record is still live and still reported as unreadable, so the user can retry.
+        assertEquals(
+            SecureRecordState.Unreadable(UnreadableReason.KeystoreUnavailable),
+            SecureStorageService(context, unqueryable).getVaultKeyState(),
+        )
     }
 
     // --- Unreadable-record detection -------------------------------------------------------

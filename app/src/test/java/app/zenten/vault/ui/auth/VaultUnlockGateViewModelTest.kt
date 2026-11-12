@@ -2,6 +2,7 @@ package app.zenten.vault.ui.auth
 
 import android.app.Application
 import android.content.Context
+import app.zenten.vault.crypto.KeyPresence
 import app.zenten.vault.crypto.KeystoreCryptoService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
@@ -97,24 +98,29 @@ class VaultUnlockGateViewModelTest {
         SecureStorageService(context, cryptoWithKey(present = true))
 
     /**
-     * Crypto stand-in whose decrypt success follows key presence.
+     * Crypto stand-in whose decrypt success and reported key presence move together.
      *
      * The two must move together: a fake that reports no key while still decrypting would model a
-     * state the real implementation cannot produce, and would let a broken gate pass.
+     * state the real implementation cannot produce, and would let a broken gate pass. A third value
+     * models a Keystore that cannot be queried, which must read as "unknown", never as "gone".
      */
-    private fun cryptoWithKey(present: Boolean): KeystoreCryptoService = mockk {
+    private fun cryptoWithKey(present: Boolean): KeystoreCryptoService =
+        cryptoWith(if (present) KeyPresence.Present else KeyPresence.Missing)
+
+    private fun cryptoWith(presence: KeyPresence): KeystoreCryptoService = mockk {
+        val readable = presence == KeyPresence.Present
         every { encrypt(any()) } answers {
             "enc:" + Base64.getEncoder().encodeToString(firstArg<String>().toByteArray())
         }
         every { decrypt(any()) } answers {
             val value = firstArg<String>()
             when {
-                !present -> null
+                !readable -> null
                 !value.startsWith("enc:") -> null
                 else -> String(Base64.getDecoder().decode(value.removePrefix("enc:")))
             }
         }
-        every { isKeyPresent() } returns present
+        every { keyPresence() } returns presence
     }
 
     @Test
@@ -270,6 +276,45 @@ class VaultUnlockGateViewModelTest {
             .commit()
 
         assertEquals(VaultUnlockGateState.PassphraseRequired(), gate(storage = storage).settled())
+    }
+
+    /**
+     * A partial transfer whose account ciphertext is damaged, not sealed under a lost key.
+     *
+     * The gate previously hard-coded `KeystoreKeyMissing` for every absent-VaultKey case, which
+     * told the user to look for a device they may still be holding. The reason must come from the
+     * scan so the recovery screen can describe the actual cause.
+     */
+    @Test
+    fun unreadable_account_records_report_their_own_reason_when_the_vault_key_is_absent() = runTest {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("accounts_20", "not-a-valid-payload")
+            .commit()
+
+        assertEquals(
+            VaultUnlockGateState.VaultUnreadable(UnreadableReason.PayloadInvalid),
+            gate().settled(),
+        )
+    }
+
+    /**
+     * A Keystore that cannot be queried is not a stranded vault.
+     *
+     * Reporting it as `KeystoreKeyMissing` would offer a "continue to recovery" action that sets
+     * aside records the device may still be able to read. The gate must keep the state distinct so
+     * the screen can offer a re-check instead.
+     */
+    @Test
+    fun an_unavailable_keystore_reports_keystore_unavailable_not_a_missing_key() = runTest {
+        healthyStorage().addVaultKey(Account(createdAt = 1, zenTenKey = "encrypted-vault-key"))
+
+        val unqueryable = SecureStorageService(context, cryptoWith(KeyPresence.Unavailable))
+
+        assertEquals(
+            VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreUnavailable),
+            gate(storage = unqueryable).settled(),
+        )
     }
 
     private companion object {
