@@ -1,0 +1,127 @@
+name: Release
+
+# Builds, signs and verifies the release artifact. Separate from ci.yml because this
+# workflow needs signing secrets and must never run on `pull_request` (which would
+# expose them to fork PRs and to any branch in the repository).
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      signed:
+        description: 'Require a signed artifact'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and verify release bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      # `inputs.signed` is undefined on a tag push, and GitHub coerces null to 0, so
+      # `inputs.signed != false` would be false there and silently skip signing on a
+      # release tag. Compute the flag explicitly: sign on push, honour the toggle on
+      # manual dispatch.
+      - name: Decide whether to sign
+        id: sign
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.signed }}" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK platform and build tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Restores the repository's own upload keystore from its configured secret so
+      # Gradle can sign. Written to $RUNNER_TEMP, outside the checkout, so no later
+      # step can package or upload it. This is standard Actions secret handling.
+      - name: Restore upload keystore
+        if: ${{ steps.sign.outputs.enabled == 'true' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.VAULT_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::VAULT_RELEASE_KEYSTORE_BASE64 is not set"
+            exit 1
+          fi
+          umask 077
+          mkdir -p "$RUNNER_TEMP/keys"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keys/release.jks"
+          echo "VAULT_RELEASE_KEYSTORE=$RUNNER_TEMP/keys/release.jks" >> "$GITHUB_ENV"
+
+      - name: Run host-side unit tests
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+
+      - name: Run release lint
+        run: ./gradlew :app:lintRelease --console=plain
+
+      - name: Build signed release bundle and APK
+        if: ${{ steps.sign.outputs.enabled == 'true' }}
+        env:
+          VAULT_RELEASE_STORE_PASSWORD: ${{ secrets.VAULT_RELEASE_STORE_PASSWORD }}
+          VAULT_RELEASE_KEY_ALIAS: ${{ secrets.VAULT_RELEASE_KEY_ALIAS }}
+          VAULT_RELEASE_KEY_PASSWORD: ${{ secrets.VAULT_RELEASE_KEY_PASSWORD }}
+          # Fail loudly rather than emit an unsigned artifact.
+          VAULT_RELEASE_REQUIRE_SIGNING: "true"
+        run: ./gradlew :app:bundleRelease :app:assembleRelease --console=plain
+
+      # Build success does not prove signing: the Gradle config falls back to
+      # unsigned when credentials are absent. Assert the signature, never infer it.
+      - name: Verify artifacts are signed
+        if: ${{ steps.sign.outputs.enabled == 'true' }}
+        run: |
+          set -euo pipefail
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+
+      - name: Verify 16 KB page-size alignment
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 \
+            app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.ref_name }}
+          path: |
+            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      # mapping.txt lets Play deobfuscate R8 stack traces; losing it impairs triage.
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-${{ github.ref_name }}
+          path: app/build/outputs/mapping/release/mapping.txt
+          retention-days: 90

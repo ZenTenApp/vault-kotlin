@@ -41,8 +41,8 @@ have to replace is worse than waiting. Track these against
 | 1 | **H-01** bcrypt KDF on the UI thread | Addressed in `c51a8b7` | Verified on a device with a 8192-round container: no frozen screen, no ANR, on every passphrase-entry path. |
 | 2 | **H-02** configuration change forces re-authentication | Addressed in `c51a8b7` | Rotate the device mid-flow and confirm the session survives; confirm process death still relocks. |
 | 3 | **H-03** D2D transfer / undecryptable-vault dead end | **Addressed in code, pending device verification** | `dataExtractionRules` excludes every domain from both cloud backup and D2D transfer, plus `fullBackupContent="false"` for ≤ API 30; `SecureRecordState` + the `unreadableRecords` scan tell "ciphertext present but unreadable" apart from "absent", and separate a missing wrapping key from a damaged payload and from a Keystore the device could not read; the launch gate routes that state to `StrandedVaultScreen`, and `StrandedVaultResetService` gives the `pendingLocalBackupAccountIds` lock an exit. Verify on an API 31+ emulator over the OEM matrix recorded in the audit errata. |
-| 4 | **H-04** unsigned release artifact | **Open** | Phase 2 complete: `signingConfigs.release` wired, `apksigner verify` passes, upload to Play Console succeeds. |
-| 5 | **H-05** release variant never built in CI | **Open** | CI runs `:app:bundleRelease` and `:app:lintRelease`, and fails when the bundle is unsigned. |
+| 4 | **H-04** unsigned release artifact | **Code addressed; not closed** | `signingConfigs.release` is wired from `VAULT_RELEASE_*` environment variables and `apksigner verify` passes on `app-release.apk`. Still open until (a) the configured keystore is the real upload key — the current `vault.jks` is a self-signed `CN=vault` development keystore — (b) key custody/rotation/compromise-response is documented, and (c) a signed build is uploaded to Play Console. See Phase 2. |
+| 5 | **H-05** release variant never built in CI | **Workflow added; never run** | `.github/workflows/release.yml` builds, signs, verifies and uploads the release artifact on a `v*` tag, and fails when the bundle is unsigned. Closure needs the four repository secrets configured and one successful tagged run. See Phase 5. |
 | 6 | **M-06** no delete / reset path | **Open** | Play's account-deletion requirement is only enforceable if a deletion path exists. Resolve or get a documented legal decision that the requirement does not apply (Vault has no server-side account). |
 | 7 | **M-01** workers report success when every source failed | **Open** | Backup status shown to users is truthful; a users' first backup failure is not hidden. |
 | 8 | Independent security assessment | **Open** | Required by release gate 1. Key management software should not reach public distribution without it. |
@@ -73,8 +73,9 @@ keytool -genkeypair \
 
 Rules for this file:
 
-- **Never commit it.** `.gitignore` already covers `*.keystore`; add `*.jks` to be
-  explicit. A committed keystore cannot be un-published from git history.
+- **Never commit it.** `.gitignore` now covers both `*.keystore` and `*.jks`, plus
+  any credential file that points at it. A committed keystore cannot be
+  un-published from git history.
 - Back it up in at least two independent, access-controlled locations. Losing the
   upload key means a support escalation to Google to reset it.
 - Use `4096`-bit RSA. Play accepts 2048, but the upload key is long-lived.
@@ -84,41 +85,62 @@ Rules for this file:
 keytool -list -v -keystore vault-upload.jks -alias vault-upload
 ```
 
-### 2.2 Add a signing config fed from environment variables
+> **Do not use the current `vault.jks` for a Play upload.** It is the development
+> keystore wired for local builds: self-signed `CN=vault`, no recorded provenance,
+> and stored in legacy JKS format. Cryptographically it is acceptable (4096-bit RSA,
+> SHA-256, `codeSigning` EKU — self-signing is normal and required for Android
+> keys); the problem is that it is a development identity with an unrecorded
+> history. It is adequate for sideload and smoke-test builds and nothing more.
+> Generate the real upload key with the command above, keep it outside the
+> repository, and custody it as described here.
 
-In `app/build.gradle.kts`, add a `signingConfigs` block and attach it to the
-`release` build type. Read the secrets from the environment so nothing sensitive is
-committed, and fail the build loudly when they are missing rather than silently
-producing an unsigned artifact:
+### 2.2 Wire signing from environment variables
+
+`app/build.gradle.kts` reads release credentials from `VAULT_RELEASE_KEYSTORE`,
+`VAULT_RELEASE_STORE_PASSWORD`, `VAULT_RELEASE_KEY_ALIAS`, and
+`VAULT_RELEASE_KEY_PASSWORD` (full behaviour and the
+`VAULT_RELEASE_REQUIRE_SIGNING` guard: [Release signing](build-and-test.md#release-signing)).
+No secret is read from or written to the repository.
 
 ```kotlin
+fun releaseEnv(name: String) = providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = releaseEnv("VAULT_RELEASE_KEYSTORE")
+val releaseStorePassword = releaseEnv("VAULT_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = releaseEnv("VAULT_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = releaseEnv("VAULT_RELEASE_KEY_PASSWORD")
+
 android {
     signingConfigs {
-        create("release") {
-            val keystorePath = System.getenv("VAULT_RELEASE_KEYSTORE")
-                ?: error("VAULT_RELEASE_KEYSTORE is not set")
-            storeFile = rootProject.file(keystorePath)
-            storePassword = System.getenv("VAULT_RELEASE_STORE_PASSWORD")
-                ?: error("VAULT_RELEASE_STORE_PASSWORD is not set")
-            keyAlias = System.getenv("VAULT_RELEASE_KEY_ALIAS")
-                ?: error("VAULT_RELEASE_KEY_ALIAS is not set")
-            keyPassword = System.getenv("VAULT_RELEASE_KEY_PASSWORD")
-                ?: error("VAULT_RELEASE_KEY_PASSWORD is not set")
+        if (releaseStoreFile != null && releaseStorePassword != null &&
+            releaseKeyAlias != null && releaseKeyPassword != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
             // ... existing minify/shrink/proguard configuration ...
         }
     }
 }
 ```
 
-Do **not** put these values in `gradle.properties` (it is tracked) or in
-`local.properties` (not a secrets store). For local convenience, use
-`~/.gradle/gradle.properties` or export them in the shell that builds the release.
+Read through `providers.environmentVariable`, not `System.getenv`: this project
+enables the Gradle configuration cache, and only `providers.*` values are tracked
+as cache inputs. With `System.getenv`, a cached configuration could silently reuse
+credentials the shell no longer has set.
+
+Locally, export the four variables in the shell that runs Gradle — for example from
+a password manager or `~/.gradle/gradle.properties` sourced by a wrapper script.
+Never commit them, and never write them into `gradle.properties` (tracked) or
+`local.properties` (not a secrets store).
 
 Keep the existing R8 configuration untouched:
 `app/proguard-rules.pro` carries deliberate `-keep`/`-dontwarn` rules for
@@ -159,10 +181,11 @@ production release and bump `versionCode` for every upload.
 
 ## Phase 4 — Build and verify the release bundle
 
-Signing credentials are read from the untracked `keystore.properties` at the
-repository root (see [Release signing](build-and-test.md#release-signing)); the
-build fails to sign, or produces an unsigned artifact, if that file is absent or
-incomplete. No environment variables are involved.
+Signing credentials come from `VAULT_RELEASE_*` environment variables (see
+[Release signing](build-and-test.md#release-signing)). With all four set the build
+signs; with none set it produces an unsigned artifact rather than failing, so the
+signature must be checked here rather than assumed. With a partial set it fails.
+Set `VAULT_RELEASE_REQUIRE_SIGNING=true` when the failure must be unconditional.
 
 ```bash
 # Full local gate — mirrors what CI should run
@@ -220,20 +243,37 @@ without it, Play cannot deobfuscate R8 stack traces.
 
 ## Phase 5 — Make CI produce and protect the release artifact
 
-`H-05`. Add to `.github/workflows/ci.yml` (or a dedicated release workflow triggered
-on a tag):
+`H-05`. **Partially addressed:** `.github/workflows/release.yml` runs on a `v*` tag
+or manual dispatch and performs:
 
-1. `./gradlew :app:lintRelease` — currently absent, so R8/shrinker regressions pass CI.
-2. `./gradlew :app:bundleRelease` with the keystore and passwords injected from
+1. `./gradlew :app:testDebugUnitTest` and `./gradlew :app:lintRelease` — release
+   lint was previously absent, so R8/shrinker regressions passed CI.
+2. `./gradlew :app:bundleRelease :app:assembleRelease` with the keystore materialised
+   from a base64 secret outside the workspace and the passwords injected from
    GitHub Actions secrets.
-3. A failing assertion that the produced `.aab` is signed (the `jarsigner -verify`
-   check above, wrapped in a shell step).
-4. Upload the `.aab` and `mapping.txt` as workflow artifacts.
-5. Prefer a dedicated `release` workflow gated behind an environment with required
-   reviewers, so signing secrets are not exposed to pull-request-triggered runs.
+3. A failing assertion that the `.apk` passes `apksigner verify` and the `.aab`
+   passes `jarsigner -verify`. This matters because the Gradle config falls back to
+   unsigned when credentials are absent; build success alone does not prove signing.
+   `VAULT_RELEASE_REQUIRE_SIGNING=true` makes the build itself fail first.
+4. 16 KB page-size alignment re-verified on every run.
+5. The `.aab`, `.apk`, and `mapping.txt` uploaded as workflow artifacts, with the
+   mapping retained separately for 90 days.
 
-Do not expose signing secrets to `pull_request` workflows — that includes PRs from
-branches inside the same repository.
+Still open for H-05 closure: the workflow has not been executed yet — its secrets
+are not configured and no tagged run exists. Configuring them is a repository-owner
+action:
+
+| Secret | Value |
+| --- | --- |
+| `VAULT_RELEASE_KEYSTORE_BASE64` | `base64 -w0 release.jks` of the upload keystore |
+| `VAULT_RELEASE_STORE_PASSWORD` | Keystore password |
+| `VAULT_RELEASE_KEY_ALIAS` | Key alias |
+| `VAULT_RELEASE_KEY_PASSWORD` | Key password |
+
+The workflow is deliberately not part of `ci.yml`: it needs signing secrets, so it
+must never run on `pull_request`, which would expose them to fork PRs and to any
+branch in the repository. For stricter isolation, move the job behind a GitHub
+**Environment** with required reviewers.
 
 ## Phase 6 — Produce the store listing assets
 
@@ -357,9 +397,16 @@ For a first upload, keep **Managed publishing** off until you are ready, and kee
 These are the concrete items standing between this tree and a successful first
 upload. They are listed here so the runbook stays honest:
 
-- No `signingConfigs` in `app/build.gradle.kts`; the existing
-  `app/build/outputs/bundle/release/app-release.aab` reports `jar is unsigned`.
-- `.github/workflows/ci.yml` never builds, signs, or lints the release variant.
+- ~~No `signingConfigs` in `app/build.gradle.kts`~~ **Addressed.** A `release`
+  signing config is wired from `VAULT_RELEASE_*` environment variables; `apksigner`
+  verifies `app-release.apk` (v2 scheme, `CN=vault`). H-04 stays open only for the
+  upload-key, custody/rotation, and Play-Console-upload items in Phase 1.
+- ~~`.github/workflows/ci.yml` never builds, signs, or lints the release variant~~
+  **Workflow added** (`release.yml`), not yet executed — H-05 needs its secrets
+  configured and one successful tagged run.
+- No key custody, rotation, or compromise-response document exists; this is
+  required for H-04 closure and, because the signing identity is the KeyHive
+  provider's trust anchor, is a security control rather than release hygiene.
 - `dataExtractionRules` / `fullBackupContent` are now declared and exclude every domain (H-03); what remains is device verification over the OEM matrix, not code.
 - No delete/reset path anywhere in the app (M-06).
 - No store-listing assets, privacy policy, or support URL in the repository.
