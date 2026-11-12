@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +8,23 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+// Release signing material is read from an untracked `keystore.properties` at the
+// repository root. Keeping it out of this (committed) script means passwords and
+// key paths never enter version control. When the file is missing — a fresh clone,
+// or a contributor without signing rights — the release variant still builds, but
+// produces the unsigned artifact instead of failing configuration.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+// All four values are required; a partially filled file (e.g. the template with
+// blank passwords) is treated as "no signing configured" rather than causing a
+// confusing signing failure at packaging time.
+val signingKeys = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+val hasReleaseSigning = signingKeys.all { !keystoreProperties.getProperty(it).isNullOrBlank() }
 
 android {
     namespace = "app.zenten.vault"
@@ -16,9 +35,22 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.2-dev.1"
+        versionName = "0.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Declared only when keystore.properties exists, so `assembleRelease` never
+    // attempts to sign with absent credentials.
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -28,6 +60,8 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            // Without signing material the release variant stays unsigned (see above).
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

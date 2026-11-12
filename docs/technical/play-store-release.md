@@ -153,18 +153,18 @@ Per [Build and test](build-and-test.md#versioning-shared-apks):
   public production release; a closed-test milestone is `0.9.0-rc.1` or similar.
 
 At the revision this runbook was written, `app/build.gradle.kts` carries
-`versionName = "0.0.2-dev.1"` with `versionCode = 1`. A bare `"1.0"` is not valid SemVer per
+`versionName = "0.0.1"` with `versionCode = 1`. A bare `"1.0"` is not valid SemVer per
 that policy and must not be used for a public release; reserve `1.0.0` for the first public
 production release and bump `versionCode` for every upload.
 
 ## Phase 4 — Build and verify the release bundle
 
-```bash
-export VAULT_RELEASE_KEYSTORE=/secure/path/vault-upload.jks
-export VAULT_RELEASE_STORE_PASSWORD=...
-export VAULT_RELEASE_KEY_ALIAS=vault-upload
-export VAULT_RELEASE_KEY_PASSWORD=...
+Signing credentials are read from the untracked `keystore.properties` at the
+repository root (see [Release signing](build-and-test.md#release-signing)); the
+build fails to sign, or produces an unsigned artifact, if that file is absent or
+incomplete. No environment variables are involved.
 
+```bash
 # Full local gate — mirrors what CI should run
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:lintRelease
