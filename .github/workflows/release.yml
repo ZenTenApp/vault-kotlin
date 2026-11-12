@@ -8,8 +8,8 @@ on:
     tags: [ 'v*' ]
   workflow_dispatch:
     inputs:
-      signed:
-        description: 'Require a signed artifact'
+      require_signed:
+        description: 'Require a signed artifact (turn off only to prove compilation)'
         type: boolean
         default: true
 
@@ -25,17 +25,20 @@ jobs:
     name: Build and verify release bundle
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Signing secrets live on this environment, not the repository, so they are only
+    # injected into a job that declares it. Any approval rules configured on the
+    # environment (e.g. required reviewers) gate the run before secrets are released.
+    environment: release
     steps:
-      # `inputs.signed` is undefined on a tag push, and GitHub coerces null to 0, so
-      # `inputs.signed != false` would be false there and silently skip signing on a
-      # release tag. Compute the flag explicitly: sign on push, honour the toggle on
-      # manual dispatch.
+      # `inputs.require_signed` is undefined on a tag push, where a release tag must
+      # still sign. Compute the flag explicitly rather than relying on undefined-input
+      # coercion, which silently turns "not false" into false.
       - name: Decide whether to sign
         id: sign
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
-          elif [ "${{ inputs.signed }}" = "true" ]; then
+          elif [ "${{ inputs.require_signed }}" = "true" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
@@ -106,8 +109,11 @@ jobs:
 
       - name: Verify 16 KB page-size alignment
         run: |
-          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 \
-            app/build/outputs/apk/release/app-release.apk
+          # Pick whichever APK this run produced: a signed run emits app-release.apk,
+          # an unsigned run emits app-release-unsigned.apk.
+          APK="$(ls app/build/outputs/apk/release/*.apk | head -1)"
+          echo "Checking $APK"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$APK"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -119,9 +125,12 @@ jobs:
           if-no-files-found: error
 
       # mapping.txt lets Play deobfuscate R8 stack traces; losing it impairs triage.
+      # `if-no-files-found: ignore` because the unsigned path still writes the APK
+      # but not the mapping.
       - name: Upload R8 mapping
         uses: actions/upload-artifact@v4
         with:
           name: mapping-${{ github.ref_name }}
           path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: ignore
           retention-days: 90

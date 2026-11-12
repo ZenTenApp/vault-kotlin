@@ -42,7 +42,7 @@ have to replace is worse than waiting. Track these against
 | 2 | **H-02** configuration change forces re-authentication | Addressed in `c51a8b7` | Rotate the device mid-flow and confirm the session survives; confirm process death still relocks. |
 | 3 | **H-03** D2D transfer / undecryptable-vault dead end | **Addressed in code, pending device verification** | `dataExtractionRules` excludes every domain from both cloud backup and D2D transfer, plus `fullBackupContent="false"` for ≤ API 30; `SecureRecordState` + the `unreadableRecords` scan tell "ciphertext present but unreadable" apart from "absent", and separate a missing wrapping key from a damaged payload and from a Keystore the device could not read; the launch gate routes that state to `StrandedVaultScreen`, and `StrandedVaultResetService` gives the `pendingLocalBackupAccountIds` lock an exit. Verify on an API 31+ emulator over the OEM matrix recorded in the audit errata. |
 | 4 | **H-04** unsigned release artifact | **Code addressed; not closed** | `signingConfigs.release` is wired from `VAULT_RELEASE_*` environment variables and `apksigner verify` passes on `app-release.apk`. Still open until (a) the configured keystore is the real upload key — the current `vault.jks` is a self-signed `CN=vault` development keystore — (b) key custody/rotation/compromise-response is documented, and (c) a signed build is uploaded to Play Console. See Phase 2. |
-| 5 | **H-05** release variant never built in CI | **Workflow added; never run** | `.github/workflows/release.yml` builds, signs, verifies and uploads the release artifact on a `v*` tag, and fails when the bundle is unsigned. Closure needs the four repository secrets configured and one successful tagged run. See Phase 5. |
+| 5 | **H-05** release variant never built in CI | **Workflow added; never run** | `.github/workflows/release.yml` builds, signs, verifies and uploads the release artifact on a `v*` tag, and fails when the bundle is unsigned. Closure needs one successful tagged run (its four secrets are configured on the `release` environment). See Phase 5. |
 | 6 | **M-06** no delete / reset path | **Open** | Play's account-deletion requirement is only enforceable if a deletion path exists. Resolve or get a documented legal decision that the requirement does not apply (Vault has no server-side account). |
 | 7 | **M-01** workers report success when every source failed | **Open** | Backup status shown to users is truthful; a users' first backup failure is not hidden. |
 | 8 | Independent security assessment | **Open** | Required by release gate 1. Key management software should not reach public distribution without it. |
@@ -259,21 +259,29 @@ or manual dispatch and performs:
 5. The `.aab`, `.apk`, and `mapping.txt` uploaded as workflow artifacts, with the
    mapping retained separately for 90 days.
 
-Still open for H-05 closure: the workflow has not been executed yet — its secrets
-are not configured and no tagged run exists. Configuring them is a repository-owner
-action:
+Still open for H-05 closure: the workflow has not been executed yet — no tagged run
+exists. Its four secrets are configured on a **`release` GitHub Environment**, not at
+repository level, and the job declares `environment: release` so the secrets are only
+injected into a run that targets it. Any protection rules on that environment
+(required reviewers, deployment branches) therefore gate signing before the secrets
+are released. The secret names are:
 
-| Secret | Value |
+| Secret (on the `release` environment) | Value |
 | --- | --- |
 | `VAULT_RELEASE_KEYSTORE_BASE64` | `base64 -w0 release.jks` of the upload keystore |
 | `VAULT_RELEASE_STORE_PASSWORD` | Keystore password |
 | `VAULT_RELEASE_KEY_ALIAS` | Key alias |
 | `VAULT_RELEASE_KEY_PASSWORD` | Key password |
 
+Set them with `gh secret set <NAME> -e release`, piping the value from `stdin` rather
+than passing it with `--body` (which exposes it in the process argument list) or
+copying a base64 blob through the terminal.
+
 The workflow is deliberately not part of `ci.yml`: it needs signing secrets, so it
 must never run on `pull_request`, which would expose them to fork PRs and to any
-branch in the repository. For stricter isolation, move the job behind a GitHub
-**Environment** with required reviewers.
+branch in the repository. Environment-scoped secrets plus `workflow_dispatch`
+(which requires write access) are the access controls; add required reviewers on
+the environment when more than one person can push to the repository.
 
 ## Phase 6 — Produce the store listing assets
 

@@ -1839,7 +1839,9 @@ intended.
 (`apksigner` on the APK, `jarsigner -verify` on the bundle), checks 16 KB alignment, and
 uploads the `.aab`, `.apk` and `mapping.txt` on a `v*` tag. It is deliberately separate from
 `ci.yml` so signing secrets are never exposed to `pull_request` runs. H-05 itself remains
-open: the workflow has never executed, because its four repository secrets are unset.
+open: the workflow has never executed. Its four secrets are now configured on a `release`
+GitHub Environment (environment-scoped rather than repository-level, so they are injected
+only into a job declaring that environment), but no tagged run has produced an artifact.
 
 **Why this does not close H-04.** The finding's `done` condition — and Section 16's — is a
 distributable artifact, and three things still stand between the build and that:
