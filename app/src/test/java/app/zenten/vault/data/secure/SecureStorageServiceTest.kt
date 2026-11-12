@@ -262,6 +262,155 @@ class SecureStorageServiceTest {
         )
     }
 
+    // --- Quarantine ------------------------------------------------------------------------
+
+    /**
+     * The core promise of the stranded-vault reset: the vault stops being served, and the
+     * ciphertext is still on the device afterwards.
+     *
+     * Deleting it would be unrecoverable, and it may be the only local copy of a key whose owning
+     * device is gone. The assertion checks both halves — absent to the app, present on disk —
+     * because either one alone would pass while the feature was wrong.
+     */
+    @Test
+    fun quarantining_moves_the_unreadable_vault_aside_without_deleting_it() {
+        val stored = "not-a-valid-payload"
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", stored)
+            .commit()
+        val storage = newStorage()
+
+        assertEquals(1, storage.quarantineUnreadableRecords())
+
+        assertEquals(SecureRecordState.Absent, newStorage().getVaultKeyState())
+        assertEquals(
+            stored,
+            context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+                .getString("quarantined_vault_key", null),
+        )
+    }
+
+    @Test
+    fun quarantining_leaves_readable_records_in_service() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+        storage.addAccount(account(10))
+
+        assertEquals(0, storage.quarantineUnreadableRecords())
+
+        assertEquals("vault", newStorage().getVaultKey()?.zenTenKey)
+        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+    }
+
+    @Test
+    fun quarantining_takes_only_the_unreadable_records() {
+        val storage = newStorage()
+        storage.addAccount(account(10))
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("accounts_20", "not-a-valid-payload")
+            .commit()
+
+        assertEquals(1, newStorage().quarantineUnreadableRecords())
+
+        // The healthy record is untouched; the broken one is no longer enumerated as live.
+        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+        assertEquals(
+            "not-a-valid-payload",
+            context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+                .getString("quarantined_accounts_20", null),
+        )
+    }
+
+    /**
+     * A quarantined record must never be enumerated as an account. `accounts_` parsing rejects a
+     * non-numeric suffix and the quarantine prefix differs anyway; this pins both.
+     */
+    @Test
+    fun quarantined_records_are_never_listed_as_accounts() {
+        val storage = newStorage()
+        storage.addAccount(account(10))
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("quarantined_accounts_30", crypto.encrypt(Json.encodeToString(account(30))))
+            .commit()
+
+        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+    }
+
+    @Test
+    fun quarantining_reports_that_records_are_held() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+        val storage = newStorage()
+
+        assertEquals(false, storage.hasQuarantinedRecords())
+        storage.quarantineUnreadableRecords()
+        assertEquals(true, newStorage().hasQuarantinedRecords())
+    }
+
+    // --- Unreadable-record detection -------------------------------------------------------
+
+    @Test
+    fun a_healthy_store_has_no_unreadable_records() {
+        val storage = newStorage()
+
+        assertEquals(false, storage.hasUnreadableRecords())
+
+        storage.addVaultKey(account(1, key = "vault"))
+        storage.addAccount(account(10))
+
+        assertEquals(false, newStorage().hasUnreadableRecords())
+    }
+
+    @Test
+    fun an_unreadable_vault_key_is_reported_as_an_unreadable_record() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+
+        assertEquals(true, newStorage().hasUnreadableRecords())
+    }
+
+    /**
+     * The partial-transfer case: account ciphertext arrives, the VaultKey record does not.
+     *
+     * Without this, the gate sees an absent VaultKey, reports a fresh install, and onboarding
+     * silently orphans the records that are still on disk.
+     */
+    @Test
+    fun unreadable_account_records_are_detected_without_a_vault_key() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("accounts_20", "not-a-valid-payload")
+            .commit()
+        val storage = newStorage()
+
+        assertEquals(SecureRecordState.Absent, storage.getVaultKeyState())
+        assertEquals(true, storage.hasUnreadableRecords())
+    }
+
+    /**
+     * Set-aside records must stop counting, or the launch gate would keep sending the user back to
+     * the recovery screen after they cleared it.
+     */
+    @Test
+    fun quarantined_records_no_longer_count_as_unreadable() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+        val storage = newStorage()
+
+        storage.quarantineUnreadableRecords()
+
+        assertEquals(false, newStorage().hasUnreadableRecords())
+    }
+
     @Test
     fun clear_all_returns_the_vault_key_to_absent() {
         val storage = newStorage()

@@ -13,6 +13,7 @@ This directory describes each feature currently available in the ZenTen Vault An
 7. [Backup status and reconciliation](backup-status-and-reconciliation.md) — detailed discovery, coverage, and repair algorithm.
 8. [Automatic account recovery](automatic-account-recovery.md) — detailed validation and automatic-restore behavior.
 9. [Backup source management](backup-source-management.md) — currently hidden UI; retained custom-source domain capability.
+10. [Device migration and backup](device-migration-and-backup.md) — why no app data is transferred between devices, the declared backup/D2D exclusions, and the fail-closed recovery screen.
 
 ## Documentation conventions
 

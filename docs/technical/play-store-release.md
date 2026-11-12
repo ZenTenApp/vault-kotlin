@@ -24,7 +24,7 @@ mistake if it is missed.
 | `targetSdk = 36`, `minSdk = 26` | Satisfies Play's requirement that new apps target API 36 (Android 16) after 2026-08-31. Targeting 36 means edge-to-edge and Android 16 behaviour changes are live in production. |
 | The app ships native libraries (`libsecp256k1-jni.so`, `libsqliteJni.so`, `libdatastore_shared_counter.so`, `libandroidx.graphics.path.so`) for four ABIs | Play requires 16 KB page-size alignment for apps targeting API 35+. Verified OK on the current build — but re-verify after **every** dependency bump. |
 | `app.zenten.permission.VAULT_ACCESS` is a **signature-level** permission guarding the `AssociatedAccountsProvider` | The distributed app is re-signed by Google under Play App Signing. Sibling apps (KeyHive consumers) must be signed with the *Play app-signing certificate*, not your upload key, or the provider silently stops being reachable. This is a security boundary, not packaging trivia. |
-| `android:allowBackup="false"`, no `dataExtractionRules` | Device-to-device transfer and cloud backup behaviour must match your Data safety answers, and the audit's H-03 dead-end path must be resolved before you claim a working restore story. |
+| `android:allowBackup="false"` with `dataExtractionRules` and `fullBackupContent` | No app data is transferred by cloud backup or by device-to-device transfer; both sections of `res/xml/data_extraction_rules.xml` exclude every domain. Play Data safety must therefore describe no OS-level transfer of vault data, and migration is the in-app **Recover VaultKey** path. See [Device migration and backup](../features/device-migration-and-backup.md). |
 | No analytics, crash reporting, or telemetry SDK | Simplifies Data safety: you declare no first-party collection. Everything that leaves the device goes to third-party relays **at the user's direction**. |
 | The user's account **label** is plaintext on relay events and Brave Sync records (`label` tag / `label:<name>` note) | This is real user data leaving the device readable by relay operators. Data safety must declare it, and the privacy policy must describe it. |
 | Creating a VaultKey needs live network access (2 Nostr relays + 2 Brave Sync endpoints) and a validated HTTPS clock check | Internal-test builds cannot be exercised on a plane, in airplane mode, or behind a captive portal. Give testers real devices on real networks. |
@@ -40,7 +40,7 @@ have to replace is worse than waiting. Track these against
 | --- | --- | --- | --- |
 | 1 | **H-01** bcrypt KDF on the UI thread | Addressed in `c51a8b7` | Verified on a device with a 8192-round container: no frozen screen, no ANR, on every passphrase-entry path. |
 | 2 | **H-02** configuration change forces re-authentication | Addressed in `c51a8b7` | Rotate the device mid-flow and confirm the session survives; confirm process death still relocks. |
-| 3 | **H-03** D2D transfer / undecryptable-vault dead end | **Open** | See the corrected scope in the [audit errata](../../audits/round2/consolidated-production-readiness-audit-2026-11-11.md#appendix-d--errata-and-corrections-2026-11-12). Needed: `dataExtractionRules` (+ `fullBackupContent` for ≤ API 30), a `SecureStorageService` API that can tell "ciphertext present but unreadable" apart from "absent", a startup branch for that state, and a way out of the `pendingLocalBackupAccountIds` lock. The keystore key is *not* auth-bound, so lock-screen changes are not a trigger. |
+| 3 | **H-03** D2D transfer / undecryptable-vault dead end | **Addressed in code, pending device verification** | `dataExtractionRules` excludes every domain from both cloud backup and D2D transfer, plus `fullBackupContent="false"` for ≤ API 30; `SecureRecordState` + `hasUnreadableRecords()` tell "ciphertext present but unreadable" apart from "absent"; the launch gate routes that state to `StrandedVaultScreen`, and `StrandedVaultResetService` gives the `pendingLocalBackupAccountIds` lock an exit. Verify on an API 31+ emulator over the OEM matrix recorded in the audit errata. |
 | 4 | **H-04** unsigned release artifact | **Open** | Phase 2 complete: `signingConfigs.release` wired, `apksigner verify` passes, upload to Play Console succeeds. |
 | 5 | **H-05** release variant never built in CI | **Open** | CI runs `:app:bundleRelease` and `:app:lintRelease`, and fails when the bundle is unsigned. |
 | 6 | **M-06** no delete / reset path | **Open** | Play's account-deletion requirement is only enforceable if a deletion path exists. Resolve or get a documented legal decision that the requirement does not apply (Vault has no server-side account). |
@@ -273,6 +273,11 @@ Create the app in Play Console (**All apps → Create app**), then fill every it
 7. **Data safety** — the most consequential form. For this app:
    - No first-party collection: there is no analytics, no crash reporter, no
      developer-operated backend.
+   - Answer the device-transfer question as **no OS-level transfer**: both the cloud
+     backup and device-to-device sections of `res/xml/data_extraction_rules.xml`
+     exclude every domain, so the vault, the VaultKey and the account records are not
+     carried to a new device by the platform. A user moves devices by installing
+     fresh and using **Recover VaultKey**.
    - Data **is** transmitted off-device at user direction to third-party relays and
      litesync endpoints. Declare the account name/label and the encrypted key
      material as collected/shared app functionality data.
@@ -355,7 +360,7 @@ upload. They are listed here so the runbook stays honest:
 - No `signingConfigs` in `app/build.gradle.kts`; the existing
   `app/build/outputs/bundle/release/app-release.aab` reports `jar is unsigned`.
 - `.github/workflows/ci.yml` never builds, signs, or lints the release variant.
-- No `dataExtractionRules` / `fullBackupContent` in `AndroidManifest.xml` (H-03).
+- `dataExtractionRules` / `fullBackupContent` are now declared and exclude every domain (H-03); what remains is device verification over the OEM matrix, not code.
 - No delete/reset path anywhere in the app (M-06).
 - No store-listing assets, privacy policy, or support URL in the repository.
 - No committed decision on the app-signing certificate for KeyHive sibling apps.

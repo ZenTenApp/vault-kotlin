@@ -32,6 +32,12 @@ import kotlinx.serialization.json.Json
  * in the field. Account records were always stored under `accounts_<createdAt>`, so they remain
  * readable as-is. A stale `accounts_registry` value on a development device is inert: it is not an
  * `accounts_<id>` key, so enumeration ignores it, and [clearAll] removes it.
+ *
+ * This store is device-local by design and is never migrated. Stopping migration takes two layers,
+ * and neither is redundant: `res/xml/data_extraction_rules.xml` asks the system not to copy these
+ * files off the device, while [SecureRecordState] and [unreadableRecords] handle the case where a
+ * copy arrives anyway — an OEM that ignores the exclusion, a partial transfer, or damaged bytes.
+ * The XML is a declaration the OS may not honour; this class can only observe the result.
  */
 class SecureStorageService(
     context: Context,
@@ -58,11 +64,29 @@ class SecureStorageService(
      * VaultKey presence and readability, including the case a `null` record cannot express.
      *
      * This is the signal the launch gate needs before it can distinguish a fresh install from a
-     * vault that survived a device migration but lost its wrapping key. Observing it rather than
-     * reading once keeps a completed onboarding or recovery visible without a restart.
+     * vault whose wrapping key is not on this device. Observing it rather than reading once keeps a
+     * completed onboarding or recovery visible without a restart.
      */
     private val _vaultKeyState = MutableStateFlow(readState(VAULT_KEY))
     val vaultKeyState: StateFlow<SecureRecordState<Account>> = _vaultKeyState.asStateFlow()
+
+    /**
+     * Whether any stored record — VaultKey or account — exists but cannot be read.
+     *
+     * Exposed as a flow rather than a one-shot read because [quarantineUnreadableRecords] changes
+     * the answer, and the launch gate must leave the recovery screen without the Activity being
+     * recreated. Republished by every mutation path through [publishAccounts] and [publishVaultKey].
+     *
+     * The launch gate needs this in addition to [vaultKeyState] because a transfer can be partial:
+     * `setup_complete` and the account records travel while the VaultKey record does not. Testing
+     * only the VaultKey would report that case as a fresh install, and onboarding over records that
+     * are still on disk is the silent-loss path this state exists to prevent.
+     *
+     * Quarantined entries are excluded: they have already been set aside deliberately, and counting
+     * them would keep the app on the recovery screen after the user cleared it.
+     */
+    private val _unreadableRecords = MutableStateFlow(scanForUnreadableRecords())
+    val unreadableRecords: StateFlow<Boolean> = _unreadableRecords.asStateFlow()
 
     fun addVaultKey(account: Account) {
         write(VAULT_KEY, account)
@@ -114,6 +138,72 @@ class SecureStorageService(
         publishVaultKey()
     }
 
+    /**
+     * Reports whether any quarantined (unreadable) record is still held on this device.
+     *
+     * Quarantined records are ciphertext the app could not decrypt, kept so a future build or a
+     * recovered key could still attempt them. Their presence is what tells the recovery screen
+     * that reset will discard data rather than being a no-op.
+     *
+     * In practice no build can ever read them again — they need the old device's Keystore key — so
+     * this is a record that the data exists, not a promise that it can be recovered.
+     */
+    fun hasQuarantinedRecords(): Boolean =
+        preferences.all.keys.any { it.startsWith(QUARANTINE_KEY_PREFIX) }
+
+    /**
+     * Reports whether any stored record exists that this device cannot read.
+     *
+     * One-shot read of the same scan [unreadableRecords] publishes. Prefer the flow anywhere the
+     * answer has to change without recreating the caller.
+     */
+    fun hasUnreadableRecords(): Boolean = scanForUnreadableRecords()
+
+    private fun scanForUnreadableRecords(): Boolean = preferences.all.keys.any { key ->
+        (key == VAULT_KEY || accountIdFromKey(key) != null) &&
+            readState(key) is SecureRecordState.Unreadable
+    }
+
+    private fun publishRecordHealth() {
+        _unreadableRecords.value = scanForUnreadableRecords()
+    }
+
+    /**
+     * Moves every currently-unreadable record into quarantine and returns how many were moved.
+     *
+     * This is the only destructive-looking operation the app offers on unreadable data, and it is
+     * deliberately non-destructive: the ciphertext is re-keyed under [QUARANTINE_KEY_PREFIX] rather
+     * than deleted, so the user's bytes are not thrown away by a recovery action. It is honest to
+     * call this retention rather than rescue — the payload was sealed with a Keystore key from a
+     * device that is gone, so neither a future build nor a recovered passphrase can open it here.
+     * Keeping it costs nothing and avoids the app being the thing that destroyed the last copy.
+     *
+     * A previous quarantine generation's entries are dropped at the same time so repeated resets
+     * cannot accumulate them without bound.
+     *
+     * Readable records are never quarantined. A record that decrypts is moved back into service by
+     * the same single preference edit, so a partial-failure state cannot lose it.
+     */
+    fun quarantineUnreadableRecords(): Int {
+        val unreadable = preferences.all.entries
+            .filter { (key, _) ->
+                key == VAULT_KEY || accountIdFromKey(key) != null
+            }
+            .filter { (key, _) -> readState(key) is SecureRecordState.Unreadable }
+
+        if (unreadable.isEmpty()) return 0
+
+        preferences.edit {
+            unreadable.forEach { (key, value) ->
+                remove(key)
+                putString("$QUARANTINE_KEY_PREFIX$key", value as String)
+            }
+        }
+        publishAccounts()
+        publishVaultKey()
+        return unreadable.size
+    }
+
     private fun write(key: String, account: Account) =
         preferences.edit { putString(key, crypto.encrypt(json.encodeToString(account))) }
 
@@ -150,6 +240,7 @@ class SecureStorageService(
         val state = readState(VAULT_KEY)
         _vaultKeyState.value = state
         _vaultKey.value = (state as? SecureRecordState.Readable)?.record
+        publishRecordHealth()
     }
 
     /**
@@ -171,6 +262,7 @@ class SecureStorageService(
 
     private fun publishAccounts() {
         _accounts.value = readAccounts()
+        publishRecordHealth()
     }
 
     /**
@@ -191,5 +283,14 @@ class SecureStorageService(
         const val FILE_NAME = "vault_secure_accounts_v2"
         const val VAULT_KEY = "vault_key"
         const val ACCOUNT_KEY_PREFIX = "accounts_"
+
+        /**
+         * Prefix that parks ciphertext the app could not decrypt.
+         *
+         * Namespaced separately from `accounts_` on purpose: [accountIdFromKey] rejects anything
+         * that is not a pure numeric suffix, so a quarantined record can never be enumerated as a
+         * live account even if this class gains a looser key scan later.
+         */
+        const val QUARANTINE_KEY_PREFIX = "quarantined_"
     }
 }

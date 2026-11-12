@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Vault does not migrate app data between devices, in either direction.
+
+    Nothing this app stores can be used on a different device. The VaultKey and every account
+    record are ciphertext sealed with an Android Keystore key, and Keystore keys are hardware-bound
+    and never leave the device that created them. Copying the ciphertext to a new phone therefore
+    produces hidden, permanently unreadable records rather than a working vault.
+
+    The second half of the problem is the non-secret state in the DataStore file
+    (`setup_complete`, backup-quorum and pending-export markers). Those are plaintext and *would*
+    transfer intact, so a transfer could leave the app claiming a finished setup over records no
+    screen can open.
+
+    `android:allowBackup="false"` alone does not cover this. On Android 12+ it disables Google Drive
+    backup but, per platform documentation, does not disable device-to-device (D2D) transfer on
+    every manufacturer's device; D2D is controlled only by this file. A missing section means that
+    mode stays fully enabled, so both sections below are declared with every domain excluded.
+
+    Migration is instead the user's explicit path: install the app fresh, then either re-import the
+    exported VaultKey or run Recover VaultKey with the 24 Secret Combinations, and let
+    consolidation restore the accounts from their relay and Brave Sync backups.
+
+    Cross-platform transfer (Android 16 QPR2 / API 36.1) is not excluded here. That mode requires a
+    declared iOS `bundleId`/`teamId` to pair with a counterpart app, and this project has no iOS
+    app, so no pairing can match. If an iOS companion is ever added, add a
+    `<cross-platform-transfer platform="ios">` section with the same exclusions.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

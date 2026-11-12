@@ -15,9 +15,19 @@
         android:name="app.zenten.permission.VAULT_ACCESS"
         android:protectionLevel="signature" />
 
+    <!--
+        App data is never migrated to another device, so no backup path may carry it.
+        `allowBackup="false"` disables pre-Android-12 backup and Google Drive backup, but on
+        Android 12+ it does not disable device-to-device transfer on every OEM. `dataExtractionRules`
+        is the only control that covers D2D, and `fullBackupContent="false"` keeps the pre-API-31
+        path explicitly closed instead of relying on the older flag alone.
+        See res/xml/data_extraction_rules.xml for why nothing can be transferred usefully.
+    -->
     <application
         android:name=".VaultApplication"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
