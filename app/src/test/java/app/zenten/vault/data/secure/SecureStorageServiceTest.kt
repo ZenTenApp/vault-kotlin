@@ -51,6 +51,9 @@ class SecureStorageServiceTest {
             if (!value.startsWith("enc:")) null
             else String(Base64.getDecoder().decode(value.removePrefix("enc:")))
         }
+        // Stands in for the wrap key being healthy: these tests are about the record store, and
+        // the real Keystore is unavailable to host-side tests.
+        every { isKeyPresent() } returns true
     }
 
     @Test
@@ -169,6 +172,106 @@ class SecureStorageServiceTest {
             .commit()
 
         assertEquals(listOf(10L), storage.getAccounts().map(Account::createdAt))
+    }
+
+    @Test
+    fun absent_vault_key_reports_absent_not_unreadable() {
+        assertEquals(SecureRecordState.Absent, newStorage().getVaultKeyState())
+    }
+
+    @Test
+    fun healthy_vault_key_reports_readable() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+
+        val state = newStorage().getVaultKeyState()
+        assertEquals("vault", (state as SecureRecordState.Readable).record.zenTenKey)
+    }
+
+    /**
+     * The device-transfer case this contract exists for: ciphertext is present and intact, but the
+     * Android Keystore key that wraps it is gone, so it can never be decrypted on this device.
+     *
+     * Misreporting this as [SecureRecordState.Absent] is what strands a migrated user in an empty
+     * vault, so the assertion here is deliberately about the *reason*, not just the failure.
+     */
+    @Test
+    fun ciphertext_without_its_keystore_key_reports_keystore_key_missing() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+
+        // Simulate the migration: the stored bytes survive, the wrapping key does not.
+        val keyless = mockk<KeystoreCryptoService> {
+            every { encrypt(any()) } answers { crypto.encrypt(firstArg()) }
+            every { decrypt(any()) } returns null
+            every { isKeyPresent() } returns false
+        }
+
+        assertEquals(
+            SecureRecordState.Unreadable(UnreadableReason.KeystoreKeyMissing),
+            SecureStorageService(context, keyless).getVaultKeyState(),
+        )
+    }
+
+    /**
+     * A payload that fails with the key still present is a different problem: the device can still
+     * read anything else it stored, so the fix is to rewrite or export from a backup, not to
+     * migrate the vault. It must not be reported as a missing key.
+     */
+    @Test
+    fun corrupt_payload_with_key_present_reports_payload_invalid() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+
+        assertEquals(
+            SecureRecordState.Unreadable(UnreadableReason.PayloadInvalid),
+            newStorage().getVaultKeyState(),
+        )
+    }
+
+    @Test
+    fun undecryptable_vault_key_still_reports_null_record_for_existing_callers() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+
+        assertNull(newStorage().getVaultKey())
+    }
+
+    /**
+     * A stranded vault must survive the app doing ordinary work: reading state must never delete
+     * or rewrite the ciphertext, because that copy may be the only local one the user has.
+     */
+    @Test
+    fun reading_an_unreadable_vault_key_never_deletes_the_ciphertext() {
+        val stored = "not-a-valid-payload"
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", stored)
+            .commit()
+
+        repeat(3) { newStorage().getVaultKeyState() }
+
+        assertEquals(
+            stored,
+            context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+                .getString("vault_key", null),
+        )
+    }
+
+    @Test
+    fun clear_all_returns_the_vault_key_to_absent() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+        storage.addAccount(account(10))
+
+        storage.clearAll()
+
+        assertEquals(SecureRecordState.Absent, newStorage().getVaultKeyState())
+        assertEquals(emptyList<Long>(), newStorage().getAccounts().map(Account::createdAt))
     }
 
     private fun account(id: Long, key: String = "private-key-$id") = Account(
