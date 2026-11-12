@@ -1,4 +1,4 @@
-import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -9,22 +9,48 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-// Release signing material is read from an untracked `keystore.properties` at the
-// repository root. Keeping it out of this (committed) script means passwords and
-// key paths never enter version control. When the file is missing — a fresh clone,
-// or a contributor without signing rights — the release variant still builds, but
-// produces the unsigned artifact instead of failing configuration.
-val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = Properties().apply {
-    if (keystorePropertiesFile.exists()) {
-        keystorePropertiesFile.inputStream().use { load(it) }
-    }
+// Release signing credentials come from environment variables, so no secret is ever
+// written into the repository. CI injects them from repository secrets; a local
+// release build exports them in the shell that runs Gradle.
+//
+// These are read through `providers.environmentVariable` rather than `System.getenv`
+// because this project enables the Gradle configuration cache. Only `providers.*`
+// values are tracked as configuration-cache inputs, so `System.getenv` would let a
+// cached configuration silently reuse credentials the shell no longer has set.
+fun releaseEnv(name: String) = providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = releaseEnv("VAULT_RELEASE_KEYSTORE")
+val releaseStorePassword = releaseEnv("VAULT_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = releaseEnv("VAULT_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = releaseEnv("VAULT_RELEASE_KEY_PASSWORD")
+
+val releaseSigningValues = listOf(
+    "VAULT_RELEASE_KEYSTORE" to releaseStoreFile,
+    "VAULT_RELEASE_STORE_PASSWORD" to releaseStorePassword,
+    "VAULT_RELEASE_KEY_ALIAS" to releaseKeyAlias,
+    "VAULT_RELEASE_KEY_PASSWORD" to releaseKeyPassword,
+)
+val missingReleaseSigning = releaseSigningValues.filter { it.second == null }.map { it.first }
+// Honoured by CI: a release pipeline must fail rather than quietly emit an unsigned
+// artifact when the secrets are missing or misnamed.
+val requireReleaseSigning = releaseEnv("VAULT_RELEASE_REQUIRE_SIGNING") == "true"
+
+// A partial set is always a configuration mistake (three of four variables exported,
+// or a renamed secret), so fail loudly instead of silently building unsigned.
+if (missingReleaseSigning.isNotEmpty() && missingReleaseSigning.size < releaseSigningValues.size) {
+    throw GradleException(
+        "Release signing is partially configured. Missing: ${missingReleaseSigning.joinToString()}. " +
+            "Set all of ${releaseSigningValues.map { it.first }.joinToString()} or none.",
+    )
 }
-// All four values are required; a partially filled file (e.g. the template with
-// blank passwords) is treated as "no signing configured" rather than causing a
-// confusing signing failure at packaging time.
-val signingKeys = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
-val hasReleaseSigning = signingKeys.all { !keystoreProperties.getProperty(it).isNullOrBlank() }
+if (requireReleaseSigning && missingReleaseSigning.size == releaseSigningValues.size) {
+    throw GradleException(
+        "VAULT_RELEASE_REQUIRE_SIGNING=true but no release signing credentials are set. " +
+            "Set ${releaseSigningValues.map { it.first }.joinToString()}.",
+    )
+}
+
+val hasReleaseSigning = missingReleaseSigning.isEmpty()
 
 android {
     namespace = "app.zenten.vault"
@@ -40,15 +66,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Declared only when keystore.properties exists, so `assembleRelease` never
-    // attempts to sign with absent credentials.
+    // Declared only when all four environment variables are set, so `assembleRelease`
+    // never attempts to sign with absent credentials.
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+                // Resolved against the repository root so a relative path in CI is
+                // predictable; an absolute path (the normal case) is used as-is.
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }

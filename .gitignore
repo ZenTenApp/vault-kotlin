@@ -12,7 +12,5 @@
 *.aab
 *.keystore
 *.jks
-# Release signing credentials and key location; never commit.
-/keystore.properties
 
 /code-review-checklist.md

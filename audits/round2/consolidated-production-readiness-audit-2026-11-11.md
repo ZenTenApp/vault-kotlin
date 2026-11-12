@@ -1806,3 +1806,63 @@ CONFIRMED status. A real two-device transfer on an OEM that honours D2D remains 
 to settle the platform-behaviour half. The four code-path defects (a)–(d) can be fixed and
 verified independently, and should not wait for that observation; the deterministic
 reproduction is to delete the Keystore entry and relaunch, per H-03's verification strategy.
+
+## Appendix E — Remediation status (2026-11-12)
+
+The findings text and Section 16's verdict above are the record at revision `01f3d2b` and are
+left unmodified. This appendix tracks what has since landed. **No finding is closed here:**
+closure needs the verification strategy named in its own section, which is a device or
+Console observation, not a code review.
+
+### E-06 — H-04 code half addressed; signing identity and custody remain open
+
+**What landed.** `app/build.gradle.kts` now declares a `release` signing config and attaches
+it to the `release` build type. Credentials are read from four environment variables —
+`VAULT_RELEASE_KEYSTORE`, `VAULT_RELEASE_STORE_PASSWORD`, `VAULT_RELEASE_KEY_ALIAS`,
+`VAULT_RELEASE_KEY_PASSWORD` — so no secret is stored in the repository. They are read via
+`providers.environmentVariable` rather than `System.getenv`, because this project enables the
+Gradle configuration cache and only `providers.*` values become cache inputs. A partial set
+fails the build with a `GradleException` naming the missing variables; none set falls back to
+the unsigned artifact so contributors without signing rights are not blocked; and
+`VAULT_RELEASE_REQUIRE_SIGNING=true` fails the build when credentials are absent, which is
+the CI setting.
+
+**Verified.** `./gradlew :app:assembleRelease` succeeds with the credentials exported and
+produces `app/build/outputs/apk/release/app-release.apk`; `apksigner verify -v` reports
+`Verifies` with APK Signature Scheme **v2** (v1/v3/v3.1/v4 all false), subject `CN=vault`,
+SHA-256 `ce2da0a44af29098d546c0c65fa5b3ff57a087e44f4af34a699dd171de04e77a`. A forced
+`--rerun-tasks` package (not a cached artifact) re-verified the same certificate. The
+partial-configuration and `REQUIRE_SIGNING` failure paths were exercised and both fail as
+intended.
+
+**Also landed for H-05.** `.github/workflows/release.yml` builds, signs, verifies
+(`apksigner` on the APK, `jarsigner -verify` on the bundle), checks 16 KB alignment, and
+uploads the `.aab`, `.apk` and `mapping.txt` on a `v*` tag. It is deliberately separate from
+`ci.yml` so signing secrets are never exposed to `pull_request` runs. H-05 itself remains
+open: the workflow has never executed, because its four repository secrets are unset.
+
+**Why this does not close H-04.** The finding's `done` condition — and Section 16's — is a
+distributable artifact, and three things still stand between the build and that:
+
+1. **The wired keystore is a development key, not an upload key.** `vault.jks` is
+   self-signed `CN=vault` and lives in the repository working tree. Structurally it satisfies
+   Play's cryptographic requirements (4096-bit RSA, SHA-256, `codeSigning` EKU —
+   self-signing is normal and required), but it is stored in legacy **JKS** format, whose
+   password protection is a single un-iterated SHA-1 pass, so a weak password is cheap to
+   brute-force. Its provenance is unrecorded, and uploading it would make a development
+   identity the permanent Play upload identity and, via `VAULT_ACCESS`, the KeyHive
+   provider's trust anchor (Section 11.1, "contingent on the signing identity being real").
+2. **Key custody, rotation, and compromise response are undocumented** — this was the
+   finding's third required item and no document exists.
+3. **No signed artifact has been uploaded to Play Console**, which is the finding's stated
+   acceptance test.
+
+**Also not addressed by this change.** Only the v2 scheme is produced. With `minSdk = 26`
+that is installable, but v3 carries signing-key rotation, and Play App Signing is the
+expected mechanism for it (Section 2.3). Decide rotation posture before the first upload.
+
+**Effect on dependencies.** H-05 still needs a *signed* artifact in CI; the local fallback to
+unsigned means CI must assert the signature explicitly rather than infer it from build
+success, which `release.yml` does. Section 16's verdict is unchanged — H-04 and H-05 remain
+blocking, and the "CONDITIONALLY READY" path still requires a documented, controlled
+sideload process in their place.
