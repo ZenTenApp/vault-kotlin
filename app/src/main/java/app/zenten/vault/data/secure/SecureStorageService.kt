@@ -47,20 +47,41 @@ class SecureStorageService(
     /**
      * Decrypted VaultKey record, used by the launch gate to know whether to ask for a passphrase.
      * Holds only the passphrase-encrypted key, never the passphrase itself.
+     *
+     * `null` here means "no usable VaultKey", which conflates a fresh install with an unreadable
+     * vault. Anything that needs to tell those apart must use [vaultKeyState], not this flow.
      */
     private val _vaultKey = MutableStateFlow(read(VAULT_KEY))
     val vaultKeyUpdates: StateFlow<Account?> = _vaultKey.asStateFlow()
 
+    /**
+     * VaultKey presence and readability, including the case a `null` record cannot express.
+     *
+     * This is the signal the launch gate needs before it can distinguish a fresh install from a
+     * vault that survived a device migration but lost its wrapping key. Observing it rather than
+     * reading once keeps a completed onboarding or recovery visible without a restart.
+     */
+    private val _vaultKeyState = MutableStateFlow(readState(VAULT_KEY))
+    val vaultKeyState: StateFlow<SecureRecordState<Account>> = _vaultKeyState.asStateFlow()
+
     fun addVaultKey(account: Account) {
         write(VAULT_KEY, account)
-        _vaultKey.value = account
+        publishVaultKey()
     }
 
     fun getVaultKey(): Account? = read(VAULT_KEY)
 
+    /**
+     * Reads the VaultKey together with the reason it is unavailable, when it is.
+     *
+     * Prefer this over [getVaultKey] anywhere the difference between "no vault" and "vault that
+     * cannot be opened" changes what the user is shown.
+     */
+    fun getVaultKeyState(): SecureRecordState<Account> = readState(VAULT_KEY)
+
     fun removeVaultKey() {
         preferences.edit { remove(VAULT_KEY) }
-        _vaultKey.value = null
+        publishVaultKey()
     }
 
     /**
@@ -90,6 +111,7 @@ class SecureStorageService(
     fun clearAll() {
         preferences.edit { clear() }
         publishAccounts()
+        publishVaultKey()
     }
 
     private fun write(key: String, account: Account) =
@@ -100,6 +122,37 @@ class SecureStorageService(
         ?.let { encoded -> runCatching { json.decodeFromString<Account>(encoded) }.getOrNull() }
 
     /**
+     * Reads a record while preserving *why* it is unavailable.
+     *
+     * The order of the checks carries the meaning. A missing preference is [Absent] regardless of
+     * the Keystore, because nothing was ever stored. Only once ciphertext is known to exist does a
+     * missing wrapping key become the explanation ([UnreadableReason.KeystoreKeyMissing]); with the
+     * key present, any remaining failure is attributed to the stored bytes
+     * ([UnreadableReason.PayloadInvalid]).
+     */
+    private fun readState(key: String): SecureRecordState<Account> {
+        val stored = preferences.getString(key, null) ?: return SecureRecordState.Absent
+
+        val decrypted = crypto.decrypt(stored)
+            ?: return SecureRecordState.Unreadable(
+                if (crypto.isKeyPresent()) UnreadableReason.PayloadInvalid
+                else UnreadableReason.KeystoreKeyMissing,
+            )
+
+        val account = runCatching { json.decodeFromString<Account>(decrypted) }.getOrNull()
+            ?: return SecureRecordState.Unreadable(UnreadableReason.PayloadInvalid)
+
+        return SecureRecordState.Readable(account)
+    }
+
+    /** Re-publishes both VaultKey projections so a `null` record and its state never disagree. */
+    private fun publishVaultKey() {
+        val state = readState(VAULT_KEY)
+        _vaultKeyState.value = state
+        _vaultKey.value = (state as? SecureRecordState.Readable)?.record
+    }
+
+    /**
      * Rebuilds the account list from the encrypted records themselves.
      *
      * The order is explicit rather than incidental: without a registry there is no stored
@@ -108,8 +161,8 @@ class SecureStorageService(
      *
      * A record that fails to decrypt, fails to parse, or whose authenticated `createdAt` disagrees
      * with its preference key is skipped rather than trusted. It is left on disk untouched so a
-     * later recovery path can still inspect it; distinguishing "corrupt" from "absent" for the
-     * user is tracked separately and is not attempted here.
+     * later recovery path can still inspect it; [readState] is what reports why a single named
+     * record is unreadable.
      */
     private fun readAccounts(): List<Account> = preferences.all.keys
         .mapNotNull(::accountIdFromKey)

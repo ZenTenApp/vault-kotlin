@@ -66,6 +66,18 @@ class KeystoreCryptoService {
         loadKey() ?: generateKey()
     }
 
+    /**
+     * Reports whether the wrapping key exists on this device, without creating one.
+     *
+     * Exposed so storage can tell "the ciphertext is unreadable because the key is gone" apart
+     * from "the ciphertext itself is bad". Those two states need different user-facing advice and
+     * different recovery paths, and a null from [decrypt] cannot distinguish them.
+     *
+     * This is a presence check only. It never returns key material and never reveals anything
+     * about the key beyond whether an entry exists at the alias.
+     */
+    fun isKeyPresent(): Boolean = runCatching { loadKey() != null }.getOrDefault(false)
+
     /** Reads the existing key without creating one, so a missing key never silently rotates. */
     private fun loadKey(): SecretKey? {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
