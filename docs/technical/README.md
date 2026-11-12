@@ -12,6 +12,7 @@ This area is for developers, security reviewers, and release engineers. It docum
 - [KeyHive associated-account provider](key-hive-provider.md)
 - [SSH key generation and recovery-seed derivation](ssh-key-seed-derivation.md)
 - [Brave Sync and litesync backup protocol](brave-sync-backup-protocol.md)
+- [Publishing to Google Play](play-store-release.md)
 
 ## Feature-level implementation references
 
