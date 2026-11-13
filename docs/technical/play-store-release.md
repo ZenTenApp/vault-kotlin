@@ -283,6 +283,21 @@ branch in the repository. Environment-scoped secrets plus `workflow_dispatch`
 (which requires write access) are the access controls; add required reviewers on
 the environment when more than one person can push to the repository.
 
+**Triggering it.** GitHub only offers `workflow_dispatch` for a workflow that exists
+on the **default branch**, so on a feature branch `gh workflow run release.yml` returns
+`HTTP 404: workflow release.yml not found on the default branch`. Until this workflow is
+merged to `main`, the only trigger is a tag push, which runs the copy of the workflow at
+that commit:
+
+```bash
+git tag v0.0.1-rc.1 && git push origin v0.0.1-rc.1
+gh run list --workflow=release.yml     # or: gh run watch
+```
+
+Note that a tag push signs unconditionally (the `require_signed` toggle is a
+`workflow_dispatch` input), and that GitHub matches the `v*` pattern against the tag
+name, so use `v`-prefixed tags for releases.
+
 ## Phase 6 — Produce the store listing assets
 
 Nothing here exists in the repository yet; Play requires all of it before review.
