@@ -1868,3 +1868,24 @@ unsigned means CI must assert the signature explicitly rather than infer it from
 success, which `release.yml` does. Section 16's verdict is unchanged — H-04 and H-05 remain
 blocking, and the "CONDITIONALLY READY" path still requires a documented, controlled
 sideload process in their place.
+
+### E-07 — H-05 closed by a successful tagged release run (2026-11-13)
+
+Supersedes the H-05 status recorded in E-06.
+
+Run `43408321424` (tag `v0.0.1-rc.1`, 2026-11-13, 10m43s) passed every gate: unit
+tests, `lintRelease`, `bundleRelease` + `assembleRelease` under
+`VAULT_RELEASE_REQUIRE_SIGNING=true`, `apksigner verify` on the APK (one signer, v2
+scheme, certificate matching the development keystore), `jarsigner -verify` on the
+AAB, `zipalign -c -P 16` ("Verification successful"), and both artifact uploads.
+
+The first attempt (run `43404953965`) failed at the unit-test step: it exported
+`VAULT_RELEASE_KEYSTORE` through `$GITHUB_ENV`, which is visible to every later step,
+while the store password, alias and key password were scoped to the build step alone,
+so the test step hit the partial-configuration `GradleException`. Fixed by declaring
+all four variables on the same step.
+
+H-04 is unaffected: the verified artifact is signed by the development keystore, and
+the upload-key, custody and Play Console items in E-06 still stand. Only the v2 scheme
+is produced; `minSdk = 26` makes that installable, but there is no v3 rotation
+lineage (Section 2.3).

@@ -42,7 +42,7 @@ have to replace is worse than waiting. Track these against
 | 2 | **H-02** configuration change forces re-authentication | Addressed in `c51a8b7` | Rotate the device mid-flow and confirm the session survives; confirm process death still relocks. |
 | 3 | **H-03** D2D transfer / undecryptable-vault dead end | **Addressed in code, pending device verification** | `dataExtractionRules` excludes every domain from both cloud backup and D2D transfer, plus `fullBackupContent="false"` for ≤ API 30; `SecureRecordState` + the `unreadableRecords` scan tell "ciphertext present but unreadable" apart from "absent", and separate a missing wrapping key from a damaged payload and from a Keystore the device could not read; the launch gate routes that state to `StrandedVaultScreen`, and `StrandedVaultResetService` gives the `pendingLocalBackupAccountIds` lock an exit. Verify on an API 31+ emulator over the OEM matrix recorded in the audit errata. |
 | 4 | **H-04** unsigned release artifact | **Code addressed; not closed** | `signingConfigs.release` is wired from `VAULT_RELEASE_*` environment variables and `apksigner verify` passes on `app-release.apk`. Still open until (a) the configured keystore is the real upload key — the current `vault.jks` is a self-signed `CN=vault` development keystore — (b) key custody/rotation/compromise-response is documented, and (c) a signed build is uploaded to Play Console. See Phase 2. |
-| 5 | **H-05** release variant never built in CI | **Workflow added; never run** | `.github/workflows/release.yml` builds, signs, verifies and uploads the release artifact on a `v*` tag, and fails when the bundle is unsigned. Closure needs one successful tagged run (its four secrets are configured on the `release` environment). See Phase 5. |
+| 5 | **H-05** release variant never built in CI | **Addressed; verified 2026-11-13** | `.github/workflows/release.yml` builds, signs, verifies and uploads the release artifact on a `v*` tag, and fails when the bundle is unsigned. `workflow_dispatch` becomes available once the workflow is on `main`. See Phase 5. |
 | 6 | **M-06** no delete / reset path | **Open** | Play's account-deletion requirement is only enforceable if a deletion path exists. Resolve or get a documented legal decision that the requirement does not apply (Vault has no server-side account). |
 | 7 | **M-01** workers report success when every source failed | **Open** | Backup status shown to users is truthful; a users' first backup failure is not hidden. |
 | 8 | Independent security assessment | **Open** | Required by release gate 1. Key management software should not reach public distribution without it. |
@@ -243,8 +243,8 @@ without it, Play cannot deobfuscate R8 stack traces.
 
 ## Phase 5 — Make CI produce and protect the release artifact
 
-`H-05`. **Partially addressed:** `.github/workflows/release.yml` runs on a `v*` tag
-or manual dispatch and performs:
+`H-05`. **Addressed; verified 2026-11-13.** `.github/workflows/release.yml` runs on a
+`v*` tag or manual dispatch and performs:
 
 1. `./gradlew :app:testDebugUnitTest` and `./gradlew :app:lintRelease` — release
    lint was previously absent, so R8/shrinker regressions passed CI.
@@ -259,8 +259,11 @@ or manual dispatch and performs:
 5. The `.aab`, `.apk`, and `mapping.txt` uploaded as workflow artifacts, with the
    mapping retained separately for 90 days.
 
-Still open for H-05 closure: the workflow has not been executed yet — no tagged run
-exists. Its four secrets are configured on a **`release` GitHub Environment**, not at
+**Verified:** a tagged run on 2026-11-13 passed every gate (see Appendix E-07 of the
+consolidated audit for the run ID and results). Signing still uses the development
+keystore, so H-04 remains open.
+
+Its four secrets are configured on a **`release` GitHub Environment**, not at
 repository level, and the job declares `environment: release` so the secrets are only
 injected into a run that targets it. Any protection rules on that environment
 (required reviewers, deployment branches) therefore gate signing before the secrets
@@ -425,8 +428,7 @@ upload. They are listed here so the runbook stays honest:
   verifies `app-release.apk` (v2 scheme, `CN=vault`). H-04 stays open only for the
   upload-key, custody/rotation, and Play-Console-upload items in Phase 1.
 - ~~`.github/workflows/ci.yml` never builds, signs, or lints the release variant~~
-  **Workflow added** (`release.yml`), not yet executed — H-05 needs its secrets
-  configured and one successful tagged run.
+  **Addressed.** `release.yml` does all three; see Phase 5.
 - No key custody, rotation, or compromise-response document exists; this is
   required for H-04 closure and, because the signing identity is the KeyHive
   provider's trust anchor, is a security control rather than release hygiene.
