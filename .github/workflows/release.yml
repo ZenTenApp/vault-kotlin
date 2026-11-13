@@ -79,6 +79,12 @@ jobs:
       # Restores the repository's own upload keystore from its configured secret so
       # Gradle can sign. Written to $RUNNER_TEMP, outside the checkout, so no later
       # step can package or upload it. This is standard Actions secret handling.
+      #
+      # Only the file is produced here. The path is NOT exported through $GITHUB_ENV:
+      # that would make it visible to every later step, so steps that do not also get
+      # the password secrets would see a partially configured signing setup and hit
+      # the intentional GradleException guard in app/build.gradle.kts. The build step
+      # sets all four VAULT_RELEASE_* variables together instead.
       - name: Restore upload keystore
         if: ${{ steps.sign.outputs.enabled == 'true' }}
         env:
@@ -91,7 +97,6 @@ jobs:
           umask 077
           mkdir -p "$RUNNER_TEMP/keys"
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keys/release.jks"
-          echo "VAULT_RELEASE_KEYSTORE=$RUNNER_TEMP/keys/release.jks" >> "$GITHUB_ENV"
 
       - name: Run host-side unit tests
         run: ./gradlew :app:testDebugUnitTest --console=plain
@@ -102,6 +107,9 @@ jobs:
       - name: Build signed release bundle and APK
         if: ${{ steps.sign.outputs.enabled == 'true' }}
         env:
+          # All four signing inputs are declared here together. Gradle treats a partial
+          # set as a hard error, so none of them may leak into steps that lack the rest.
+          VAULT_RELEASE_KEYSTORE: ${{ runner.temp }}/keys/release.jks
           VAULT_RELEASE_STORE_PASSWORD: ${{ secrets.VAULT_RELEASE_STORE_PASSWORD }}
           VAULT_RELEASE_KEY_ALIAS: ${{ secrets.VAULT_RELEASE_KEY_ALIAS }}
           VAULT_RELEASE_KEY_PASSWORD: ${{ secrets.VAULT_RELEASE_KEY_PASSWORD }}
