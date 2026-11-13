@@ -33,12 +33,24 @@ jobs:
       # `inputs.require_signed` is undefined on a tag push, where a release tag must
       # still sign. Compute the flag explicitly rather than relying on undefined-input
       # coercion, which silently turns "not false" into false.
+      #
+      # The values reach the script through `env:` and are read as shell variables, not
+      # interpolated into the `run:` body. `${{ }}` inside a shell command performs
+      # textual substitution before the shell parses it, so any interpolation there is
+      # a script-injection sink (Semgrep rule yaml.github-actions.security.
+      # run-shell-injection). Here the inputs are workflow-controlled, but the pattern
+      # is fixed rather than special-cased so a later user-provided context cannot slip
+      # in. `EVENT_NAME` is read via env because there is no boolean-context equivalent
+      # for the event name; the comparison is a literal `=` against an unquoted-safe var.
       - name: Decide whether to sign
         id: sign
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUIRE_SIGNED: ${{ inputs.require_signed }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
-          elif [ "${{ inputs.require_signed }}" = "true" ]; then
+          elif [ "$REQUIRE_SIGNED" = "true" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
