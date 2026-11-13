@@ -38,6 +38,7 @@ import app.zenten.vault.ui.auth.AppLockedScreen
 import app.zenten.vault.ui.auth.AppUnlockState
 import app.zenten.vault.ui.auth.AppUnlockViewModel
 import app.zenten.vault.ui.auth.DeviceLockRequiredScreen
+import app.zenten.vault.ui.auth.StrandedVaultScreen
 import app.zenten.vault.ui.auth.VAULT_AUTHENTICATORS
 import app.zenten.vault.ui.auth.VaultPassphraseScreen
 import app.zenten.vault.ui.auth.VaultUnlockGateState
@@ -149,6 +150,11 @@ private fun VaultApp(unlockViewModel: AppUnlockViewModel) {
                     VaultUnlockGateState.Loading -> AppLockedScreen(isAuthenticating = true, onUnlock = {})
                     VaultUnlockGateState.Onboarding,
                     VaultUnlockGateState.Unlocked -> AvailableVaultApp()
+                    // Records exist but cannot be opened on this device. Routing this to onboarding
+                    // would show an empty vault, which reads as data loss with no explanation.
+                    is VaultUnlockGateState.VaultUnreadable -> StrandedVaultScreen(
+                        viewModel = hiltViewModel(),
+                    )
                     is VaultUnlockGateState.PassphraseRequired -> VaultPassphraseScreen(
                         isVerifying = gate.verifying,
                         hasError = gate.error,

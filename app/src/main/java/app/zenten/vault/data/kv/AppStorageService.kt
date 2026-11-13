@@ -114,6 +114,51 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         it[IMPORTED_VAULT_KEY_SETUP_PENDING] = true
     }
 
+    /**
+     * Clears every piece of durable state that would otherwise steer the launch router away from
+     * onboarding after a stranded vault has been set aside.
+     *
+     * The pending local-backup markers must go too. They are persisted separately from the records
+     * they refer to, so a device migration can leave a marker pointing at an account whose
+     * ciphertext no longer decrypts; the mandatory export screen then has no account to export and
+     * no way back, because its only release path needs a decrypted account. Clearing them here is
+     * what gives that screen an exit rather than adding a second escape hatch inside it.
+     *
+     * Setup-completion and quorum flags are cleared for the reason recorded on
+     * [clearSetupComplete]: the rebuilt vault must not inherit a backup claim it never earned.
+     * A wizard step marker is cleared because the wizard's own state refers to a vault that no
+     * longer exists on this device, so resuming mid-wizard would ask the user to confirm a backup
+     * of something they cannot reach.
+     *
+     * The Secret Combinations review marker is cleared because the launch router checks it *before*
+     * setup completion, so leaving it set would reopen the review flow ahead of onboarding even
+     * though there is no readable VaultKey left to review. That flow would land on its
+     * "combinations unavailable" exit rather than the recovery path this reset exists to expose.
+     *
+     * The Confirm Backup paste guard is cleared because it is keyed to a completing wizard that no
+     * longer exists here; a carried-over counter would show a countdown for pastes this device
+     * never made, and could block a genuine export in the new vault.
+     *
+     * Custom backup sources, per-source statuses, the consolidation checkpoint, and the
+     * consolidation timestamps are deliberately kept. They are device-local *configuration and
+     * history*, not claims about the vault, they contain no secrets, and they remain valid after
+     * recovery. Dropping the timestamps would in particular force an unnecessary full re-check of
+     * every source on the next unlock.
+     */
+    suspend fun clearStateForStrandedVaultReset() {
+        dataStore.edit {
+            it.remove(SETUP_COMPLETE)
+            it.remove(VAULT_KEY_QUORUM_REACHED)
+            it.remove(IMPORTED_VAULT_KEY_SETUP_PENDING)
+            it.remove(CREATE_VAULT_KEY_STEP)
+            it.remove(SECRET_COMBINATIONS_VIEW_STEP)
+            it.remove(VAULT_KEY_PASTE_ATTEMPTS)
+            it.remove(VAULT_KEY_PASTE_BLOCKED_UNTIL)
+            it.remove(PENDING_LOCAL_BACKUP_ACCOUNT_IDS)
+            it.remove(LOCALLY_BACKED_UP_ACCOUNT_IDS)
+        }
+    }
+
     /** Records the remote-backup quorum outcome of the latest Vault Key backup attempt. */
     suspend fun setVaultKeyQuorumReached(reached: Boolean) = dataStore.edit {
         it[VAULT_KEY_QUORUM_REACHED] = reached

@@ -1,3 +1,5 @@
+import org.gradle.api.GradleException
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +8,49 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+// Release signing credentials come from environment variables, so no secret is ever
+// written into the repository. CI injects them from repository secrets; a local
+// release build exports them in the shell that runs Gradle.
+//
+// These are read through `providers.environmentVariable` rather than `System.getenv`
+// because this project enables the Gradle configuration cache. Only `providers.*`
+// values are tracked as configuration-cache inputs, so `System.getenv` would let a
+// cached configuration silently reuse credentials the shell no longer has set.
+fun releaseEnv(name: String) = providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = releaseEnv("VAULT_RELEASE_KEYSTORE")
+val releaseStorePassword = releaseEnv("VAULT_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = releaseEnv("VAULT_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = releaseEnv("VAULT_RELEASE_KEY_PASSWORD")
+
+val releaseSigningValues = listOf(
+    "VAULT_RELEASE_KEYSTORE" to releaseStoreFile,
+    "VAULT_RELEASE_STORE_PASSWORD" to releaseStorePassword,
+    "VAULT_RELEASE_KEY_ALIAS" to releaseKeyAlias,
+    "VAULT_RELEASE_KEY_PASSWORD" to releaseKeyPassword,
+)
+val missingReleaseSigning = releaseSigningValues.filter { it.second == null }.map { it.first }
+// Honoured by CI: a release pipeline must fail rather than quietly emit an unsigned
+// artifact when the secrets are missing or misnamed.
+val requireReleaseSigning = releaseEnv("VAULT_RELEASE_REQUIRE_SIGNING") == "true"
+
+// A partial set is always a configuration mistake (three of four variables exported,
+// or a renamed secret), so fail loudly instead of silently building unsigned.
+if (missingReleaseSigning.isNotEmpty() && missingReleaseSigning.size < releaseSigningValues.size) {
+    throw GradleException(
+        "Release signing is partially configured. Missing: ${missingReleaseSigning.joinToString()}. " +
+            "Set all of ${releaseSigningValues.map { it.first }.joinToString()} or none.",
+    )
+}
+if (requireReleaseSigning && missingReleaseSigning.size == releaseSigningValues.size) {
+    throw GradleException(
+        "VAULT_RELEASE_REQUIRE_SIGNING=true but no release signing credentials are set. " +
+            "Set ${releaseSigningValues.map { it.first }.joinToString()}.",
+    )
+}
+
+val hasReleaseSigning = missingReleaseSigning.isEmpty()
 
 android {
     namespace = "app.zenten.vault"
@@ -16,9 +61,24 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.1-dev.1"
+        versionName = "0.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Declared only when all four environment variables are set, so `assembleRelease`
+    // never attempts to sign with absent credentials.
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                // Resolved against the repository root so a relative path in CI is
+                // predictable; an absolute path (the normal case) is used as-is.
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -28,6 +88,8 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            // Without signing material the release variant stays unsigned (see above).
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

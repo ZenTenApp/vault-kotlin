@@ -295,6 +295,29 @@
     <string name="create_vault_key_setup_blocked_body">Your Secret Combinations are verified, but Vault could not confirm a backup of your VaultKey on at least one relay and one Brave Sync server. Setup stays incomplete until that backup succeeds.</string>
     <string name="create_vault_key_setup_blocked_retry">Retry VaultKey backup</string>
 
+    <!--
+        Stranded-vault recovery.
+
+        Reached only as a fallback: app data is normally never copied to another device at all
+        (res/xml/data_extraction_rules.xml excludes every domain), so the expected new-device state
+        is an empty install followed by Recover VaultKey. This screen covers what an exclusion
+        cannot guarantee — an OEM transfer that ignores the rules, a partial transfer, or damaged
+        records — where ciphertext is present and unopenable because the Keystore key that wrapped
+        it stayed on the original device.
+
+        The copy is written to be honest in both directions: the stored bytes are retained, and no
+        passphrase will open them here. It must never imply the app can restore or reuse them.
+    -->
+    <string name="stranded_vault_title">Vault needs recovery</string>
+    <string name="stranded_vault_body">This device has encrypted Vault records that it cannot open. The key that protects them stays behind on the original device and cannot be moved, so no passphrase will decrypt them here.</string>
+    <string name="stranded_vault_body_payload_invalid">This device has encrypted Vault records that it cannot open. The key that protects them is still on this device, but the stored records are damaged or were written by an incompatible version of Vault, so no passphrase will decrypt them here.</string>
+    <string name="stranded_vault_body_keystore_unavailable">This device has encrypted Vault records, and Vault could not access its own key store to check whether they can be opened. This is usually temporary. Nothing has been changed, and your records may still be readable.</string>
+    <string name="stranded_vault_body_records_kept">Nothing has been deleted. The unreadable records are kept on this device, but they cannot be opened here.</string>
+    <string name="stranded_vault_body_recover">If you kept your VaultKey backup and your Secret Combinations, you can recover your VaultKey and restore your accounts from backup.</string>
+    <string name="stranded_vault_action_records_kept_continue">Continue to recovery</string>
+    <string name="stranded_vault_action_check_again">Check again</string>
+    <string name="stranded_vault_action_failed">Vault could not clear this vault for recovery. Try again.</string>
+
     <!-- Settings Secret Combinations review flow -->
     <string name="secret_combinations_verify_title">Secret Combinations</string>
     <string name="secret_combinations_verify_body">Re-enter the passphrase that protects your VaultKey before its Secret Combinations are shown.</string>

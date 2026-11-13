@@ -22,7 +22,7 @@ app/build/outputs/apk/debug/app-debug.apk
 ## Release build status
 
 ```bash
-# Compile and minify an unsigned release APK
+# Compile and minify the release APK (signed when VAULT_RELEASE_* are set)
 ./gradlew :app:assembleRelease
 
 # Run release lint (includes R8/resource-shrinker checks)
@@ -31,27 +31,73 @@ app/build/outputs/apk/debug/app-debug.apk
 
 The release variant is minified by R8 and has resource shrinking enabled
 (`app/build.gradle.kts`). It compiles, minifies, and passes `lintRelease`, and the
-unsigned artifact is produced at:
+artifact is produced at:
 
 ```text
-app/build/outputs/apk/release/app-release-unsigned.apk
+app/build/outputs/apk/release/app-release.apk        # signing configured
+app/build/outputs/apk/release/app-release-unsigned.apk  # no signing material
 ```
 
-**This artifact is not shippable yet.** Two gaps remain:
+**This artifact is not shippable yet** because:
 
-- **No release signing configuration.** `app/build.gradle.kts` defines no
-  `signingConfigs`, so the APK is unsigned. A signing config fed from CI secrets,
-  documented key custody/rotation, and an incident plan for a compromised signing
-  key are still needed before any Play Store submission.
 - **The minified build has not been smoke-tested on a device or emulator.** R8
   keep rules for interfaces and libraries reached only by reflection (Quartz
   serialization, Hilt, JNI bindings) are verified by compilation, not by runtime
   behavior. Any release-track claim of correctness rests on the debug build until
   an on-device pass of the minified APK is recorded.
+- **The wired keystore is a development key.** `vault.jks` is self-signed `CN=vault`
+  and lives in the working tree, and it is stored in legacy JKS format whose password
+  protection is a single un-iterated SHA-1 pass. It is fine for sideload and
+  smoke-test builds; it must not become the Play upload identity. See
+  [Publishing to Google Play](play-store-release.md#21-generate-the-upload-keystore-once-ever).
+- **Signing material is local only.** The signing configuration reads credentials
+  from `VAULT_RELEASE_*` environment variables (see below); CI secrets, documented key
+  custody/rotation, and an incident plan for a compromised signing key are still
+  needed before any Play Store submission.
 
 The R8 keep/dontwarn rules that make the current release build succeed are in
 `app/proguard-rules.pro`; the comments there explain why each suppressed
 reference is optional.
+
+## Release signing
+
+`app/build.gradle.kts` reads release signing credentials from four environment
+variables. Nothing secret is read from, or written to, the repository:
+
+| Variable | Meaning |
+| --- | --- |
+| `VAULT_RELEASE_KEYSTORE` | Path to the keystore file (absolute, or relative to the repository root) |
+| `VAULT_RELEASE_STORE_PASSWORD` | Keystore password |
+| `VAULT_RELEASE_KEY_ALIAS` | Key alias inside the keystore |
+| `VAULT_RELEASE_KEY_PASSWORD` | Key password |
+| `VAULT_RELEASE_REQUIRE_SIGNING` | Optional; `true` fails the build when credentials are absent |
+
+Behaviour by state:
+
+- **All four set** — the `release` signing config is created and the variant is signed.
+- **None set** — the release variant configures and builds, but produces
+  `app-release-unsigned.apk`. A contributor without signing rights is not blocked.
+- **Some set** — the build fails with a `GradleException` naming the missing
+  variables. A partial set is always a mistake (a renamed CI secret, or three of
+  four exported), and silently building unsigned would hide it.
+- **`VAULT_RELEASE_REQUIRE_SIGNING=true` with none set** — the build fails. This is
+  the CI setting: a release pipeline must never emit an unsigned artifact.
+
+**A successful `assembleRelease` therefore does not prove the artifact is signed.**
+Verify explicitly before distributing, and make CI assert the signature rather than
+infer it from the build result:
+
+```bash
+apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+```
+
+A signed APK is produced at `app/build/outputs/apk/release/app-release.apk` and
+carries the v2 signature scheme only.
+
+Local builds export the variables in the shell that runs Gradle. Do not commit them,
+and do not write them into `gradle.properties` (tracked) or `local.properties` (not a
+secrets store). CI supplies them from GitHub Environment secrets — see
+[Publishing to Google Play](play-store-release.md#phase-5--make-ci-produce-and-protect-the-release-artifact).
 
 ## Versioning shared APKs
 
@@ -77,12 +123,12 @@ The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests 
 
 Android lint errors fail the build, so a change that introduces a new lint error cannot pass CI. Instrumented tests (`:app:connectedDebugAndroidTest`) are not run in CI because they require an emulator or connected device.
 
-**CI does not build the release variant.** `:app:assembleRelease` and
-`:app:lintRelease` are not workflow steps, so an R8, shrinking, or proguard rule
-regression passes CI even though it breaks the release artifact. Run both
-locally before a change that touches dependencies, crypto/JNI code, reflection,
-or `app/proguard-rules.pro`. Adding them as required CI steps is tracked as
-release-process work, not yet implemented.
+**CI does not build the release variant in `ci.yml`.** `:app:assembleRelease` and
+`:app:lintRelease` are not workflow steps there, so an R8, shrinking, or proguard
+rule regression passes `ci.yml` even though it breaks the release artifact. A
+dedicated `.github/workflows/release.yml` covers this on a `v*` tag, but it requires
+signing secrets and has not been executed yet. Run both locally before a change that
+touches dependencies, crypto/JNI code, reflection, or `app/proguard-rules.pro`.
 
 Branch protection for `main` (required pull-request review, required status checks, and disabled force pushes) is not enabled yet. Until it is, the workflow provides signal but does not block direct pushes to `main`.
 

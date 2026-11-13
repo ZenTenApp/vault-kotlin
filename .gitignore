@@ -11,5 +11,6 @@
 *.apk
 *.aab
 *.keystore
+*.jks
 
 /code-review-checklist.md

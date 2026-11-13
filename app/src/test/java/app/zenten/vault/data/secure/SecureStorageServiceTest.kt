@@ -2,6 +2,7 @@ package app.zenten.vault.data.secure
 
 import android.app.Application
 import android.content.Context
+import app.zenten.vault.crypto.KeyPresence
 import app.zenten.vault.crypto.KeystoreCryptoService
 import app.zenten.vault.data.model.Account
 import io.mockk.every
@@ -51,6 +52,9 @@ class SecureStorageServiceTest {
             if (!value.startsWith("enc:")) null
             else String(Base64.getDecoder().decode(value.removePrefix("enc:")))
         }
+        // Stands in for the wrap key being healthy: these tests are about the record store, and
+        // the real Keystore is unavailable to host-side tests.
+        every { keyPresence() } returns KeyPresence.Present
     }
 
     @Test
@@ -169,6 +173,307 @@ class SecureStorageServiceTest {
             .commit()
 
         assertEquals(listOf(10L), storage.getAccounts().map(Account::createdAt))
+    }
+
+    @Test
+    fun absent_vault_key_reports_absent_not_unreadable() {
+        assertEquals(SecureRecordState.Absent, newStorage().getVaultKeyState())
+    }
+
+    @Test
+    fun healthy_vault_key_reports_readable() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+
+        val state = newStorage().getVaultKeyState()
+        assertEquals("vault", (state as SecureRecordState.Readable).record.zenTenKey)
+    }
+
+    /**
+     * The device-transfer case this contract exists for: ciphertext is present and intact, but the
+     * Android Keystore key that wraps it is gone, so it can never be decrypted on this device.
+     *
+     * Misreporting this as [SecureRecordState.Absent] is what strands a migrated user in an empty
+     * vault, so the assertion here is deliberately about the *reason*, not just the failure.
+     */
+    @Test
+    fun ciphertext_without_its_keystore_key_reports_keystore_key_missing() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+
+        // Simulate the migration: the stored bytes survive, the wrapping key does not.
+        val keyless = mockk<KeystoreCryptoService> {
+            every { encrypt(any()) } answers { crypto.encrypt(firstArg()) }
+            every { decrypt(any()) } returns null
+            every { keyPresence() } returns KeyPresence.Missing
+        }
+
+        assertEquals(
+            SecureRecordState.Unreadable(UnreadableReason.KeystoreKeyMissing),
+            SecureStorageService(context, keyless).getVaultKeyState(),
+        )
+    }
+
+    /**
+     * A payload that fails with the key still present is a different problem: the device can still
+     * read anything else it stored, so the fix is to rewrite or export from a backup, not to
+     * migrate the vault. It must not be reported as a missing key.
+     */
+    @Test
+    fun corrupt_payload_with_key_present_reports_payload_invalid() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+
+        assertEquals(
+            SecureRecordState.Unreadable(UnreadableReason.PayloadInvalid),
+            newStorage().getVaultKeyState(),
+        )
+    }
+
+    @Test
+    fun undecryptable_vault_key_still_reports_null_record_for_existing_callers() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+
+        assertNull(newStorage().getVaultKey())
+    }
+
+    /**
+     * A stranded vault must survive the app doing ordinary work: reading state must never delete
+     * or rewrite the ciphertext, because that copy may be the only local one the user has.
+     */
+    @Test
+    fun reading_an_unreadable_vault_key_never_deletes_the_ciphertext() {
+        val stored = "not-a-valid-payload"
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", stored)
+            .commit()
+
+        repeat(3) { newStorage().getVaultKeyState() }
+
+        assertEquals(
+            stored,
+            context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+                .getString("vault_key", null),
+        )
+    }
+
+    // --- Quarantine ------------------------------------------------------------------------
+
+    /**
+     * The core promise of the stranded-vault reset: the vault stops being served, and the
+     * ciphertext is still on the device afterwards.
+     *
+     * Deleting it would be unrecoverable, and it may be the only local copy of a key whose owning
+     * device is gone. The assertion checks both halves — absent to the app, present on disk —
+     * because either one alone would pass while the feature was wrong.
+     */
+    @Test
+    fun quarantining_moves_the_unreadable_vault_aside_without_deleting_it() {
+        val stored = "not-a-valid-payload"
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", stored)
+            .commit()
+        val storage = newStorage()
+
+        assertEquals(1, storage.quarantineUnreadableRecords())
+
+        assertEquals(SecureRecordState.Absent, newStorage().getVaultKeyState())
+        assertEquals(
+            stored,
+            context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+                .getString("quarantined_vault_key", null),
+        )
+    }
+
+    @Test
+    fun quarantining_leaves_readable_records_in_service() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+        storage.addAccount(account(10))
+
+        assertEquals(0, storage.quarantineUnreadableRecords())
+
+        assertEquals("vault", newStorage().getVaultKey()?.zenTenKey)
+        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+    }
+
+    @Test
+    fun quarantining_takes_only_the_unreadable_records() {
+        val storage = newStorage()
+        storage.addAccount(account(10))
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("accounts_20", "not-a-valid-payload")
+            .commit()
+
+        assertEquals(1, newStorage().quarantineUnreadableRecords())
+
+        // The healthy record is untouched; the broken one is no longer enumerated as live.
+        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+        assertEquals(
+            "not-a-valid-payload",
+            context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+                .getString("quarantined_accounts_20", null),
+        )
+    }
+
+    /**
+     * A quarantined record must never be enumerated as an account. `accounts_` parsing rejects a
+     * non-numeric suffix and the quarantine prefix differs anyway; this pins both.
+     */
+    @Test
+    fun quarantined_records_are_never_listed_as_accounts() {
+        val storage = newStorage()
+        storage.addAccount(account(10))
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("quarantined_accounts_30", crypto.encrypt(Json.encodeToString(account(30))))
+            .commit()
+
+        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+    }
+
+    @Test
+    fun quarantining_reports_that_records_are_held() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+        val storage = newStorage()
+
+        assertEquals(false, storage.hasQuarantinedRecords())
+        storage.quarantineUnreadableRecords()
+        assertEquals(true, newStorage().hasQuarantinedRecords())
+    }
+
+    /**
+     * Quarantine is one generation, not an ever-growing archive.
+     *
+     * The contract says a previous reset's parked records are dropped when a new one runs. Without
+     * that, every reset would leave another copy behind, and the "retained copy" would become an
+     * unbounded pile of ciphertext nothing can ever read.
+     */
+    @Test
+    fun a_second_quarantine_replaces_the_previous_generation() {
+        val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+        preferences.edit().putString("vault_key", "first-generation").apply {
+            putString("quarantined_accounts_99", "stale-generation")
+        }.commit()
+
+        assertEquals(1, newStorage().quarantineUnreadableRecords())
+
+        // The fresh copy is parked; the previous generation is gone rather than accumulating.
+        assertEquals(
+            "first-generation",
+            preferences.getString("quarantined_vault_key", null),
+        )
+        assertNull(preferences.getString("quarantined_accounts_99", null))
+    }
+
+    /**
+     * A Keystore that cannot be queried must not license setting the records aside.
+     *
+     * `UnreadableReason.KeystoreUnavailable` means "the device could not check". Parking the
+     * records then could strand a vault that is perfectly readable on the next launch, so the
+     * operation refuses and reports that it moved nothing.
+     */
+    @Test
+    fun quarantining_refuses_when_the_keystore_could_not_be_queried() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+        val unqueryable = mockk<KeystoreCryptoService> {
+            every { encrypt(any()) } answers { crypto.encrypt(firstArg()) }
+            every { decrypt(any()) } returns null
+            every { keyPresence() } returns KeyPresence.Unavailable
+        }
+
+        assertEquals(0, SecureStorageService(context, unqueryable).quarantineUnreadableRecords())
+
+        // The record is still live and still reported as unreadable, so the user can retry.
+        assertEquals(
+            SecureRecordState.Unreadable(UnreadableReason.KeystoreUnavailable),
+            SecureStorageService(context, unqueryable).getVaultKeyState(),
+        )
+    }
+
+    // --- Unreadable-record detection -------------------------------------------------------
+
+    @Test
+    fun a_healthy_store_has_no_unreadable_records() {
+        val storage = newStorage()
+
+        assertEquals(false, storage.hasUnreadableRecords())
+
+        storage.addVaultKey(account(1, key = "vault"))
+        storage.addAccount(account(10))
+
+        assertEquals(false, newStorage().hasUnreadableRecords())
+    }
+
+    @Test
+    fun an_unreadable_vault_key_is_reported_as_an_unreadable_record() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+
+        assertEquals(true, newStorage().hasUnreadableRecords())
+    }
+
+    /**
+     * The partial-transfer case: account ciphertext arrives, the VaultKey record does not.
+     *
+     * Without this, the gate sees an absent VaultKey, reports a fresh install, and onboarding
+     * silently orphans the records that are still on disk.
+     */
+    @Test
+    fun unreadable_account_records_are_detected_without_a_vault_key() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("accounts_20", "not-a-valid-payload")
+            .commit()
+        val storage = newStorage()
+
+        assertEquals(SecureRecordState.Absent, storage.getVaultKeyState())
+        assertEquals(true, storage.hasUnreadableRecords())
+    }
+
+    /**
+     * Set-aside records must stop counting, or the launch gate would keep sending the user back to
+     * the recovery screen after they cleared it.
+     */
+    @Test
+    fun quarantined_records_no_longer_count_as_unreadable() {
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("vault_key", "not-a-valid-payload")
+            .commit()
+        val storage = newStorage()
+
+        storage.quarantineUnreadableRecords()
+
+        assertEquals(false, newStorage().hasUnreadableRecords())
+    }
+
+    @Test
+    fun clear_all_returns_the_vault_key_to_absent() {
+        val storage = newStorage()
+        storage.addVaultKey(account(1, key = "vault"))
+        storage.addAccount(account(10))
+
+        storage.clearAll()
+
+        assertEquals(SecureRecordState.Absent, newStorage().getVaultKeyState())
+        assertEquals(emptyList<Long>(), newStorage().getAccounts().map(Account::createdAt))
     }
 
     private fun account(id: Long, key: String = "private-key-$id") = Account(
