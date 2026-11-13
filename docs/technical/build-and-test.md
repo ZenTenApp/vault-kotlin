@@ -50,10 +50,11 @@ app/build/outputs/apk/release/app-release-unsigned.apk  # no signing material
   protection is a single un-iterated SHA-1 pass. It is fine for sideload and
   smoke-test builds; it must not become the Play upload identity. See
   [Publishing to Google Play](play-store-release.md#21-generate-the-upload-keystore-once-ever).
-- **Signing material is local only.** The signing configuration reads credentials
-  from `VAULT_RELEASE_*` environment variables (see below); CI secrets, documented key
-  custody/rotation, and an incident plan for a compromised signing key are still
-  needed before any Play Store submission.
+- **Signing material is not yet under custody.** The signing configuration reads
+  credentials from `VAULT_RELEASE_*` environment variables (see below) and
+  `.github/workflows/release.yml` supplies them from `release` environment secrets, but
+  documented key custody/rotation and an incident plan for a compromised signing key
+  are still needed before any Play Store submission.
 
 The R8 keep/dontwarn rules that make the current release build succeed are in
 `app/proguard-rules.pro`; the comments there explain why each suppressed
@@ -126,9 +127,14 @@ Android lint errors fail the build, so a change that introduces a new lint error
 **CI does not build the release variant in `ci.yml`.** `:app:assembleRelease` and
 `:app:lintRelease` are not workflow steps there, so an R8, shrinking, or proguard
 rule regression passes `ci.yml` even though it breaks the release artifact. A
-dedicated `.github/workflows/release.yml` covers this on a `v*` tag, but it requires
-signing secrets and has not been executed yet. Run both locally before a change that
-touches dependencies, crypto/JNI code, reflection, or `app/proguard-rules.pro`.
+dedicated `.github/workflows/release.yml` covers this on a `v*` tag. Run both locally
+before a change that touches dependencies, crypto/JNI code, reflection, or
+`app/proguard-rules.pro`.
+
+R8 (bundled with AGP 8.11.2) logs `An error occurred when parsing kotlin metadata`
+because the project uses Kotlin 2.2.21, newer than that R8 release supports. It still
+produces a working artifact, but it cannot use Kotlin metadata for its shrinking
+decisions, which is one more reason the minified build needs the on-device pass above.
 
 Branch protection for `main` (required pull-request review, required status checks, and disabled force pushes) is not enabled yet. Until it is, the workflow provides signal but does not block direct pushes to `main`.
 
