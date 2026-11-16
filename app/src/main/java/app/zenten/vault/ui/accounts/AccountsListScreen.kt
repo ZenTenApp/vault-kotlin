@@ -74,7 +74,7 @@ fun AccountsListScreen(navController: NavHostController, viewModel: AccountsView
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Accounts",
+                        text = "Keys",
                         color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
