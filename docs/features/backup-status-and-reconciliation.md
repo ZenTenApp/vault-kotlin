@@ -8,8 +8,8 @@ The fixed default sources, in processing order, are:
 
 | Label | Type | Endpoint |
 | --- | --- | --- |
-| appdata1 | Nostr relay | `wss://appdata1.zentext.me` |
-| appdata2 | Nostr relay | `wss://appdata2.nostr.box` |
+| kbckp1 | Nostr relay | `wss://kbckp1.zentext.me` |
+| kbckp2 | Nostr relay | `wss://kbckp2.nostr.box` |
 | litesync1 | Brave Sync | `https://litesync1.zentext.me/litesync` |
 | litesync2 | Brave Sync | `https://litesync2.nostr.box/litesync` |
 

@@ -338,8 +338,8 @@ class NostrRelayService(
         }
 
         val DEFAULT_RELAYS = listOf(
-            "wss://appdata1.zentext.me",
-            "wss://appdata2.nostr.box",
+            "wss://kbckp1.zentext.me",
+            "wss://kbckp2.nostr.box",
         )
         const val ATTEMPT_TIMEOUT_MILLIS = 8_000L
         const val MAX_ATTEMPTS = 3

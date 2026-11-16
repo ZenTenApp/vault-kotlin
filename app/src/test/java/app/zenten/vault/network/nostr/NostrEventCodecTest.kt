@@ -31,7 +31,7 @@ class NostrEventCodecTest {
     @Test
     fun default_relays_are_the_two_privileged_backup_relays() {
         assertEquals(
-            listOf("wss://appdata1.zentext.me", "wss://appdata2.nostr.box"),
+            listOf("wss://kbckp1.zentext.me", "wss://kbckp2.nostr.box"),
             NostrRelayService.DEFAULT_RELAYS,
         )
     }

@@ -60,7 +60,7 @@ That identity is used for relay indexing, NIP-44 self-encryption, event signing,
 5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.
 6. Require the target relay's successful `OK` acknowledgement before reporting a confirmed write. An exact-ID `event already exists` response is also accepted as idempotent confirmation because it proves that relay already stores the same signed event; other duplicate or blocked responses remain failures.
 
-A relay that does not request NIP-42 proceeds normally. Only an explicit negative AUTH `OK` is an authentication rejection; a missing AUTH acknowledgement is a timeout. Authentication rejection, network failure, timeout, and event rejection remain distinct source error categories and cannot satisfy quorum. The two default relay endpoints are `wss://appdata1.zentext.me` and `wss://appdata2.nostr.box`.
+A relay that does not request NIP-42 proceeds normally. Only an explicit negative AUTH `OK` is an authentication rejection; a missing AUTH acknowledgement is a timeout. Authentication rejection, network failure, timeout, and event rejection remain distinct source error categories and cannot satisfy quorum. The two default relay endpoints are `wss://kbckp1.zentext.me` and `wss://kbckp2.nostr.box`.
 
 NIP-42 auth events use the device wall clock and relays may reject events outside their freshness window. Persistent authentication rejection on one device therefore requires checking that Android automatic date and time are enabled; extending a network timeout cannot correct clock skew.
 

@@ -71,8 +71,8 @@ class CreateVaultKeyCreatingScreenTest {
     private fun progress(activeSourceIndex: Int, completedSources: Int) =
         AccountConsolidationEngine.VaultKeyBackupProgress(
             sources = listOf(
-                AccountConsolidationEngine.VaultKeyBackupSource("appdata1", BackupSourceType.NOSTR_RELAY),
-                AccountConsolidationEngine.VaultKeyBackupSource("appdata2", BackupSourceType.NOSTR_RELAY),
+                AccountConsolidationEngine.VaultKeyBackupSource("kbckp1", BackupSourceType.NOSTR_RELAY),
+                AccountConsolidationEngine.VaultKeyBackupSource("kbckp2", BackupSourceType.NOSTR_RELAY),
                 AccountConsolidationEngine.VaultKeyBackupSource("litesync1", BackupSourceType.BRAVE_SYNC),
                 AccountConsolidationEngine.VaultKeyBackupSource("litesync2", BackupSourceType.BRAVE_SYNC),
                 AccountConsolidationEngine.VaultKeyBackupSource("brave sync", BackupSourceType.BRAVE_SYNC),
