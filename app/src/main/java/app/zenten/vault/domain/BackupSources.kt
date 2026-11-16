@@ -30,10 +30,10 @@ data class BackupSourceConfig(
 object DefaultBackupSources {
     val all = listOf(
         BackupSourceConfig(
-            id = "default-nostr-appdata1",
-            label = "appdata1",
+            id = "default-nostr-kbckp1",
+            label = "kbckp1",
             type = BackupSourceType.NOSTR_RELAY,
-            endpoint = "wss://appdata1.zentext.me",
+            endpoint = "wss://kbckp1.zentext.me",
             order = 1,
             isDefault = true,
             removable = false,
@@ -42,10 +42,10 @@ object DefaultBackupSources {
             authentication = SourceAuthentication.NIP42_OPTIONAL,
         ),
         BackupSourceConfig(
-            id = "default-nostr-appdata2",
-            label = "appdata2",
+            id = "default-nostr-kbckp2",
+            label = "kbckp2",
             type = BackupSourceType.NOSTR_RELAY,
-            endpoint = "wss://appdata2.nostr.box",
+            endpoint = "wss://kbckp2.nostr.box",
             order = 2,
             isDefault = true,
             removable = false,

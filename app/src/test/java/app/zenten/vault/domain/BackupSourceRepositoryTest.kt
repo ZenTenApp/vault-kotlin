@@ -15,11 +15,11 @@ class BackupSourceRepositoryTest {
     fun defaults_have_required_order_and_configuration() = runTest {
         fixture { repository ->
             val sources = repository.current()
-            assertEquals(listOf("appdata1", "appdata2", "litesync1", "litesync2"), sources.map { it.label })
+            assertEquals(listOf("kbckp1", "kbckp2", "litesync1", "litesync2"), sources.map { it.label })
             assertEquals(
                 listOf(
-                    "wss://appdata1.zentext.me",
-                    "wss://appdata2.nostr.box",
+                    "wss://kbckp1.zentext.me",
+                    "wss://kbckp2.nostr.box",
                     "https://litesync1.zentext.me/litesync",
                     "https://litesync2.nostr.box/litesync",
                 ),
