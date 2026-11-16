@@ -74,6 +74,9 @@ class VaultKeyRecoveryServiceTest {
 
         assertTrue(result.isSuccess)
         assertEquals(normalized, stored.captured.zenTenKey)
+        // The recovered record uses the shared ID scheme: clock-based base time, random tail.
+        assertEquals(serviceClock.millis(), stored.captured.createdAt / 1_000L)
+        assertTrue(stored.captured.createdAt % 1_000L in 1L..999L)
         // Recovery records the validated passphrase in the session so the follow-up backup runs.
         assertTrue(fixture.session.isUnlocked.value)
         coVerify(exactly = 1) { fixture.appStorage.setSetupComplete() }

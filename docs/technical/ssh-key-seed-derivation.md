@@ -106,6 +106,15 @@ No prefix, hash, or extra passphrase is applied before mnemonic encoding. The mn
 3. Normalize and store the generated OpenSSH private key as single-line Base64.
 4. Persist locally, then start backup coordination through `SetupService.addAccount`.
 
+`createdAt` is an identifier and sort key, not a precise timestamp. `domain/AccountId.kt` derives it everywhere an account is created, imported, or recovered:
+
+```kotlin
+internal fun newAccountCreatedAt(nowMillis: Long = System.currentTimeMillis()): Long =
+    nowMillis * 1_000L + ThreadLocalRandom.current().nextLong(1, 1_000)
+```
+
+The wall-clock milliseconds are shifted into the microsecond range and the sub-millisecond digits are filled with a random `1`–`999` rather than left as `000`, so two records created in the same millisecond are distinguishable and a stored ID does not reveal that it came from whole-millisecond arithmetic. The random tail is uniqueness jitter, not a security control: only 999 values exist per millisecond and the helper does not consult already-stored IDs. `AccountService` additionally wraps it in a compare-and-set counter so two concurrent associated-account creations cannot receive the same ID and an ID never regresses when the wall clock moves backwards. Vault Key creation, import, and recovery use the helper without that guard because the Vault Key is a single record stored under the fixed `vault_key` key.
+
 `SshKeyCodec.generateEncrypted` creates a new Ed25519 key with `SecureRandom` through Bouncy Castle:
 
 ```kotlin

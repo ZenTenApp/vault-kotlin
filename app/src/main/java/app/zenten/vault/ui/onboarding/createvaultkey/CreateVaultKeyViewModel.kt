@@ -15,6 +15,7 @@ import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.AccountConsolidationEngine
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeySession
+import app.zenten.vault.domain.newAccountCreatedAt
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -200,9 +201,9 @@ class CreateVaultKeyViewModel @Inject constructor(
                 val rounds = appStorage.sshKdfRounds.first()
                 val key = withContext(Dispatchers.Default) {
                     SshKeyCodec.generateEncrypted(
-                        // Microsecond-resolution id, matching the convention used
-                        // for every other account created by the app.
-                        createdAt = clock.millis() * 1_000L,
+                        // Microsecond-resolution id with a random sub-millisecond tail, matching
+                        // the convention used for every other account created by the app.
+                        createdAt = newAccountCreatedAt(clock.millis()),
                         passphrase = passphrase.toCharArray(),
                         rounds = rounds,
                     )

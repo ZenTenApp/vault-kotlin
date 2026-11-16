@@ -7,6 +7,7 @@ import app.zenten.vault.data.model.Account
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeyPersistedException
 import app.zenten.vault.domain.VaultKeySession
+import app.zenten.vault.domain.newAccountCreatedAt
 import app.zenten.vault.ui.onboarding.createvaultkey.PassphraseStrengthChecker
 import app.zenten.vault.ui.onboarding.createvaultkey.VaultKeyPassphrasePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -113,7 +114,11 @@ class OnboardingViewModel @Inject constructor(
             withContext(Dispatchers.Default) {
                 SshKeyCodec.parse(key, passphrase.toCharArray())
             }
-            val createdAt = clock.millis() * 1_000L
+            // Same microsecond-style ID scheme as every other account: the wall-clock
+            // milliseconds plus a random 1–999 tail, so the exported creation ID does not end
+            // in three zeros. The VaultKey is the only record stored under `vault_key`, so it
+            // needs no monotonic guard against a sibling creation here.
+            val createdAt = newAccountCreatedAt(clock.millis())
             // Only the encrypted container is stored: every derived value (Nostr identity,
             // Sync code) is rebuilt from the seed by the flow that needs it.
             val account = Account(
