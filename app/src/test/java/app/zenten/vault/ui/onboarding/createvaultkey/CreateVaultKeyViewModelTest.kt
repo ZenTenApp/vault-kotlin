@@ -277,6 +277,26 @@ class CreateVaultKeyViewModelTest {
     }
 
     /**
+     * The Vault Key's creation ID uses the same scheme as associated accounts: the injected clock
+     * supplies the base time and the sub-millisecond digits are random, never three zeros.
+     */
+    @Test
+    fun generated_vault_key_uses_a_created_at_with_a_random_tail_under_the_injected_clock() = runTest(dispatcher) {
+        val storedVaultKey = slot<Account>()
+        val secureStorage = mockk<SecureStorageService>()
+        val viewModel = viewModel(secureStorage)
+        val passphrase = "Correct1 horse!"
+
+        viewModel.choosePassphrase(passphrase)
+        viewModel.verifyAndGenerate(passphrase)
+        viewModel.awaitVerificationResult()
+        io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
+
+        assertEquals(clock.millis(), storedVaultKey.captured.createdAt / 1_000L)
+        assertTrue(storedVaultKey.captured.createdAt % 1_000L in 1L..999L)
+    }
+
+    /**
      * The create flow no longer derives an identity of its own: the engine derives both the
      * Vault Key backup (`vkbckp`) and associated-account identities from the stored key's seed.
      */

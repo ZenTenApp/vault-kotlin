@@ -4,7 +4,6 @@ import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
-import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -89,10 +88,18 @@ class AccountService(
         account
     } }
 
-
+    /**
+     * Allocates the next account ID, never reusing or regressing past one already issued here.
+     *
+     * [newAccountCreatedAt] supplies a clock-based candidate with a random sub-millisecond tail.
+     * The CAS loop makes two concurrent creations — both run on [Dispatchers.Default] — hand out
+     * distinct IDs, and `previous + 1` keeps IDs increasing even if the wall clock jumps backwards
+     * (NTP correction, manual time change). The counter is per process; it is not seeded from
+     * already-stored IDs.
+     */
     private fun nextCreatedAt(): Long {
         while (true) {
-            val candidate = System.currentTimeMillis() * 1_000L + ThreadLocalRandom.current().nextLong(1, 1_000)
+            val candidate = newAccountCreatedAt()
             val previous = lastCreatedAt.get()
             val next = maxOf(candidate, previous + 1)
             if (lastCreatedAt.compareAndSet(previous, next)) return next

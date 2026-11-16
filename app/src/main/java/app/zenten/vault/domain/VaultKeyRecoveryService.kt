@@ -89,7 +89,9 @@ class VaultKeyRecoveryService(
             val normalized = recovered.first
             secureStorage.addVaultKey(
                 Account(
-                    createdAt = clock.millis() * 1_000L,
+                    // Recovered under the same ID scheme as a created or imported Vault Key, so
+                    // the stored record's ID does not end in three zeros.
+                    createdAt = newAccountCreatedAt(clock.millis()),
                     zenTenKey = normalized,
                 ),
             )

@@ -1,5 +1,6 @@
 package app.zenten.vault.ui.onboarding
 
+import app.zenten.vault.data.model.Account
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeyPersistedException
 import app.zenten.vault.domain.VaultKeySession
@@ -10,6 +11,7 @@ import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -140,6 +142,21 @@ class OnboardingViewModelTest {
         val state = fixture.viewModel.state.value
         assertTrue(state.completed)
         assertFalse(state.canRetryStoredVaultKey)
+    }
+
+    @Test
+    fun imported_vault_key_gets_a_created_at_with_a_random_tail_under_the_injected_clock() = runTest {
+        val fixture = fixture()
+        val stored = slot<Account>()
+        coEvery { fixture.setupService.performSetup(capture(stored)) } returns Result.success(Unit)
+
+        fixture.viewModel.performSetup(goldenEncryptedKey(), "phase1-test-passphrase")
+        fixture.awaitSetupFinished()
+
+        // The base time still comes from the injected clock, so the ID stays a sortable creation
+        // time; the sub-millisecond digits are randomized rather than left as `000`.
+        assertEquals(clock.millis(), stored.captured.createdAt / 1_000L)
+        assertTrue(stored.captured.createdAt % 1_000L in 1L..999L)
     }
 
     @Test

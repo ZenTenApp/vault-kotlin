@@ -29,6 +29,8 @@ The default source list and consolidation behavior are documented in [Backup sta
 - Vault Key: `vaultkey`
 - Associated account: decimal `createdAt`
 
+Every `createdAt` is a wall-clock millisecond value shifted into microseconds with a random `1`–`999` sub-millisecond tail (`domain/AccountId.kt`), so it is both an identifier and a creation-order sort key. Associated-account allocation additionally runs through a compare-and-set counter in `AccountService` so concurrent creations cannot collide; Vault Key creation, import, and recovery use the same helper without it because there is only ever one Vault Key record.
+
 Presence is determined by identifier only. Consolidation does not decrypt an already-present payload to compare it with local material. Payload decryption and OpenSSH validation happen only when a missing local associated account must be restored.
 
 ## Nostr format
