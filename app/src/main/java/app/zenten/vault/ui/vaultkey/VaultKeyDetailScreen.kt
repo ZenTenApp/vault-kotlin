@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
+import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
@@ -33,6 +34,7 @@ import app.zenten.vault.domain.SetupService
 import app.zenten.vault.ui.accounts.BackupSourceRow
 import app.zenten.vault.ui.accounts.ExportPassphraseDialog
 import app.zenten.vault.ui.accounts.ExportTargetDialog
+import app.zenten.vault.ui.accounts.KeyQrCodeDialog
 import app.zenten.vault.ui.accounts.LocalAccountBackupShare
 import app.zenten.vault.ui.accounts.SourceStatusRow
 import app.zenten.vault.ui.components.VaultScreenScaffold
@@ -98,6 +100,27 @@ class VaultKeyDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Returns the Vault Key's PEM block for the QR code, or null when [passphrase] does not
+     * decrypt the stored key. The PEM is the same clipboard-form text used for accounts.
+     *
+     * Decrypting is the passphrase check. The npub is not needed here, so this skips the
+     * derivation that [vaultKeyForExport] performs.
+     */
+    suspend fun vaultKeyPemForQr(passphrase: String): String? = withContext(Dispatchers.Default) {
+        secureStorage.getVaultKey()?.let { vaultKey ->
+            val chars = passphrase.toCharArray()
+            try {
+                runCatching {
+                    SshKeyCodec.parse(vaultKey.zenTenKey, chars)
+                    LocalAccountBackupShare.accountKeyPemText(vaultKey)
+                }.getOrNull()
+            } finally {
+                chars.fill('\u0000')
+            }
+        }
+    }
+
     /** Reconciles the Vault Key record only; associated accounts have their own actions. */
     fun consolidate() { scheduler.scheduleVaultKeyConsolidation() }
 }
@@ -106,6 +129,9 @@ data class VaultKeyDetailState(
     val setupComplete: Boolean = false,
     val sources: List<BackupSourceRow> = emptyList(),
 )
+
+/** The voluntary actions that release the VaultKey, each gated behind a passphrase check. */
+private enum class VaultKeyPassphraseAction { EXPORT, QR_CODE }
 
 @Composable
 fun VaultKeyDetailScreen(
@@ -117,8 +143,11 @@ fun VaultKeyDetailScreen(
     // Target picker shown while the user chooses where to send the VaultKey export.
     var exportTargets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
-    // Passphrase confirmation shown before the export target picker opens.
-    var confirmExportPassphrase by remember { mutableStateOf(false) }
+    // Passphrase confirmation shown before the chosen action runs. Null means no dialog is open.
+    var pendingPassphraseAction by remember { mutableStateOf<VaultKeyPassphraseAction?>(null) }
+    // PEM text shown as a QR code. Set only after the passphrase check passes and cleared when
+    // the dialog closes, so the key does not stay in composition state.
+    var qrCodeText by remember { mutableStateOf<String?>(null) }
     // The export text is built once the passphrase is verified, because its npub line is derived
     // on demand rather than read from the account. Only this text is retained — never the
     // passphrase — and it is dropped as soon as the target picker closes.
@@ -135,11 +164,22 @@ fun VaultKeyDetailScreen(
                         if (!viewModel.canExportVaultKey()) {
                             exportError = "VaultKey is unavailable for export."
                         } else {
-                            confirmExportPassphrase = true
+                            pendingPassphraseAction = VaultKeyPassphraseAction.EXPORT
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                 ) { Text("Export VaultKey to Notes") }
+                Button(
+                    onClick = {
+                        exportError = null
+                        if (!viewModel.canExportVaultKey()) {
+                            exportError = "VaultKey is unavailable for export."
+                        } else {
+                            pendingPassphraseAction = VaultKeyPassphraseAction.QR_CODE
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Show VaultKey as QR Code") }
                 exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 Text("Backup Status", style = MaterialTheme.typography.titleMedium)
                 state.sources.forEach { SourceStatusRow(it) }
@@ -156,23 +196,49 @@ fun VaultKeyDetailScreen(
         },
         actions = {},
     )
-    if (confirmExportPassphrase) {
+    pendingPassphraseAction?.let { action ->
         ExportPassphraseDialog(
-            message = "Re-enter the passphrase that protects the VaultKey before exporting its encrypted key.",
+            message = when (action) {
+                VaultKeyPassphraseAction.EXPORT ->
+                    "Re-enter the passphrase that protects the VaultKey before exporting its encrypted key."
+                VaultKeyPassphraseAction.QR_CODE ->
+                    "Re-enter the passphrase that protects the VaultKey before showing its encrypted key as a QR code."
+            },
             mismatchError = "That passphrase does not match this VaultKey.",
-            onDismiss = { confirmExportPassphrase = false },
+            onDismiss = { pendingPassphraseAction = null },
             onConfirmed = { passphrase ->
-                // Deriving the text decrypts the stored key, so a null result means the
-                // passphrase did not match and the export cannot be produced.
-                val text = viewModel.vaultKeyForExport(passphrase)
-                if (text == null) {
-                    false
-                } else {
-                    exportText = text
-                    exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
-                    true
+                when (action) {
+                    VaultKeyPassphraseAction.EXPORT -> {
+                        // Deriving the text decrypts the stored key, so a null result means the
+                        // passphrase did not match and the export cannot be produced.
+                        val text = viewModel.vaultKeyForExport(passphrase)
+                        if (text == null) {
+                            false
+                        } else {
+                            exportText = text
+                            exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                            true
+                        }
+                    }
+                    VaultKeyPassphraseAction.QR_CODE -> {
+                        // A null result means the passphrase did not decrypt the VaultKey.
+                        val pem = viewModel.vaultKeyPemForQr(passphrase)
+                        if (pem == null) {
+                            false
+                        } else {
+                            qrCodeText = pem
+                            true
+                        }
+                    }
                 }
             },
+        )
+    }
+    qrCodeText?.let { text ->
+        KeyQrCodeDialog(
+            title = "VaultKey QR code",
+            text = text,
+            onDismiss = { qrCodeText = null },
         )
     }
     exportTargets?.let { availableTargets ->

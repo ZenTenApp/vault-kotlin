@@ -103,9 +103,14 @@ flowchart TD
     Detail -->|"Back"| Accounts
     Detail -->|"Export Account to Notes"| DetailPassphrase{"Passphrase matches stored account?"}
     Detail -->|"Export Account to Clipboard"| DetailPassphrase
+    Detail -->|"Show Account Key as QR Code"| DetailPassphrase
     DetailPassphrase -->|"No"| DetailPassphrase
     DetailPassphrase -->|"Yes, notes"| DetailExport["Choose an app to receive the self-describing export"]
     DetailPassphrase -->|"Yes, clipboard"| DetailClipboard["Copy the OpenSSH PEM block to the clipboard"]
+    DetailPassphrase -->|"Yes, QR code"| DetailQr["Show the OpenSSH PEM block as a QR code in a dialog"]
+    Vault Key -->|"Show VaultKey as QR Code"| VaultKeyPassphrase{"Passphrase matches VaultKey?"}
+    VaultKeyPassphrase -->|"No"| VaultKeyPassphrase
+    VaultKeyPassphrase -->|"Yes"| VaultKeyQr["Show the VaultKey PEM block as a QR code in a dialog"]
     Vault Key -->|"Back"| Settings
 ```
 
