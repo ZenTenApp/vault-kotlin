@@ -55,10 +55,10 @@ import app.zenten.vault.ui.theme.LocalExtendedColors
 import kotlinx.coroutines.launch
 
 /**
- * The two voluntary export destinations offered on account details. Both release the same
- * self-describing encrypted-key text, so both are gated behind the same passphrase dialog.
+ * The voluntary actions on account details that release the encrypted key. All of them are
+ * gated behind the same passphrase dialog, so the key is never shown or copied without it.
  */
-private enum class AccountExportAction { NOTES, CLIPBOARD }
+private enum class AccountExportAction { NOTES, CLIPBOARD, QR_CODE }
 
 @Composable
 fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewModel: AccountDetailViewModel = hiltViewModel()) {
@@ -76,6 +76,9 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     var pendingExportAction by remember { mutableStateOf<AccountExportAction?>(null) }
     // Passphrase confirmation shown before any export action runs.
     var confirmExportPassphrase by remember { mutableStateOf(false) }
+    // The PEM text shown as a QR code. It is set only after the passphrase check passes and is
+    // cleared when the dialog closes, so the key does not stay in composition state.
+    var qrCodeText by remember { mutableStateOf<String?>(null) }
     if (account == null) {
         // Degenerate state: keep the same title, Back link, and frame as the loaded screen.
         VaultScreenScaffold(
@@ -124,6 +127,15 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Export Account to Clipboard") }
+            Button(
+                onClick = {
+                    exportError = null
+                    exportCopied = false
+                    pendingExportAction = AccountExportAction.QR_CODE
+                    confirmExportPassphrase = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Show Account Key as QR Code") }
             exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (exportCopied) {
                 Text(
@@ -145,7 +157,11 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
     )
     if (confirmExportPassphrase) {
         ExportPassphraseDialog(
-            message = "Re-enter the passphrase that protects this account before exporting its encrypted key.",
+            message = if (pendingExportAction == AccountExportAction.QR_CODE) {
+                "Re-enter the passphrase that protects this account before showing its encrypted key as a QR code."
+            } else {
+                "Re-enter the passphrase that protects this account before exporting its encrypted key."
+            },
             onDismiss = {
                 confirmExportPassphrase = false
                 pendingExportAction = null
@@ -172,6 +188,9 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                             }.onFailure {
                                 exportError = "Vault could not copy the account key to the clipboard. Try again."
                             }
+                        // Same PEM block the clipboard export copies, so the QR scans to that text.
+                        AccountExportAction.QR_CODE ->
+                            qrCodeText = LocalAccountBackupShare.accountKeyPemText(account)
                         null -> Unit
                     }
                     true
@@ -179,6 +198,14 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                     false
                 }
             },
+        )
+    }
+    // Shown only after the user chose the QR action and passed the passphrase check.
+    qrCodeText?.let { text ->
+        KeyQrCodeDialog(
+            title = "Account key QR code",
+            text = text,
+            onDismiss = { qrCodeText = null },
         )
     }
     exportTargets?.let { availableTargets ->
