@@ -23,7 +23,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
-import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AccountSourceBackupState
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
@@ -94,27 +93,6 @@ class VaultKeyDetailViewModel @Inject constructor(
             val chars = passphrase.toCharArray()
             try {
                 runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, chars) }.getOrNull()
-            } finally {
-                chars.fill('\u0000')
-            }
-        }
-    }
-
-    /**
-     * Returns the Vault Key's PEM block for the QR code, or null when [passphrase] does not
-     * decrypt the stored key. The PEM is the same clipboard-form text used for accounts.
-     *
-     * Decrypting is the passphrase check. The npub is not needed here, so this skips the
-     * derivation that [vaultKeyForExport] performs.
-     */
-    suspend fun vaultKeyPemForQr(passphrase: String): String? = withContext(Dispatchers.Default) {
-        secureStorage.getVaultKey()?.let { vaultKey ->
-            val chars = passphrase.toCharArray()
-            try {
-                runCatching {
-                    SshKeyCodec.parse(vaultKey.zenTenKey, chars)
-                    LocalAccountBackupShare.accountKeyPemText(vaultKey)
-                }.getOrNull()
             } finally {
                 chars.fill('\u0000')
             }
@@ -221,12 +199,13 @@ fun VaultKeyDetailScreen(
                         }
                     }
                     VaultKeyPassphraseAction.QR_CODE -> {
+                        // Same text as the notes export, so the QR scans to the notes content.
                         // A null result means the passphrase did not decrypt the VaultKey.
-                        val pem = viewModel.vaultKeyPemForQr(passphrase)
-                        if (pem == null) {
+                        val text = viewModel.vaultKeyForExport(passphrase)
+                        if (text == null) {
                             false
                         } else {
-                            qrCodeText = pem
+                            qrCodeText = text
                             true
                         }
                     }

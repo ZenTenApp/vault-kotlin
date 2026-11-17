@@ -106,11 +106,11 @@ flowchart TD
     Detail -->|"Show Account Key as QR Code"| DetailPassphrase
     DetailPassphrase -->|"No"| DetailPassphrase
     DetailPassphrase -->|"Yes, notes"| DetailExport["Choose an app to receive the self-describing export"]
-    DetailPassphrase -->|"Yes, clipboard"| DetailClipboard["Copy the OpenSSH PEM block to the clipboard"]
-    DetailPassphrase -->|"Yes, QR code"| DetailQr["Show the OpenSSH PEM block as a QR code in a dialog"]
+    DetailPassphrase -->|"Yes, clipboard"| DetailClipboard["Copy the self-describing export text to the clipboard"]
+    DetailPassphrase -->|"Yes, QR code"| DetailQr["Show the self-describing export text as a QR code in a dialog"]
     Vault Key -->|"Show VaultKey as QR Code"| VaultKeyPassphrase{"Passphrase matches VaultKey?"}
     VaultKeyPassphrase -->|"No"| VaultKeyPassphrase
-    VaultKeyPassphrase -->|"Yes"| VaultKeyQr["Show the VaultKey PEM block as a QR code in a dialog"]
+    VaultKeyPassphrase -->|"Yes"| VaultKeyQr["Show the self-describing VaultKey export text as a QR code in a dialog"]
     Vault Key -->|"Back"| Settings
 ```
 
@@ -249,7 +249,7 @@ flowchart LR
     ExportPassphrase --> ExportPick["Choose an app to receive the self-describing export"]
     Status --> ExportClipboard["Select Export Account to Clipboard"]
     ExportClipboard --> ExportPassphrase
-    ExportPassphrase --> Clipboard["Copy the OpenSSH PEM block to the clipboard"]
+    ExportPassphrase --> Clipboard["Copy the self-describing export text to the clipboard"]
     Accounts --> Settings["Open Settings"]
     Settings --> VaultKey["Open Vault Key"]
     VaultKey --> VaultKeyState{"Vault Key quorum complete?"}

@@ -67,13 +67,9 @@ object LocalAccountBackupShare {
         )
 
     /**
-     * Builds the clipboard-only export: the passphrase-encrypted OpenSSH key wrapped in PEM
-     * markers, and nothing else. The clipboard form deliberately omits the account metadata
-     * (creation ID, display name, creation date) that the notes export appends, because a raw
-     * key is what a key-import field or another SSH tool expects to receive.
+     * Wraps the passphrase-encrypted key in PEM markers as one Base64 body line. Both the
+     * self-describing export and the clipboard/QR payloads build on this block.
      */
-    internal fun accountKeyPemText(account: Account): String = pemBlock(account)
-
     private fun pemBlock(account: Account): String = listOf(
         "-----BEGIN OPENSSH PRIVATE KEY-----",
         SshKeyCodec.normalizeToSingleLineBase64(account.zenTenKey),
@@ -93,7 +89,8 @@ object LocalAccountBackupShare {
         pemBlock(account),
         npub,
         account.createdAt.toString(),
-        displayName,
+        // The "label:" prefix marks this line as the name, so it is readable in a note without context.
+        "label:$displayName",
         "Created on ${formatAccountCreatedAt(account.createdAt)}",
     ).joinToString("\n")
 

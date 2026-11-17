@@ -33,8 +33,8 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 /**
  * Encodes a key's text as a QR code matrix.
  *
- * The payload is the same PEM block the clipboard export copies, so scanning the code yields
- * exactly what the clipboard holds. Error correction is medium: a phone camera reading a
+ * The payload is the same text the notes export sends, so scanning the code yields exactly what
+ * the clipboard holds. Error correction is medium: a phone camera reading a
  * screen needs some tolerance for glare and moiré, and the PEM is short enough that the extra
  * redundancy still fits in a version a phone scans reliably.
  */
@@ -64,7 +64,7 @@ internal object KeyQrCode {
  * dark modules on a light background even in dark mode.
  *
  * @param title heading that names the key being shown.
- * @param text the exact text to encode, the same as the clipboard export.
+ * @param text the exact text to encode, the same as the notes and clipboard exports.
  * @param onDismiss invoked by Close and by scrim taps; the caller drops [text] here.
  */
 @Composable
