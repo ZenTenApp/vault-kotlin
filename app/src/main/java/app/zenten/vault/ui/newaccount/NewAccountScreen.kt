@@ -38,6 +38,8 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
     var vaultKeyPassphrase by remember { mutableStateOf("") }
     var accountName by remember { mutableStateOf("") }
     var passphraseVisible by remember { mutableStateOf(false) }
+    // Derived each recomposition from the typed name; the ViewModel repeats this check on create.
+    val reservedTermUsed = AccountService.containsReservedAccountNameTerm(accountName)
     val state by viewModel.state.collectAsState()
     LaunchedEffect(state.created) {
         state.created?.let { account ->
@@ -80,9 +82,19 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
                     onValueChange = { accountName = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Account Name") },
-                    supportingText = { Text("3-128 characters") },
-                    isError = accountName.isNotEmpty() && accountName.trim().length !in
-                        AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH,
+                    supportingText = {
+                        // Show the reserved-term reason in place of the length hint so the user sees why Create is off.
+                        if (reservedTermUsed) {
+                            Text(
+                                "Account name cannot contain \"${AccountService.RESERVED_ACCOUNT_NAME_TERM_DISPLAY}\"",
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        } else {
+                            Text("3-128 characters")
+                        }
+                    },
+                    isError = reservedTermUsed || (accountName.isNotEmpty() && accountName.trim().length !in
+                        AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH),
                     enabled = !state.creating,
                     singleLine = true,
                 )
@@ -115,7 +127,8 @@ fun NewAccountScreen(navController: NavHostController, viewModel: NewAccountView
                 enabled = when {
                     state.creating || state.verifying -> false
                     state.passphraseVerified ->
-                        accountName.trim().length in AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH
+                        accountName.trim().length in AccountService.MIN_ACCOUNT_NAME_LENGTH..AccountService.MAX_ACCOUNT_NAME_LENGTH &&
+                            !reservedTermUsed
                     else -> vaultKeyPassphrase.isNotBlank()
                 },
                 onClick = {

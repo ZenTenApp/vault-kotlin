@@ -4,6 +4,7 @@ import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.model.Account
 import app.zenten.vault.data.secure.SecureStorageService
+import java.text.Normalizer
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -68,6 +69,10 @@ class AccountService(
         require(normalizedAccountName.length in MIN_ACCOUNT_NAME_LENGTH..MAX_ACCOUNT_NAME_LENGTH) {
             "Account name must be between $MIN_ACCOUNT_NAME_LENGTH and $MAX_ACCOUNT_NAME_LENGTH characters"
         }
+        // Blocks names that impersonate the VaultKey, which is an internal identity users must not see.
+        require(!containsReservedAccountNameTerm(normalizedAccountName)) {
+            "Account name cannot contain \"$RESERVED_ACCOUNT_NAME_TERM_DISPLAY\""
+        }
         // Enforce the 99-account ceiling only for user-initiated creation. Consolidation and
         // recovery write through SecureStorageService directly so restored accounts are exempt.
         require(secureStorage.getAccounts().size < MAX_ASSOCIATED_ACCOUNTS) {
@@ -111,5 +116,27 @@ class AccountService(
         const val MAX_ASSOCIATED_ACCOUNTS = 99
         const val MIN_ACCOUNT_NAME_LENGTH = 3
         const val MAX_ACCOUNT_NAME_LENGTH = 128
+
+        /** Wording shown to the user for the reserved term. */
+        const val RESERVED_ACCOUNT_NAME_TERM_DISPLAY = "vault key"
+
+        /** The reserved term in the comparison form: lowercase letters only. */
+        private const val RESERVED_ACCOUNT_NAME_TERM = "vaultkey"
+
+        /**
+         * True when [name] contains "vault key" in any spelling of case, spacing, or punctuation.
+         *
+         * The name is folded to NFKC first so full-width or compatibility letters match their plain
+         * forms, then only letters are kept. Digits and symbols are dropped too, so "Vault-Key",
+         * "VAULT_KEY", "v a u l t k e y", and "vault.key" are all rejected. Lowercasing uses
+         * `lowercaseChar()`, which does not depend on the device locale.
+         */
+        fun containsReservedAccountNameTerm(name: String): Boolean {
+            val folded = Normalizer.normalize(name, Normalizer.Form.NFKC)
+            val lettersOnly = buildString {
+                folded.forEach { if (it.isLetter()) append(it.lowercaseChar()) }
+            }
+            return lettersOnly.contains(RESERVED_ACCOUNT_NAME_TERM)
+        }
     }
 }
