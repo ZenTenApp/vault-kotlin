@@ -133,6 +133,30 @@ class AccountServiceTest {
         coVerify(exactly = 0) { setup.addAccount(any(), any()) }
     }
 
+    @Test
+    fun create_associated_account_rejects_the_vault_key_term_in_any_spelling() = runTest {
+        val storage = mockk<SecureStorageService>()
+        val setup = mockk<SetupService>()
+        every { storage.getVaultKey() } returns Account(1, encryptedKey(VAULT_PASSPHRASE))
+
+        for (name in listOf("Vault Key", "vaultkey", "VAULT KEY", "vault-key", "My VaultKey wallet", "v a u l t k e y", "Vault Key", "ｖａｕｌｔｋｅｙ")) {
+            val result = AccountService(storage, setup, appStorage()).createAssociatedAccount(VAULT_PASSPHRASE, name)
+
+            assertFalse(result.isSuccess, name)
+            assertEquals("Account name cannot contain \"vault key\"", result.exceptionOrNull()?.message, name)
+        }
+        coVerify(exactly = 0) { setup.addAccount(any(), any()) }
+    }
+
+    @Test
+    fun reserved_term_check_allows_names_that_only_look_similar() {
+        // "vault" and "key" apart, or other words, are fine; the check only matches the joined term.
+        for (name in listOf("Vault account", "Key account", "Vault keeper", "Work account", "vaul key")) {
+            assertFalse(AccountService.containsReservedAccountNameTerm(name), name)
+        }
+        assertTrue(AccountService.containsReservedAccountNameTerm("vault​KEY"))
+    }
+
     private fun appStorage(rounds: Int = SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS) = mockk<AppStorageService> {
         every { sshKdfRounds } returns flowOf(rounds)
     }
