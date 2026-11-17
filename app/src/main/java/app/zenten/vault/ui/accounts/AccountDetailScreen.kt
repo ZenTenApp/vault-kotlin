@@ -180,7 +180,7 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                                 clipboard.setClipEntry(
                                     ClipData.newPlainText(
                                         "Encrypted account key",
-                                        LocalAccountBackupShare.accountKeyPemText(account),
+                                        LocalAccountBackupShare.accountExportText(account),
                                     ).toClipEntry(),
                                 )
                             }.onSuccess {
@@ -188,9 +188,9 @@ fun AccountDetailScreen(navController: NavHostController, accountId: Long, viewM
                             }.onFailure {
                                 exportError = "Vault could not copy the account key to the clipboard. Try again."
                             }
-                        // Same PEM block the clipboard export copies, so the QR scans to that text.
+                        // Same text as the notes and clipboard exports, so the QR scans to that text.
                         AccountExportAction.QR_CODE ->
-                            qrCodeText = LocalAccountBackupShare.accountKeyPemText(account)
+                            qrCodeText = LocalAccountBackupShare.accountExportText(account)
                         null -> Unit
                     }
                     true

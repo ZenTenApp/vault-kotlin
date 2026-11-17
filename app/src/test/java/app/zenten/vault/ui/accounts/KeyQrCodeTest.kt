@@ -11,17 +11,17 @@ import org.junit.jupiter.api.Test
 
 class KeyQrCodeTest {
     @Test
-    fun account_key_pem_round_trips_through_the_qr_code_unchanged() {
+    fun notes_export_text_round_trips_through_the_qr_code_unchanged() {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = goldenEncryptedKey(),
             accountName = "Personal account",
         )
-        val payload = LocalAccountBackupShare.accountKeyPemText(account)
+        val payload = LocalAccountBackupShare.accountExportText(account)
 
         val decoded = decode(KeyQrCode.encode(payload))
 
-        // The QR must carry exactly the clipboard text, byte for byte, so scanning it yields the same key.
+        // The QR must carry exactly the export text, byte for byte, so scanning it yields the same content.
         assertEquals(payload, decoded)
     }
 

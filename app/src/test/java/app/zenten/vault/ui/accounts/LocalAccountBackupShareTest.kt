@@ -57,7 +57,7 @@ class LocalAccountBackupShareTest {
         assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
         assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
         assertEquals(account.createdAt.toString(), lines[3])
-        assertEquals("Personal account", lines[4])
+        assertEquals("label:Personal account", lines[4])
         assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[5])
         assertEquals(6, lines.size)
         // The export must not carry the account's npub, which would link it to a Nostr identity.
@@ -73,7 +73,7 @@ class LocalAccountBackupShareTest {
 
         val lines = LocalAccountBackupShare.accountExportText(account).lines()
 
-        assertEquals("", lines[4])
+        assertEquals("label:", lines[4])
         assertEquals(6, lines.size)
     }
 
@@ -93,7 +93,7 @@ class LocalAccountBackupShareTest {
         // Derived on demand from the golden key's seed; nothing is stored on the account.
         assertEquals(GOLDEN_NPUB, lines[3])
         assertEquals(account.createdAt.toString(), lines[4])
-        assertEquals("VaultKey", lines[5])
+        assertEquals("label:VaultKey", lines[5])
         assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[6])
         assertEquals(7, lines.size)
     }
@@ -113,19 +113,17 @@ class LocalAccountBackupShareTest {
     }
 
     @Test
-    fun clipboard_export_contains_only_single_line_pem() {
+    fun clipboard_and_qr_payload_is_the_same_text_as_the_notes_export() {
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = goldenEncryptedKey(),
             accountName = "Personal account",
         )
 
-        val lines = LocalAccountBackupShare.accountKeyPemText(account).lines()
-
-        assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----", lines[0])
-        assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
-        assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
-        assertEquals(3, lines.size)
+        // The clipboard and QR code carry exactly the notes export, metadata included.
+        val notesText = LocalAccountBackupShare.accountExportText(account)
+        assertEquals("label:Personal account", notesText.lines()[4])
+        assertFalse(notesText.contains("npub"))
     }
 
     private fun goldenEncryptedKey(): String =

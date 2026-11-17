@@ -25,7 +25,7 @@ class VaultKeyDetailViewModelTest {
 
         // The npub is re-derived from the stored container's seed, not read from the account.
         assertTrue(text.lines().contains("npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w"))
-        assertTrue(text.lines().contains("VaultKey"))
+        assertTrue(text.lines().contains("label:VaultKey"))
     }
 
     @Test
