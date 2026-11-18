@@ -298,10 +298,10 @@ class CreateVaultKeyViewModel @Inject constructor(
      * local-backup format so exported copies read the same way, but uses the fixed "VaultKey"
      * display name because the Vault Key has none.
      *
-     * The wizard just established the passphrase in [VaultKeySession], and the export's npub line
-     * is derived from it here rather than read from a stored identity, so this suspends and
-     * returns null when the session is locked. The Keystore read and bcrypt derivation can block
-     * for seconds, so they run on [Dispatchers.Default] rather than the caller's (Main) thread.
+     * The wizard just established the passphrase in [VaultKeySession], and the export decrypts
+     * the key with it here, so this suspends and returns null when the session is locked. The
+     * Keystore read and bcrypt derivation can block for seconds, so they run on
+     * [Dispatchers.Default] rather than the caller's (Main) thread.
      */
     suspend fun vaultKeyForExport(): String? = withContext(Dispatchers.Default) {
         secureStorage.getVaultKey()?.let { vaultKey ->

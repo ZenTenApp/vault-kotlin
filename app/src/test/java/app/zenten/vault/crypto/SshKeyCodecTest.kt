@@ -113,7 +113,7 @@ class SshKeyCodecTest {
         val pem = root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content
         val canonical = SshKeyCodec.normalizeToSingleLineBase64(pem)
         val selfDescribing = "-----BEGIN OPENSSH PRIVATE KEY-----\n$canonical\n" +
-            "-----END OPENSSH PRIVATE KEY-----\nnpub1example\n1700000000000000\nVaultKey\nCreated on Wednesday, Nov 15, 2023 2:06 AM"
+            "-----END OPENSSH PRIVATE KEY-----\nunixTimestamp:1700000000000000\nlabel:VaultKey\ncreatedAt:Wednesday, Nov 15, 2023 2:06 AM"
 
         assertEquals(canonical, SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(selfDescribing))
         assertEquals(canonical, SshKeyCodec.normalizeToSingleLineBase64(selfDescribing))

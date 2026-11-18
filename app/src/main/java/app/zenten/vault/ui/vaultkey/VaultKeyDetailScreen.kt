@@ -79,9 +79,8 @@ class VaultKeyDetailViewModel @Inject constructor(
      * Builds the Vault Key's self-describing export text, using the fixed "VaultKey" display
      * name. Returns null when the Vault Key is unavailable or [passphrase] does not decrypt it.
      *
-     * The passphrase is needed because the export's npub line is derived on demand rather than
-     * read from a stored identity. Decrypting here is also the passphrase check, so the export is
-     * confirmed without a second, redundant bcrypt derivation.
+     * The passphrase is needed as the gate: decrypting the key here is the passphrase check, so the
+     * export text is produced only for the correct passphrase.
      *
      * Suspends on [Dispatchers.Default] because both the Keystore read and the bcrypt derivation
      * can block for seconds; callers come from the export dialog's coroutine scope.
@@ -126,9 +125,9 @@ fun VaultKeyDetailScreen(
     // PEM text shown as a QR code. Set only after the passphrase check passes and cleared when
     // the dialog closes, so the key does not stay in composition state.
     var qrCodeText by remember { mutableStateOf<String?>(null) }
-    // The export text is built once the passphrase is verified, because its npub line is derived
-    // on demand rather than read from the account. Only this text is retained — never the
-    // passphrase — and it is dropped as soon as the target picker closes.
+    // The export text is built once the passphrase is verified, so the gate runs before any text
+    // exists. Only this text is retained — never the passphrase — and it is dropped as soon as
+    // the target picker closes.
     var exportText by remember { mutableStateOf<String?>(null) }
     VaultScreenScaffold(
         title = "VaultKey Account",

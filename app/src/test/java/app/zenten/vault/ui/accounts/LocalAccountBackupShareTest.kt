@@ -56,9 +56,9 @@ class LocalAccountBackupShareTest {
         assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----", lines[0])
         assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
         assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
-        assertEquals(account.createdAt.toString(), lines[3])
+        assertEquals("unixTimestamp:${account.createdAt}", lines[3])
         assertEquals("label:Personal account", lines[4])
-        assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[5])
+        assertEquals("createdAt:${formatAccountCreatedAt(account.createdAt)}", lines[5])
         assertEquals(6, lines.size)
         // The export must not carry the account's npub, which would link it to a Nostr identity.
         assertFalse(LocalAccountBackupShare.accountExportText(account).contains("npub"))
@@ -78,24 +78,25 @@ class LocalAccountBackupShareTest {
     }
 
     @Test
-    fun vault_key_export_keeps_its_derived_npub_and_fixed_display_name() {
+    fun vault_key_export_uses_fixed_display_name_and_omits_npub() {
         val encodedKey = goldenEncryptedKey()
         val account = Account(
             createdAt = 1_700_000_000_000_000L,
             zenTenKey = encodedKey,
         )
 
-        val lines = LocalAccountBackupShare.vaultKeyExportText(account, GOLDEN_PASSPHRASE).lines()
+        val text = LocalAccountBackupShare.vaultKeyExportText(account, GOLDEN_PASSPHRASE)
+        val lines = text.lines()
 
         assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----", lines[0])
         assertEquals("-----END OPENSSH PRIVATE KEY-----", lines[2])
         assertTrue(lines[1].matches(Regex("[A-Za-z0-9+/]+={0,2}")))
-        // Derived on demand from the golden key's seed; nothing is stored on the account.
-        assertEquals(GOLDEN_NPUB, lines[3])
-        assertEquals(account.createdAt.toString(), lines[4])
-        assertEquals("label:VaultKey", lines[5])
-        assertEquals("Created on ${formatAccountCreatedAt(account.createdAt)}", lines[6])
-        assertEquals(7, lines.size)
+        // The Vault Key's npub is deliberately not exported, same as associated accounts.
+        assertFalse(text.contains(GOLDEN_NPUB))
+        assertEquals("unixTimestamp:${account.createdAt}", lines[3])
+        assertEquals("label:VaultKey", lines[4])
+        assertEquals("createdAt:${formatAccountCreatedAt(account.createdAt)}", lines[5])
+        assertEquals(6, lines.size)
     }
 
     @Test
@@ -105,8 +106,7 @@ class LocalAccountBackupShareTest {
             zenTenKey = goldenEncryptedKey(),
         )
 
-        // A wrong passphrase cannot derive the npub, and an export without its identity line
-        // would not match the key, so the attempt fails instead of producing partial text.
+        // A wrong passphrase cannot decrypt the key, so the attempt fails instead of producing text.
         assertThrows(IllegalArgumentException::class.java) {
             LocalAccountBackupShare.vaultKeyExportText(account, "wrong-passphrase".toCharArray())
         }

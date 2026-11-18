@@ -23,9 +23,9 @@ class VaultKeyDetailViewModelTest {
 
         val text = requireNotNull(viewModel.vaultKeyForExport("phase1-test-passphrase"))
 
-        // The npub is re-derived from the stored container's seed, not read from the account.
-        assertTrue(text.lines().contains("npub1jnmxa9a3z7tkej876gc56h6lc79hys20amrrmug8m3qarr9xgglq788y5w"))
+        // The export carries the fixed display name and no npub line.
         assertTrue(text.lines().contains("label:VaultKey"))
+        assertFalse(text.contains("npub"))
     }
 
     @Test
