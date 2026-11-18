@@ -9,6 +9,17 @@ import org.junit.jupiter.api.Test
 
 class LocalKeyBackupShareTest {
     @Test
+    fun associated_key_export_is_detected_by_its_label() {
+        val pem = "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----"
+        assertTrue(LocalKeyBackupShare.isAssociatedKeyExport("$pem\nunixTimestamp:1\nlabel:Work\ncreatedAt:x"))
+        // A key restored without a name exports an empty label, which is still not the Vault Key.
+        assertTrue(LocalKeyBackupShare.isAssociatedKeyExport("$pem\nlabel:"))
+        assertFalse(LocalKeyBackupShare.isAssociatedKeyExport("$pem\nunixTimestamp:1\nlabel:VaultKey\ncreatedAt:x"))
+        // No label line means no evidence either way, so bare keys still go through validation.
+        assertFalse(LocalKeyBackupShare.isAssociatedKeyExport(pem))
+    }
+
+    @Test
     fun prioritizes_supported_note_apps_then_orders_other_apps_by_label() {
         val targets = LocalKeyBackupShare.orderedTargets(
             listOf(

@@ -38,6 +38,7 @@
     <string name="ssh_setup_clipboard_read_error">Vault could not read the clipboard. Copy the private key and try again.</string>
     <string name="ssh_setup_clipboard_clear_error">Vault could not clear the clipboard. Clear it manually, then try again.</string>
     <string name="ssh_setup_clipboard_empty_error">The clipboard does not contain a private key. Copy the key and try again.</string>
+    <string name="ssh_setup_clipboard_associated_key_error">This looks like an associated key, not your VaultKey. Copy the note you saved as VaultKey and try again.</string>
     <string name="ssh_setup_clipboard_invalid_error">The clipboard does not contain a supported encrypted Ed25519 OpenSSH private key.</string>
     <!--
         A structurally valid container whose declared bcrypt work factor falls outside the
