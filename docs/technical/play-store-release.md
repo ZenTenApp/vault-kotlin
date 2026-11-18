@@ -20,13 +20,13 @@ mistake if it is missed.
 
 | Fact | Why it matters for Play |
 | --- | --- |
-| `app.zenten.vault` is the `applicationId` | It is permanent. It identifies your account in Play Console and cannot be changed after the first upload. |
+| `app.zenten.vault` is the `applicationId` | It is permanent. It identifies your key in Play Console and cannot be changed after the first upload. |
 | `targetSdk = 36`, `minSdk = 26` | Satisfies Play's requirement that new apps target API 36 (Android 16) after 2026-08-31. Targeting 36 means edge-to-edge and Android 16 behaviour changes are live in production. |
 | The app ships native libraries (`libsecp256k1-jni.so`, `libsqliteJni.so`, `libdatastore_shared_counter.so`, `libandroidx.graphics.path.so`) for four ABIs | Play requires 16 KB page-size alignment for apps targeting API 35+. Verified OK on the current build — but re-verify after **every** dependency bump. |
-| `app.zenten.permission.VAULT_ACCESS` is a **signature-level** permission guarding the `AssociatedAccountsProvider` | The distributed app is re-signed by Google under Play App Signing. Sibling apps (KeyHive consumers) must be signed with the *Play app-signing certificate*, not your upload key, or the provider silently stops being reachable. This is a security boundary, not packaging trivia. |
+| `app.zenten.permission.VAULT_ACCESS` is a **signature-level** permission guarding the `AssociatedKeysProvider` | The distributed app is re-signed by Google under Play App Signing. Sibling apps (KeyHive consumers) must be signed with the *Play app-signing certificate*, not your upload key, or the provider silently stops being reachable. This is a security boundary, not packaging trivia. |
 | `android:allowBackup="false"` with `dataExtractionRules` and `fullBackupContent` | No app data is transferred by cloud backup or by device-to-device transfer; both sections of `res/xml/data_extraction_rules.xml` exclude every domain. Play Data safety must therefore describe no OS-level transfer of vault data, and migration is the in-app **Recover VaultKey** path. See [Device migration and backup](../features/device-migration-and-backup.md). |
 | No analytics, crash reporting, or telemetry SDK | Simplifies Data safety: you declare no first-party collection. Everything that leaves the device goes to third-party relays **at the user's direction**. |
-| The user's account **label** is plaintext on relay events and Brave Sync records (`label` tag / `label:<name>` note) | This is real user data leaving the device readable by relay operators. Data safety must declare it, and the privacy policy must describe it. |
+| The user's key **label** is plaintext on relay events and Brave Sync records (`label` tag / `label:<name>` note) | This is real user data leaving the device readable by relay operators. Data safety must declare it, and the privacy policy must describe it. |
 | Creating a VaultKey needs live network access (2 Nostr relays + 2 Brave Sync endpoints) and a validated HTTPS clock check | Internal-test builds cannot be exercised on a plane, in airplane mode, or behind a captive portal. Give testers real devices on real networks. |
 | Release builds are minified by R8 with `isShrinkResources = true` | The `mapping.txt` must be uploaded with every release, and the minified build must be smoke-tested on a device — the debug build proves nothing about R8 keep rules. |
 
@@ -40,17 +40,17 @@ have to replace is worse than waiting. Track these against
 | --- | --- | --- | --- |
 | 1 | **H-01** bcrypt KDF on the UI thread | Addressed in `c51a8b7` | Verified on a device with a 8192-round container: no frozen screen, no ANR, on every passphrase-entry path. |
 | 2 | **H-02** configuration change forces re-authentication | Addressed in `c51a8b7` | Rotate the device mid-flow and confirm the session survives; confirm process death still relocks. |
-| 3 | **H-03** D2D transfer / undecryptable-vault dead end | **Addressed in code, pending device verification** | `dataExtractionRules` excludes every domain from both cloud backup and D2D transfer, plus `fullBackupContent="false"` for ≤ API 30; `SecureRecordState` + the `unreadableRecords` scan tell "ciphertext present but unreadable" apart from "absent", and separate a missing wrapping key from a damaged payload and from a Keystore the device could not read; the launch gate routes that state to `StrandedVaultScreen`, and `StrandedVaultResetService` gives the `pendingLocalBackupAccountIds` lock an exit. Verify on an API 31+ emulator over the OEM matrix recorded in the audit errata. |
+| 3 | **H-03** D2D transfer / undecryptable-vault dead end | **Addressed in code, pending device verification** | `dataExtractionRules` excludes every domain from both cloud backup and D2D transfer, plus `fullBackupContent="false"` for ≤ API 30; `SecureRecordState` + the `unreadableRecords` scan tell "ciphertext present but unreadable" apart from "absent", and separate a missing wrapping key from a damaged payload and from a Keystore the device could not read; the launch gate routes that state to `StrandedVaultScreen`, and `StrandedVaultResetService` gives the `pendingLocalBackupKeyIds` lock an exit. Verify on an API 31+ emulator over the OEM matrix recorded in the audit errata. |
 | 4 | **H-04** unsigned release artifact | **Code addressed; not closed** | `signingConfigs.release` is wired from `VAULT_RELEASE_*` environment variables and `apksigner verify` passes on `app-release.apk`. Still open until (a) the configured keystore is the real upload key — the current `vault.jks` is a self-signed `CN=vault` development keystore — (b) key custody/rotation/compromise-response is documented, and (c) a signed build is uploaded to Play Console. See Phase 2. |
 | 5 | **H-05** release variant never built in CI | **Addressed; verified 2026-11-13** | `.github/workflows/release.yml` builds, signs, verifies and uploads the release artifact on a `v*` tag, and fails when the bundle is unsigned. `workflow_dispatch` becomes available once the workflow is on `main`. See Phase 5. |
-| 6 | **M-06** no delete / reset path | **Open** | Play's account-deletion requirement is only enforceable if a deletion path exists. Resolve or get a documented legal decision that the requirement does not apply (Vault has no server-side account). |
+| 6 | **M-06** no delete / reset path | **Open** | Play's key-deletion requirement is only enforceable if a deletion path exists. Resolve or get a documented legal decision that the requirement does not apply (Vault has no server-side key). |
 | 7 | **M-01** workers report success when every source failed | **Open** | Backup status shown to users is truthful; a users' first backup failure is not hidden. |
 | 8 | Independent security assessment | **Open** | Required by release gate 1. Key management software should not reach public distribution without it. |
 | 9 | End-to-end interoperability with live relays | **Open** | Required by release gate 2. Exercise create → backup → restore on a second device against the production relay and litesync endpoints. |
 
 Also decide, and write down, the following before you build anything:
 
-- **Who is the developer of record** (personal vs. organization Play account).
+- **Who is the developer of record** (personal vs. organization Play key).
 - **Who holds the upload keystore** and who can produce a release.
 - **Whether a shared certificate with KeyHive sibling apps is required** — this
   decides whether you accept Google-generated app signing keys or supply your own.
@@ -229,10 +229,10 @@ evidence. Minimum pass:
 4. Create a VaultKey end-to-end: passphrase policy, all four backup destinations,
    quorum reached, backup export, paste-back confirmation, Secret Combinations.
 5. Paste an existing VaultKey; confirm import and retry-on-failed-backup.
-6. Create an associated account, complete the mandatory local export and paste-back.
-7. Restart the app; confirm the account list, per-source backup status, and
+6. Create an associated key, complete the mandatory local export and paste-back.
+7. Restart the app; confirm the key list, per-source backup status, and
    consolidated restore on a second device.
-8. Export Account to Notes and to Clipboard; confirm the passphrase gate runs off
+8. Export Key to Notes and to Clipboard; confirm the passphrase gate runs off
    the main thread and the confirmation dialog stays responsive.
 9. Verify screenshots are blocked (`FLAG_SECURE`) and Recents shows no content.
 10. Confirm the KeyHive provider is readable by a sibling app signed with the
@@ -341,21 +341,21 @@ Create the app in Play Console (**All apps → Create app**), then fill every it
      developer-operated backend.
    - Answer the device-transfer question as **no OS-level transfer**: both the cloud
      backup and device-to-device sections of `res/xml/data_extraction_rules.xml`
-     exclude every domain, so the vault, the VaultKey and the account records are not
+     exclude every domain, so the vault, the VaultKey and the key records are not
      carried to a new device by the platform. A user moves devices by installing
      fresh and using **Recover VaultKey**.
    - Data **is** transmitted off-device at user direction to third-party relays and
-     litesync endpoints. Declare the account name/label and the encrypted key
+     litesync endpoints. Declare the key name/label and the encrypted key
      material as collected/shared app functionality data.
    - State that the encrypted private keys stay encrypted (OpenSSH AES-CTR container
-     wrapped in NIP-44 for relay records) and that the account **label is readable**
+     wrapped in NIP-44 for relay records) and that the key **label is readable**
      by anyone who can list those records.
    - Data in transit is encrypted (TLS). Confirm this stays true for any endpoint you
      add later.
    - The "users can request data deletion" answer depends on M-06. Answering yes
      without an in-app path is a policy violation; answering no needs a documented
      decision, since remote relay copies by design cannot be guaranteed deleted.
-     Play's account-deletion requirement formally targets apps with in-app account
+     Play's key-deletion requirement formally targets apps with in-app key
      creation — confirm with legal counsel whether a locally held VaultKey identity
      counts.
 8. **Export compliance / encryption self-classification** — the app uses encryption
@@ -367,12 +367,12 @@ Create the app in Play Console (**All apps → Create app**), then fill every it
 
 ## Phase 8 — Set up Play Console access and test tracks
 
-1. **Developer account.** One-time $25 fee, identity verification (D-U-N-S number for
-   organizations), and 2-factor authentication enforced on all accounts.
-2. **Personal accounts created after 2023-11-13** must run closed testing with **at
+1. **Developer key.** One-time $25 fee, identity verification (D-U-N-S number for
+   organizations), and 2-factor authentication enforced on all keys.
+2. **Personal keys created after 2023-11-13** must run closed testing with **at
    least 12 testers opted in continuously for 14 days** before production access can
-   be requested. Plan for that calendar time; a personal account cannot launch on the
-   day the build is done. Organization accounts are not subject to this rule.
+   be requested. Plan for that calendar time; a personal key cannot launch on the
+   day the build is done. Organization keys are not subject to this rule.
 3. **Internal testing** — up to 100 testers, no full review, fastest way to get the
    bundle onto devices. Use it for the Phase 4 device matrix, then keep it as the
    permanent dogfood track.

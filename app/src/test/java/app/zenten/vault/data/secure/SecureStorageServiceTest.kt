@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 import app.zenten.vault.crypto.KeyPresence
 import app.zenten.vault.crypto.KeystoreCryptoService
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.serialization.json.Json
@@ -20,7 +20,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Verifies the account-record store without an Android Keystore.
+ * Verifies the key-record store without an Android Keystore.
  *
  * Encryption is replaced with a reversible in-memory transform so the test exercises the real
  * storage logic — key layout, enumeration, ordering and concurrent writes — against a real
@@ -58,49 +58,49 @@ class SecureStorageServiceTest {
     }
 
     @Test
-    fun accounts_are_listed_in_ascending_id_order_regardless_of_write_order() {
+    fun keys_are_listed_in_ascending_id_order_regardless_of_write_order() {
         val storage = newStorage()
-        storage.addAccount(account(30))
-        storage.addAccount(account(10))
-        storage.addAccount(account(20))
+        storage.addKey(key(30))
+        storage.addKey(key(10))
+        storage.addKey(key(20))
 
-        assertEquals(listOf(10L, 20L, 30L), storage.getAccounts().map(Account::createdAt))
+        assertEquals(listOf(10L, 20L, 30L), storage.getKeys().map(Key::createdAt))
     }
 
     @Test
     fun replacing_an_existing_id_does_not_duplicate_or_reorder() {
         val storage = newStorage()
-        storage.addAccount(account(20))
-        storage.addAccount(account(10))
-        storage.addAccount(account(20))
+        storage.addKey(key(20))
+        storage.addKey(key(10))
+        storage.addKey(key(20))
 
-        assertEquals(listOf(10L, 20L), storage.getAccounts().map(Account::createdAt))
+        assertEquals(listOf(10L, 20L), storage.getKeys().map(Key::createdAt))
     }
 
     @Test
     fun removal_leaves_other_records_intact() {
         val storage = newStorage()
-        listOf(10L, 20L, 30L).forEach { storage.addAccount(account(it)) }
+        listOf(10L, 20L, 30L).forEach { storage.addKey(key(it)) }
 
-        storage.removeAccount(20)
+        storage.removeKey(20)
 
-        assertEquals(listOf(10L, 30L), storage.getAccounts().map(Account::createdAt))
-        assertNull(storage.getAccountById(20))
-        assertEquals(10L, storage.getAccountById(10)?.createdAt)
+        assertEquals(listOf(10L, 30L), storage.getKeys().map(Key::createdAt))
+        assertNull(storage.getKeyById(20))
+        assertEquals(10L, storage.getKeyById(10)?.createdAt)
     }
 
     /**
      * Regression guard for the lost-update defect that the removed registry made possible.
      *
      * Previously each save appended to a separately stored ID list, so two concurrent writers
-     * could both start from the same snapshot and the last write would drop the other account.
+     * could both start from the same snapshot and the last write would drop the other key.
      * Every mutation is now a single preference edit, so no write can be lost by interleaving.
      *
      * The latch makes the overlap likely rather than merely possible, so the test is meaningful
      * even on a scheduler that would normally run these saves one after another.
      */
     @Test
-    fun concurrent_saves_never_lose_an_account() {
+    fun concurrent_saves_never_lose_an_key() {
         val writerCount = 16
         val startLine = CountDownLatch(1)
         val done = CountDownLatch(writerCount)
@@ -112,7 +112,7 @@ class SecureStorageServiceTest {
                     startLine.await()
                     // A separate service instance per writer also proves the store is not relying
                     // on one object's in-memory state being the source of truth.
-                    newStorage().addAccount(account(1_000L + index))
+                    newStorage().addKey(key(1_000L + index))
                 } catch (error: Throwable) {
                     errors += error
                 } finally {
@@ -126,7 +126,7 @@ class SecureStorageServiceTest {
         check(errors.isEmpty()) { "A concurrent writer failed: ${errors.first()}" }
 
         // Enumerate through a fresh instance so the assertion reads only durable state.
-        val stored = newStorage().getAccounts().map(Account::createdAt)
+        val stored = newStorage().getKeys().map(Key::createdAt)
         assertEquals((0 until writerCount).map { 1_000L + it }, stored)
     }
 
@@ -137,42 +137,42 @@ class SecureStorageServiceTest {
     @Test
     fun record_claiming_a_different_id_than_its_key_is_ignored() {
         val storage = newStorage()
-        storage.addAccount(account(10))
-        val mismatched = Json.encodeToString(account(999, key = "smuggled"))
+        storage.addKey(key(10))
+        val mismatched = Json.encodeToString(key(999, key = "smuggled"))
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("accounts_20", crypto.encrypt(mismatched))
+            .putString("keys_20", crypto.encrypt(mismatched))
             .commit()
 
-        assertEquals(listOf(10L), storage.getAccounts().map(Account::createdAt))
-        assertNull(storage.getAccountById(20))
+        assertEquals(listOf(10L), storage.getKeys().map(Key::createdAt))
+        assertNull(storage.getKeyById(20))
     }
 
     @Test
     fun undecryptable_record_is_skipped_without_hiding_healthy_records() {
         val storage = newStorage()
-        storage.addAccount(account(10))
+        storage.addKey(key(10))
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("accounts_20", "not-a-valid-payload")
+            .putString("keys_20", "not-a-valid-payload")
             .commit()
 
-        assertEquals(listOf(10L), storage.getAccounts().map(Account::createdAt))
+        assertEquals(listOf(10L), storage.getKeys().map(Key::createdAt))
     }
 
     @Test
-    fun unrelated_preferences_are_not_mistaken_for_accounts() {
+    fun unrelated_preferences_are_not_mistaken_for_keys() {
         val storage = newStorage()
-        storage.addAccount(account(10))
+        storage.addKey(key(10))
         // A preference whose name merely shares the prefix must not be parsed as a record.
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("accounts_registry", crypto.encrypt("[20]"))
-            .putString("accounts_", crypto.encrypt("{}"))
-            .putString("accounts_x", crypto.encrypt("{}"))
+            .putString("keys_registry", crypto.encrypt("[20]"))
+            .putString("keys_", crypto.encrypt("{}"))
+            .putString("keys_x", crypto.encrypt("{}"))
             .commit()
 
-        assertEquals(listOf(10L), storage.getAccounts().map(Account::createdAt))
+        assertEquals(listOf(10L), storage.getKeys().map(Key::createdAt))
     }
 
     @Test
@@ -183,10 +183,10 @@ class SecureStorageServiceTest {
     @Test
     fun healthy_vault_key_reports_readable() {
         val storage = newStorage()
-        storage.addVaultKey(account(1, key = "vault"))
+        storage.addVaultKey(key(1, key = "vault"))
 
         val state = newStorage().getVaultKeyState()
-        assertEquals("vault", (state as SecureRecordState.Readable).record.zenTenKey)
+        assertEquals("vault", (state as SecureRecordState.Readable).record.encryptedKey)
     }
 
     /**
@@ -199,7 +199,7 @@ class SecureStorageServiceTest {
     @Test
     fun ciphertext_without_its_keystore_key_reports_keystore_key_missing() {
         val storage = newStorage()
-        storage.addVaultKey(account(1, key = "vault"))
+        storage.addVaultKey(key(1, key = "vault"))
 
         // Simulate the migration: the stored bytes survive, the wrapping key does not.
         val keyless = mockk<KeystoreCryptoService> {
@@ -295,49 +295,49 @@ class SecureStorageServiceTest {
     @Test
     fun quarantining_leaves_readable_records_in_service() {
         val storage = newStorage()
-        storage.addVaultKey(account(1, key = "vault"))
-        storage.addAccount(account(10))
+        storage.addVaultKey(key(1, key = "vault"))
+        storage.addKey(key(10))
 
         assertEquals(0, storage.quarantineUnreadableRecords())
 
-        assertEquals("vault", newStorage().getVaultKey()?.zenTenKey)
-        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+        assertEquals("vault", newStorage().getVaultKey()?.encryptedKey)
+        assertEquals(listOf(10L), newStorage().getKeys().map(Key::createdAt))
     }
 
     @Test
     fun quarantining_takes_only_the_unreadable_records() {
         val storage = newStorage()
-        storage.addAccount(account(10))
+        storage.addKey(key(10))
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("accounts_20", "not-a-valid-payload")
+            .putString("keys_20", "not-a-valid-payload")
             .commit()
 
         assertEquals(1, newStorage().quarantineUnreadableRecords())
 
         // The healthy record is untouched; the broken one is no longer enumerated as live.
-        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+        assertEquals(listOf(10L), newStorage().getKeys().map(Key::createdAt))
         assertEquals(
             "not-a-valid-payload",
             context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
-                .getString("quarantined_accounts_20", null),
+                .getString("quarantined_keys_20", null),
         )
     }
 
     /**
-     * A quarantined record must never be enumerated as an account. `accounts_` parsing rejects a
+     * A quarantined record must never be enumerated as a key. `keys_` parsing rejects a
      * non-numeric suffix and the quarantine prefix differs anyway; this pins both.
      */
     @Test
-    fun quarantined_records_are_never_listed_as_accounts() {
+    fun quarantined_records_are_never_listed_as_keys() {
         val storage = newStorage()
-        storage.addAccount(account(10))
+        storage.addKey(key(10))
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("quarantined_accounts_30", crypto.encrypt(Json.encodeToString(account(30))))
+            .putString("quarantined_keys_30", crypto.encrypt(Json.encodeToString(key(30))))
             .commit()
 
-        assertEquals(listOf(10L), newStorage().getAccounts().map(Account::createdAt))
+        assertEquals(listOf(10L), newStorage().getKeys().map(Key::createdAt))
     }
 
     @Test
@@ -364,7 +364,7 @@ class SecureStorageServiceTest {
     fun a_second_quarantine_replaces_the_previous_generation() {
         val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
         preferences.edit().putString("vault_key", "first-generation").apply {
-            putString("quarantined_accounts_99", "stale-generation")
+            putString("quarantined_keys_99", "stale-generation")
         }.commit()
 
         assertEquals(1, newStorage().quarantineUnreadableRecords())
@@ -374,7 +374,7 @@ class SecureStorageServiceTest {
             "first-generation",
             preferences.getString("quarantined_vault_key", null),
         )
-        assertNull(preferences.getString("quarantined_accounts_99", null))
+        assertNull(preferences.getString("quarantined_keys_99", null))
     }
 
     /**
@@ -413,8 +413,8 @@ class SecureStorageServiceTest {
 
         assertEquals(false, storage.hasUnreadableRecords())
 
-        storage.addVaultKey(account(1, key = "vault"))
-        storage.addAccount(account(10))
+        storage.addVaultKey(key(1, key = "vault"))
+        storage.addKey(key(10))
 
         assertEquals(false, newStorage().hasUnreadableRecords())
     }
@@ -430,16 +430,16 @@ class SecureStorageServiceTest {
     }
 
     /**
-     * The partial-transfer case: account ciphertext arrives, the VaultKey record does not.
+     * The partial-transfer case: key ciphertext arrives, the VaultKey record does not.
      *
      * Without this, the gate sees an absent VaultKey, reports a fresh install, and onboarding
      * silently orphans the records that are still on disk.
      */
     @Test
-    fun unreadable_account_records_are_detected_without_a_vault_key() {
+    fun unreadable_key_records_are_detected_without_a_vault_key() {
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("accounts_20", "not-a-valid-payload")
+            .putString("keys_20", "not-a-valid-payload")
             .commit()
         val storage = newStorage()
 
@@ -467,22 +467,22 @@ class SecureStorageServiceTest {
     @Test
     fun clear_all_returns_the_vault_key_to_absent() {
         val storage = newStorage()
-        storage.addVaultKey(account(1, key = "vault"))
-        storage.addAccount(account(10))
+        storage.addVaultKey(key(1, key = "vault"))
+        storage.addKey(key(10))
 
         storage.clearAll()
 
         assertEquals(SecureRecordState.Absent, newStorage().getVaultKeyState())
-        assertEquals(emptyList<Long>(), newStorage().getAccounts().map(Account::createdAt))
+        assertEquals(emptyList<Long>(), newStorage().getKeys().map(Key::createdAt))
     }
 
-    private fun account(id: Long, key: String = "private-key-$id") = Account(
+    private fun key(id: Long, key: String = "private-key-$id") = Key(
         createdAt = id,
-        zenTenKey = key,
+        encryptedKey = key,
     )
 
     private companion object {
         // Mirrors SecureStorageService.FILE_NAME, which is private to the implementation.
-        const val FILE_NAME = "vault_secure_accounts_v2"
+        const val FILE_NAME = "vault_secure_keys_v2"
     }
 }

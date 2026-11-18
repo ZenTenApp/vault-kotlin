@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-This document explains how ZenTen Vault writes account backups to Brave Sync-compatible servers, including the project's `litesync` endpoints. It covers the record format, credential derivation, transport, session lifecycle, write/verify flow, and failure handling at the implementation level.
+This document explains how ZenTen Vault writes key backups to Brave Sync-compatible servers, including the project's `litesync` endpoints. It covers the record format, credential derivation, transport, session lifecycle, write/verify flow, and failure handling at the implementation level.
 
 User-visible backup behavior, source policy, and recovery semantics live in [Encrypted backup](../features/encrypted-backup.md) and [Backup status and consolidation](../features/backup-status-and-reconciliation.md). This document is the engineering walkthrough behind those guarantees.
 
@@ -26,7 +26,7 @@ User-visible backup behavior, source policy, and recovery semantics live in [Enc
 | **Client ID** | Ed25519 public key (hex) derived from the Sync code. Brave uses it to identify the client making a request. |
 | **Auth token** | Bearer credential proving possession of the Client ID's private key for a timestamp. |
 | **Quorum** | The minimum successful destinations required during Vault Key setup: one Nostr relay and one Brave Sync source. |
-| **Consolidation** | The triggered reconciliation pass that indexes sources, restores missing local accounts, writes missing remote records, and verifies them. It runs after an unlocked launch or on user action, not periodically. |
+| **Consolidation** | The triggered reconciliation pass that indexes sources, restores missing local keys, writes missing remote records, and verifies them. It runs after an unlocked launch or on user action, not periodically. |
 | **Canonical key form** | The single-line Base64 OpenSSH private-key representation stored in every backup. |
 
 ## Protocol flow
@@ -49,7 +49,7 @@ flowchart TD
     ListOK -->|Yes| Decrypt["PasswordReader decrypts each entity"]
     Decrypt --> Valid{"MAC, decryption, and URL/username contract valid?"}
     Valid -->|No| Invalid["Counted as invalid; never treated as a backup"]
-    Valid -->|Yes| Candidates["Group into RemoteAccountCandidate by BackupAccountId"]
+    Valid -->|Yes| Candidates["Group into RemoteKeyCandidate by BackupKeyId"]
     Candidates --> Absent{"Record absent in this cycle's index?"}
     Absent -->|No| Identical{"Existing record has the same canonical key and decoded label?"}
     Identical -->|Yes| Success["Idempotent success"]
@@ -65,30 +65,30 @@ flowchart TD
     Visible -->|Yes| Success
     Success --> Quorum{"Vault Key pass only: one eligible Nostr relay and one eligible Brave source succeeded?"}
     Quorum -->|No| Incomplete["Keep the local Vault Key and leave setup incomplete so it can be retried"]
-    Quorum -->|Yes| Complete["Setup completes; consolidation records the account as backed up"]
+    Quorum -->|Yes| Complete["Setup completes; consolidation records the key as backed up"]
 ```
 
-Session and key setup are done once per endpoint per run (`withSession`), while the list, write, and verify steps repeat for every record the run handles at that endpoint. The quorum check applies only to the Vault Key pass; account consolidation treats each source independently and reports per-source status.
+Session and key setup are done once per endpoint per run (`withSession`), while the list, write, and verify steps repeat for every record the run handles at that endpoint. The quorum check applies only to the Vault Key pass; key consolidation treats each source independently and reports per-source status.
 
 ## What is stored
 
-Backups are stored as **password records**, the same entity type Brave's password manager syncs. One record exists per backup. Associated-account records carry at most one note; the Vault Key record carries none.
+Backups are stored as **password records**, the same entity type Brave's password manager syncs. One record exists per backup. Associated-key records carry at most one note; the Vault Key record carries none.
 
 | Backup | URL | Username | Password field | Notes |
 | --- | --- | --- | --- | --- |
 | Vault Key | `https://vaultkey.zenten/` | `vaultkey` | Canonical single-line Base64 OpenSSH private key | Never any note |
-| Associated account | `https://<createdAt>.zenten/` | decimal `createdAt` | Canonical single-line Base64 encrypted OpenSSH private key | Optional single `label:<account name>` note; absent when the account has no name |
+| Associated key | `https://<createdAt>.zenten/` | decimal `createdAt` | Canonical single-line Base64 encrypted OpenSSH private key | Optional single `label:<key name>` note; absent when the key has no name |
 
-The password field holds the SSH key text, not JSON or an app-specific blob. The key remains passphrase-protected: the account passphrase is **never** uploaded. The Vault Key's own passphrase is also never stored remotely, which is why the Vault Key only re-enters the app through onboarding.
+The password field holds the SSH key text, not JSON or an app-specific blob. The key remains passphrase-protected: the key passphrase is **never** uploaded. The Vault Key's own passphrase is also never stored remotely, which is why the Vault Key only re-enters the app through onboarding.
 
-The note is the only place an associated account's name survives a device change, and it is not encrypted: anyone who can list that account's records can read it. The note is exactly `label:<account name>`, with no space after the colon. The name itself may contain spaces, because labels are multi-word; only whitespace immediately after the colon (and around the whole value) is not part of the format. Readers accept only that form: the prefix is stripped and the remainder is used as-is (it is written already trimmed), and a note without the prefix or with surrounding whitespace is not a Vault label and restores no name. No legacy spelling is supported because the format has never shipped. A missing or blank note leaves the restored account's name empty; the UI does not substitute the shortened `npub`. The remote copy is never rewritten just to add or change a name, because presence is decided by URL and username alone.
+The note is the only place an associated key's name survives a device change, and it is not encrypted: anyone who can list that key's records can read it. The note is exactly `label:<key name>`, with no space after the colon. The name itself may contain spaces, because labels are multi-word; only whitespace immediately after the colon (and around the whole value) is not part of the format. Readers accept only that form: the prefix is stripped and the remainder is used as-is (it is written already trimmed), and a note without the prefix or with surrounding whitespace is not a Vault label and restores no name. No legacy spelling is supported because the format has never shipped. A missing or blank note leaves the restored key's name empty; the UI does not substitute the shortened `npub`. The remote copy is never rewritten just to add or change a name, because presence is decided by URL and username alone.
 
-A record is recognized by URL **and** username matching its canonical backup ID (`vaultkey` or a decimal `createdAt`). The Vault Key record additionally requires an empty notes list; an associated-account record accepts zero or one note, which keeps the name out of record identity.
+A record is recognized by URL **and** username matching its canonical backup ID (`vaultkey` or a decimal `createdAt`). The Vault Key record additionally requires an empty notes list; an associated-key record accepts zero or one note, which keeps the name out of record identity.
 
 Two encryption/validation layers must be distinguished:
 
 - **Outer layer — always done during indexing.** `PasswordReader.read` decrypts the Nigori payload of every non-deleted entity (`IV || AES-CBC ciphertext || HMAC-SHA256`), verifies the MAC, and parses URL/username/notes for each record. This is how presence is established, so a chain's record payloads are decrypted on every index pass; presence is not determined from ciphertext alone.
-- **Inner layer — done during restoration.** When a candidate is restored, its key is parsed with the session passphrase (`SshKeyCodec.parse` via `canonicalKey`) before anything is stored, so a record that does not decrypt with that passphrase is skipped as invalid rather than saved as an account that can never be unlocked or exported. The Vault Key's own inner check happens in the narrower `hasVaultKeyBackup` path. Because the index proves presence from IDs and the outer payload alone, a record whose outer payload decrypts and whose URL/username match the backup contract still counts as present even though restoration later rejects its key.
+- **Inner layer — done during restoration.** When a candidate is restored, its key is parsed with the session passphrase (`SshKeyCodec.parse` via `canonicalKey`) before anything is stored, so a record that does not decrypt with that passphrase is skipped as invalid rather than saved as a key that can never be unlocked or exported. The Vault Key's own inner check happens in the narrower `hasVaultKeyBackup` path. Because the index proves presence from IDs and the outer payload alone, a record whose outer payload decrypts and whose URL/username match the backup contract still counts as present even though restoration later rejects its key.
 
 Before any write, `canonicalKey` normalizes the value to the single-line Base64 form and parses it as an Ed25519 OpenSSH key. Malformed keys never reach the server.
 
@@ -170,7 +170,7 @@ The server never receives the Sync code or the derived keys. It stores only the 
 
 `BraveBackupSource.index` calls `BraveSyncBackupService.listRecords`, which sends `GET_UPDATES` for `PASSWORD_TYPE_ID` (`45873`) and decrypts each returned entity with `PasswordReader`.
 
-Entities that fail MAC verification, decryption, or the URL/username contract are counted as invalid and never treated as backups. Valid entities become `RemoteAccountCandidate` values grouped by `BackupAccountId`.
+Entities that fail MAC verification, decryption, or the URL/username contract are counted as invalid and never treated as backups. Valid entities become `RemoteKeyCandidate` values grouped by `BackupKeyId`.
 
 ### Write
 
@@ -186,28 +186,28 @@ A write happens only when the same operation's successful index proved the recor
 3. Send `COMMIT` with a random commit ID.
 4. Require `response_type == 1` for the entry result; anything else fails the source.
 
-Engine-driven writes use `createKnownMissing`, avoiding a second `GET_UPDATES` because the current cycle already listed the source. Standalone callers keep an idempotency list-and-compare step: an existing record with the same key and the same decoded account label is success, and an existing record with a different key or a different label is a failure that is never overwritten. The comparison is against the decoded label, not the raw note text, so a matching record is recognized as unchanged; a differing label is treated exactly like a differing key.
+Engine-driven writes use `createKnownMissing`, avoiding a second `GET_UPDATES` because the current cycle already listed the source. Standalone callers keep an idempotency list-and-compare step: an existing record with the same key and the same decoded key label is success, and an existing record with a different key or a different label is a failure that is never overwritten. The comparison is against the decoded label, not the raw note text, so a matching record is recognized as unchanged; a differing label is treated exactly like a differing key.
 
 The service also exposes `update` and `delete`, but the backup flow only ever creates records.
 
 ### Verify
 
-The engine does not trust the commit acknowledgement alone. After writing, it re-indexes the source and requires the record ID to appear. This applies to **both** record classes: `verifyVaultKeyWrite` confirms each Vault Key write before the source counts toward quorum, and `verifyAccountWrite` (single account) and `verifySourceAfterWrites` (full consolidation) confirm associated-account writes. An acknowledged-but-absent write is recorded as a failure and queued for retry.
+The engine does not trust the commit acknowledgement alone. After writing, it re-indexes the source and requires the record ID to appear. This applies to **both** record classes: `verifyVaultKeyWrite` confirms each Vault Key write before the source counts toward quorum, and `verifyKeyWrite` (single key) and `verifySourceAfterWrites` (full consolidation) confirm associated-key writes. An acknowledged-but-absent write is recorded as a failure and queued for retry.
 
 ## Orchestration and quorum
 
-`AccountConsolidationEngine` serializes all remote work behind one coroutine mutex and processes sources sequentially.
+`KeyConsolidationEngine` serializes all remote work behind one coroutine mutex and processes sources sequentially.
 
 - **Vault Key pass** (`backupVaultKey`): indexes and, where absent, writes the Vault Key record to every enabled source. Setup completes only when quorum is met — at least one quorum-eligible relay and one quorum-eligible Brave source. Each source is attempted even after earlier failures so the full quorum picture is available.
-- **Full account consolidation** (`consolidate`): two phases. Phase 1 indexes all sources and restores locally missing accounts from trusted sources. Phase 2 writes every local account missing from each phase-1 index, then performs one read-back per source.
-- **Single-account consolidation** (`consolidateAccount`): index, write if absent, verify immediately, without touching other accounts' statuses or records.
+- **Full key consolidation** (`consolidate`): two phases. Phase 1 indexes all sources and restores locally missing keys from trusted sources. Phase 2 writes every local key missing from each phase-1 index, then performs one read-back per source.
+- **Single-key consolidation** (`consolidateKey`): index, write if absent, verify immediately, without touching other keys' statuses or records.
 
 Work is scheduled by `background/BackupWorkers.kt`:
 
-- separate post-unlock one-time workers for the Vault Key and associated accounts (no periodic schedule), which take the passphrase from the in-memory session and fail closed when locked,
-- one-time targeted runs after account creation,
+- separate post-unlock one-time workers for the Vault Key and associated keys (no periodic schedule), which take the passphrase from the in-memory session and fail closed when locked,
+- one-time targeted runs after key creation,
 - manual consolidation that bypasses the freshness threshold,
-- retries for pending `(account, source)` writes.
+- retries for pending `(key, source)` writes.
 
 Both workers require a connected network and refuse to produce timestamped tokens or records while the device clock is known to be wrong.
 
@@ -218,7 +218,7 @@ Both workers require a connected network and refuse to produce timestamped token
 | Chain has no Nigori record | Commit a Nigori entity first, then write the password record |
 | Source index fails | Mark the source `UNKNOWN`; never infer absence and never write that source in the cycle |
 | Commit rejected / entry result not success | Source write fails and is queued for retry |
-| Write acknowledged but not visible on read-back | Treated as failure and queued for retry (both Vault Key and associated-account writes) |
+| Write acknowledged but not visible on read-back | Treated as failure and queued for retry (both Vault Key and associated-key writes) |
 | Existing record with a different key or decoded label | Fail the source; never overwrite |
 | Record fails outer decryption or URL/username contract | Counted as invalid and skipped |
 | Record uses a key name this implementation does not hold | Its outer decryption fails, so it is counted as invalid and skipped |
@@ -230,7 +230,7 @@ Both workers require a connected network and refuse to produce timestamped token
 
 - The server stores ciphertext and KDF metadata only. Reading a backup requires the Sync code, which is derived from the Vault Key seed.
 - The 24-word mnemonic provides the entropy behind the Sync code; the slow KDF raises the cost of offline guessing.
-- Account passphrases and Vault Key passphrases are never uploaded.
+- Key passphrases and Vault Key passphrases are never uploaded.
 - The Sync code, derived keys, auth tokens, and decrypted payloads stay in memory. Persisted state contains only IDs, statuses, timestamps, and coarse error categories.
 - Each endpoint gets its own transport object and its own in-memory `BravePasswordService` session, and per-source state (statuses, pending retries) is tracked independently. The *derived identity* is nevertheless the same at every Brave-compatible endpoint: one run-scoped Sync code produces the same mnemonic entropy, Ed25519 keypair, Client ID, and Nigori keys everywhere (`DefaultBackupSourceFactory` creates one run context and passes the same code to every `BraveSyncBackupService`). The boundary that holds is that no request is sent to one endpoint using another endpoint's transport or token: each session mints its own token and talks only through its own `BraveSyncTransport`.
 
@@ -247,7 +247,7 @@ Key handling is intentionally a **restricted contract**, not general Brave Nigor
 
 - Record contract and Sync code usage: `domain/BraveSyncBackupService.kt`
 - Source adapter, run context, and per-endpoint transport/session creation: `domain/BackupSourceAdapters.kt`
-- Orchestration, quorum, retries: `domain/AccountConsolidationEngine.kt`
+- Orchestration, quorum, retries: `domain/KeyConsolidationEngine.kt`
 - Session and record API: `bravesync/BravePasswordService.kt`
 - Auth derivation: `bravesync/auth/BraveSyncAuth.kt`
 - Nigori crypto and initialization: `bravesync/crypto/NigoriCrypto.kt`, `bravesync/NigoriInitializer.kt`

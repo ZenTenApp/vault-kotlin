@@ -11,7 +11,7 @@ import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.SecretCombinationsViewStep
 import app.zenten.vault.data.secure.SecureStorageService
-import app.zenten.vault.domain.AccountService
+import app.zenten.vault.domain.KeyService
 import app.zenten.vault.domain.VaultKeySession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 class SecretCombinationsViewModel @Inject constructor(
     private val secureStorage: SecureStorageService,
     private val appStorage: AppStorageService,
-    private val accountService: AccountService,
+    private val keyService: KeyService,
     private val vaultKeySession: VaultKeySession,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SecretCombinationsState())
@@ -68,10 +68,10 @@ class SecretCombinationsViewModel @Inject constructor(
         if (_state.value.verifying || _state.value.passphraseVerified) return
         _state.value = _state.value.copy(verifying = true, passphraseError = false)
         viewModelScope.launch {
-            // [AccountService.verifyVaultKeyPassphrase] runs its bcrypt derivation on
+            // [KeyService.verifyVaultKeyPassphrase] runs its bcrypt derivation on
             // Dispatchers.Default, so this Main-dispatched launch never blocks the UI even at the
             // highest accepted work factor.
-            val verified = accountService.verifyVaultKeyPassphrase(passphrase).isSuccess
+            val verified = keyService.verifyVaultKeyPassphrase(passphrase).isSuccess
             if (verified) {
                 // The gate is a real decryption now, so the same passphrase can unlock the
                 // session used to derive the displayed combinations.
@@ -159,7 +159,7 @@ class SecretCombinationsViewModel @Inject constructor(
                     runCatching {
                         val passphrase = vaultKeySession.snapshot() ?: return@let null
                         try {
-                            val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
+                            val seed = SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed
                             Seedify.toVaultKeyBackupWordIndices(seed)
                         } finally {
                             passphrase.fill('\u0000')

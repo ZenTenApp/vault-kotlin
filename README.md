@@ -1,6 +1,6 @@
 # ZenTen Vault
 
-ZenTen Vault is a pre-release Android app for managing SSH credentials with user-held recovery material and redundant encrypted backups. A user begins with the private key and passphrase for an existing Vault Key, then creates associated accounts that are automatically restored when discovered on another device.
+ZenTen Vault is a pre-release Android app for managing SSH credentials with user-held recovery material and redundant encrypted backups. A user begins with the private key and passphrase for an existing Vault Key, then creates associated keys that are automatically restored when discovered on another device.
 
 > **Pre-release — not yet released for production use.** The app is built on a production track and is no longer a proof of concept, but key-management software requires independent security review, release hardening, and operational controls before it should be trusted with real credentials.
 

@@ -11,12 +11,12 @@ object Seedify {
     /**
      * Sub-account name used to derive the recoverable Vault Key backup seed.
      *
-     * `vkbckp` is the Vault Key BacKup acronym ("VK" + "BCKP"). [deriveAssociatedAccountSeed]
+     * `vkbckp` is the Vault Key BacKup acronym ("VK" + "BCKP"). [deriveAssociatedKeySeed]
      * hashes it and mixes it with the Vault Key's SSH seed, so the exact spelling is part of the
      * generation contract: changing it produces a different 24-word mnemonic, sync code, and
      * Nostr identity for Vault Keys generated afterwards.
      */
-    private const val VAULT_KEY_BACKUP_ASSOCIATED_ACCOUNT = "vkbckp"
+    private const val VAULT_KEY_BACKUP_ASSOCIATED_KEY = "vkbckp"
     private const val MILLIS_PER_DAY = 24L * 60 * 60 * 1_000
     private val braveSyncEpoch = Instant.parse("2022-05-10T00:00:00Z")
 
@@ -26,7 +26,7 @@ object Seedify {
     }
 
     /**
-     * Generates a Brave Sync code from the Vault Key backup (`vkbckp`) associated account by
+     * Generates a Brave Sync code from the Vault Key backup (`vkbckp`) associated key by
      * encoding its seed as a normal 24-word BIP-39 mnemonic, then appending Brave's date-derived
      * 25th word.
      *
@@ -37,9 +37,9 @@ object Seedify {
     fun toBraveSyncCode(seed: ByteArray, now: Instant = Instant.now()): String =
         "${toVaultKeyBackupMnemonic(seed)} ${braveSync25thWord(now)}"
 
-    /** The 24-word mnemonic of Seedify's deterministic Vault Key backup (`vkbckp`) associated account. */
+    /** The 24-word mnemonic of Seedify's deterministic Vault Key backup (`vkbckp`) associated key. */
     fun toVaultKeyBackupMnemonic(seed: ByteArray): String =
-        toMnemonic(deriveAssociatedAccountSeed(seed, VAULT_KEY_BACKUP_ASSOCIATED_ACCOUNT))
+        toMnemonic(deriveAssociatedKeySeed(seed, VAULT_KEY_BACKUP_ASSOCIATED_KEY))
 
     /** One-based BIP-39 positions for the 24 recovery words in the Brave Sync code. */
     fun toVaultKeyBackupWordIndices(seed: ByteArray): List<Int> {
@@ -53,10 +53,10 @@ object Seedify {
     fun fromSshKey(privateKeyPem: String, passphrase: CharArray): String =
         toMnemonic(SshKeyCodec.parse(privateKeyPem, passphrase).seed)
 
-    private fun deriveAssociatedAccountSeed(seed: ByteArray, associatedAccount: String): ByteArray {
+    private fun deriveAssociatedKeySeed(seed: ByteArray, associatedKey: String): ByteArray {
         require(seed.size == SEED_SIZE_BYTES) { "Seedify requires a 32-byte Ed25519 seed" }
-        val associatedAccountHash = sha256(associatedAccount.encodeToByteArray())
-        return sha256(associatedAccountHash + seed)
+        val associatedKeyHash = sha256(associatedKey.encodeToByteArray())
+        return sha256(associatedKeyHash + seed)
     }
 
     /**

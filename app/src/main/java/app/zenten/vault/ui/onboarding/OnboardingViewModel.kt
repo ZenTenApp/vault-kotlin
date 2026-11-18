@@ -3,11 +3,11 @@ package app.zenten.vault.ui.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeyPersistedException
 import app.zenten.vault.domain.VaultKeySession
-import app.zenten.vault.domain.newAccountCreatedAt
+import app.zenten.vault.domain.newKeyCreatedAt
 import app.zenten.vault.ui.onboarding.createvaultkey.PassphraseStrengthChecker
 import app.zenten.vault.ui.onboarding.createvaultkey.VaultKeyPassphrasePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -106,30 +106,30 @@ class OnboardingViewModel @Inject constructor(
         runCatching {
             // Parsing stays outside the service call, so a wrong key or passphrase fails here
             // before anything is persisted and must not offer the stored-key retry.
-            val key = SshKeyCodec.normalizeToSingleLineBase64(keyInput)
+            val normalizedKey = SshKeyCodec.normalizeToSingleLineBase64(keyInput)
             // Parsing proves the passphrase before anything is persisted; the identity the
             // backup step needs is derived later from the same seed, never stored here.
             // Parsing decrypts with bcrypt_pbkdf, which can take seconds at high work factors,
             // so keep it off the Main looper.
             withContext(Dispatchers.Default) {
-                SshKeyCodec.parse(key, passphrase.toCharArray())
+                SshKeyCodec.parse(normalizedKey, passphrase.toCharArray())
             }
-            // Same microsecond-style ID scheme as every other account: the wall-clock
+            // Same microsecond-style ID scheme as every other key: the wall-clock
             // milliseconds plus a random 1–999 tail, so the exported creation ID does not end
             // in three zeros. The VaultKey is the only record stored under `vault_key`, so it
             // needs no monotonic guard against a sibling creation here.
-            val createdAt = newAccountCreatedAt(clock.millis())
+            val createdAt = newKeyCreatedAt(clock.millis())
             // Only the encrypted container is stored: every derived value (Nostr identity,
             // Sync code) is rebuilt from the seed by the flow that needs it.
-            val account = Account(
+            val key = Key(
                 createdAt = createdAt,
-                zenTenKey = key,
+                encryptedKey = normalizedKey,
             )
             // The passphrase was just used to parse the key, so remember it in the session
             // (never on disk) before backing up and any retry needs it.
             vaultKeySession.establish(passphrase.toCharArray())
-            _state.value = _state.value.copy(stage = "Backing up VaultKey account…")
-            setupService.performSetup(account).getOrThrow()
+            _state.value = _state.value.copy(stage = "Backing up VaultKey…")
+            setupService.performSetup(key).getOrThrow()
         }.onSuccess {
             _state.value = OnboardingState(completed = true, stage = "Setup complete")
         }.onFailure { error ->

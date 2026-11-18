@@ -81,7 +81,7 @@ fun CreateVaultKeyConfirmSecretCombinationsScreen(
             } else if (state.setupBlocked) {
                 // Every index is verified but the remote backup quorum is missing. Setup must not
                 // complete without it, so this screen stays and offers the retry instead of
-                // sending the user to Accounts with no remote copy of the Vault Key.
+                // sending the user to Keys with no remote copy of the Vault Key.
                 Text(
                     text = stringResource(R.string.create_vault_key_setup_blocked_body),
                     style = MaterialTheme.typography.bodyLarge,
@@ -95,7 +95,7 @@ fun CreateVaultKeyConfirmSecretCombinationsScreen(
                     onClick = {
                         viewModel.retryGeneratedVaultKeyBackup {
                             onCompleted()
-                            navController.navigate(VaultDestinations.ACCOUNTS) {
+                            navController.navigate(VaultDestinations.KEYS) {
                                 popUpTo(VaultDestinations.CREATE_VAULT_KEY_GRAPH) { inclusive = true }
                                 launchSingleTop = true
                             }
@@ -113,11 +113,11 @@ fun CreateVaultKeyConfirmSecretCombinationsScreen(
                         if (value == expected[index].toString()) {
                             if (index == expected.lastIndex) {
                                 completed = true
-                                // Verification is the last step: finish setup and open Accounts
+                                // Verification is the last step: finish setup and open Keys
                                 // directly, without the former green-checkmark celebration screen.
                                 viewModel.completeGeneratedVaultKeySetup {
                                     onCompleted()
-                                    navController.navigate(VaultDestinations.ACCOUNTS) {
+                                    navController.navigate(VaultDestinations.KEYS) {
                                         popUpTo(VaultDestinations.CREATE_VAULT_KEY_GRAPH) { inclusive = true }
                                         launchSingleTop = true
                                     }

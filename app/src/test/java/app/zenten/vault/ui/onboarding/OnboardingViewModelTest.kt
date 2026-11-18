@@ -1,6 +1,6 @@
 package app.zenten.vault.ui.onboarding
 
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeyPersistedException
 import app.zenten.vault.domain.VaultKeySession
@@ -147,7 +147,7 @@ class OnboardingViewModelTest {
     @Test
     fun imported_vault_key_gets_a_created_at_with_a_random_tail_under_the_injected_clock() = runTest {
         val fixture = fixture()
-        val stored = slot<Account>()
+        val stored = slot<Key>()
         coEvery { fixture.setupService.performSetup(capture(stored)) } returns Result.success(Unit)
 
         fixture.viewModel.performSetup(goldenEncryptedKey(), "phase1-test-passphrase")

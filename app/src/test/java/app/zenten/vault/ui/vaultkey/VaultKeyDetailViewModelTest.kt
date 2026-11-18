@@ -1,8 +1,8 @@
 package app.zenten.vault.ui.vaultKey
 
-import app.zenten.vault.data.kv.AccountSourceStatus
+import app.zenten.vault.data.kv.KeySourceStatus
 import app.zenten.vault.data.kv.AppStorageService
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.domain.BackupSourceRepository
 import app.zenten.vault.domain.BackupWorkScheduler
@@ -41,7 +41,7 @@ class VaultKeyDetailViewModelTest {
         val viewModel = VaultKeyDetailViewModel(
             sourceRepository = mockk { every { sources } returns MutableStateFlow(emptyList()) },
             appStorage = mockk {
-                every { accountSourceStatuses } returns MutableStateFlow(emptyList<AccountSourceStatus>())
+                every { keySourceStatuses } returns MutableStateFlow(emptyList<KeySourceStatus>())
                 every { setupComplete } returns MutableStateFlow(false)
             },
             setupService = mockk(relaxed = true),
@@ -58,16 +58,16 @@ class VaultKeyDetailViewModelTest {
             // The state flow is only assembled here; these flows are never collected by the test.
             sourceRepository = mockk { every { sources } returns MutableStateFlow(emptyList()) },
             appStorage = mockk {
-                every { accountSourceStatuses } returns MutableStateFlow(emptyList<AccountSourceStatus>())
+                every { keySourceStatuses } returns MutableStateFlow(emptyList<KeySourceStatus>())
                 every { setupComplete } returns MutableStateFlow(false)
             },
             setupService = mockk(relaxed = true),
             scheduler = mockk(relaxed = true),
             secureStorage = mockk {
-                every { getVaultKey() } returns Account(
+                every { getVaultKey() } returns Key(
                     createdAt = 1_700_000_000_000_000L,
                     // Passphrase-protected golden container; its seed derives the npub below.
-                    zenTenKey = goldenEncryptedKey(),
+                    encryptedKey = goldenEncryptedKey(),
                 )
             },
         )

@@ -52,7 +52,7 @@ class PassphraseStrengthMappingTest {
     @Test
     fun keeps_every_match_in_passphrase_order_including_the_unexplained_stretch() {
         // zxcvbn explains this passphrase as one dictionary word plus a tail it could not explain.
-        // Both are kept, in order, so the spans still account for the whole passphrase.
+        // Both are kept, in order, so the spans still key for the whole passphrase.
         val findings = strengthOf("Correct1 horse!").findings
 
         assertEquals(

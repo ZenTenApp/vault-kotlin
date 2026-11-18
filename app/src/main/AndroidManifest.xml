@@ -47,7 +47,7 @@
         </provider>
 
         <provider
-            android:name=".keyhive.AssociatedAccountsProvider"
+            android:name=".keyhive.AssociatedKeysProvider"
             android:authorities="app.zenten.vault.keys"
             android:exported="true"
             android:grantUriPermissions="false"

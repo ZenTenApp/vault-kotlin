@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-Vault writes the Vault Key and associated accounts independently to Nostr relay and Brave Sync sources. Remote formats remain compatible with the earlier implementation. Backup does not replace the user's obligation to retain the Vault Key private key and passphrase.
+Vault writes the Vault Key and associated keys independently to Nostr relay and Brave Sync sources. Remote formats remain compatible with the earlier implementation. Backup does not replace the user's obligation to retain the Vault Key private key and passphrase.
 
 The default source list and consolidation behavior are documented in [Backup status and consolidation](backup-status-and-reconciliation.md).
 
@@ -12,42 +12,42 @@ The default source list and consolidation behavior are documented in [Backup sta
 
 1. Setup validates and derives the Vault Key.
 2. `SetupService` stores it using `SecureStorageService`.
-3. `AccountConsolidationEngine.backupVaultKey` checks and, where absent, writes every enabled source sequentially.
+3. `KeyConsolidationEngine.backupVaultKey` checks and, where absent, writes every enabled source sequentially.
 4. Setup completes only after one quorum-eligible Nostr relay and one quorum-eligible Brave Sync server contain or acknowledge the Vault Key. The generated-VaultKey wizard applies the same rule at its final step: the backup outcome is persisted, and setup completion reads it back rather than assuming the backup succeeded.
 5. If quorum fails, the Vault Key remains securely stored, setup remains incomplete, and retry does not require reimport. For an imported key, `SetupService.performSetup` persists `AppStorageService.importedVaultKeySetupPending` as soon as the key is stored; the setup screen offers **Retry backup without re-importing** straight away, and after a process restart the launch router reopens that retry state rather than **Get started**. The pending flag is cleared by `setSetupComplete` or by restarting setup with `clearSetupComplete`. For the generated wizard the retry is offered on the final Secret Combinations screen, which stays open until quorum is reached; its progress is carried by the `createVaultKeyStep` markers instead of this flag.
-6. After setup, `AccountConsolidationEngine.consolidateVaultKey` keeps that record reconciled from the post-unlock `VaultKeyConsolidationWorker` and the **Consolidate VaultKey backup** action on the Vault Key screen. It applies a one-hour freshness threshold and its own pending-write check; manual requests bypass freshness. There is no periodic schedule.
+6. After setup, `KeyConsolidationEngine.consolidateVaultKey` keeps that record reconciled from the post-unlock `VaultKeyConsolidationWorker` and the **Consolidate VaultKey backup** action on the Vault Key screen. It applies a one-hour freshness threshold and its own pending-write check; manual requests bypass freshness. There is no periodic schedule.
 
-### Associated-account creation
+### Associated-key creation
 
-1. `AccountService` generates a passphrase-protected Ed25519 OpenSSH key and allocates its `createdAt` identifier.
-2. `SetupService.addAccount` persists the account locally before any remote operation.
+1. `KeyService` generates a passphrase-protected Ed25519 OpenSSH key and allocates its `createdAt` identifier.
+2. `SetupService.addKey` persists the key locally before any remote operation.
 3. WorkManager schedules source-by-source backup.
-4. Failed writes remain pending by account ID and source ID; the local account remains usable.
+4. Failed writes remain pending by key ID and source ID; the local key remains usable.
 
 ## Canonical identifiers
 
 - Vault Key: `vaultkey`
-- Associated account: decimal `createdAt`
+- Associated key: decimal `createdAt`
 
-Every `createdAt` is a wall-clock millisecond value shifted into microseconds with a random `1`–`999` sub-millisecond tail (`domain/AccountId.kt`), so it is both an identifier and a creation-order sort key. Associated-account allocation additionally runs through a compare-and-set counter in `AccountService` so concurrent creations cannot collide; Vault Key creation, import, and recovery use the same helper without it because there is only ever one Vault Key record.
+Every `createdAt` is a wall-clock millisecond value shifted into microseconds with a random `1`–`999` sub-millisecond tail (`domain/KeyId.kt`), so it is both an identifier and a creation-order sort key. Associated-key allocation additionally runs through a compare-and-set counter in `KeyService` so concurrent creations cannot collide; Vault Key creation, import, and recovery use the same helper without it because there is only ever one Vault Key record.
 
-Presence is determined by identifier only. Consolidation does not decrypt an already-present payload to compare it with local material. Payload decryption and OpenSSH validation happen only when a missing local associated account must be restored.
+Presence is determined by identifier only. Consolidation does not decrypt an already-present payload to compare it with local material. Payload decryption and OpenSSH validation happen only when a missing local associated key must be restored.
 
 ## Nostr format
 
 | Backup | Kind | `d` tag | Extra tags | Plaintext before NIP-44 |
 | --- | ---: | --- | --- | --- |
 | Vault Key | `37801` | `vaultkey` | none | normalized Vault Key OpenSSH private key |
-| Associated | `37802` | decimal `createdAt` | optional `["label", <account name>]` | normalized encrypted OpenSSH private key |
+| Associated | `37802` | decimal `createdAt` | optional `["label", <key name>]` | normalized encrypted OpenSSH private key |
 
-The associated-account label is a plain NIP-01 tag rather than an addition to the encrypted content, so it can be read back without the Vault Key passphrase; this is what lets a restored account keep its name. An account with no name (or a blank one) produces only the `d` tag, and readers then restore it with an empty name rather than substituting the shortened `npub`. The label is stored on the first write and is not re-published by consolidation, which never rewrites a record it already found present.
+The associated-key label is a plain NIP-01 tag rather than an addition to the encrypted content, so it can be read back without the Vault Key passphrase; this is what lets a restored key keep its name. A key with no name (or a blank one) produces only the `d` tag, and readers then restore it with an empty name rather than substituting the shortened `npub`. The label is stored on the first write and is not re-published by consolidation, which never rewrites a record it already found present.
 
 The relay identity depends on the record class, and the two are never mixed:
 
 | Record class | Relay identity | Recoverable from |
 | --- | --- | --- |
-| Vault Key (`37801`) | NIP-06 identity derived from the 24-word mnemonic of Seedify's deterministic `vkbckp` (Vault Key BacKup) associated account | the 24 written-down words |
-| Associated account (`37802`) | the Vault Key's own Nostr identity, re-derived from its seed per run | the Vault Key private key and passphrase |
+| Vault Key (`37801`) | NIP-06 identity derived from the 24-word mnemonic of Seedify's deterministic `vkbckp` (Vault Key BacKup) associated key | the 24 written-down words |
+| Associated key (`37802`) | the Vault Key's own Nostr identity, re-derived from its seed per run | the Vault Key private key and passphrase |
 
 That identity is used for relay indexing, NIP-44 self-encryption, event signing, publication, and NIP-42 authentication of its own record class. The backed-up Vault Key plaintext is still the original VaultKey's canonical single-line Base64 OpenSSH private key. `DefaultBackupSourceFactory` derives the Vault Key backup identity once per engine operation and passes it to `NostrBackupSource`, so Vault Key creation, imported-Vault Key setup, retries, and Vault Key consolidation all address the same relay record instead of creating a duplicate under a second identity.
 
@@ -56,7 +56,7 @@ That identity is used for relay indexing, NIP-44 self-encryption, event signing,
 `NostrRelayService` creates an authenticated one-shot Quartz connection for source reads and writes:
 
 1. Install `RelayAuthenticator` before connecting.
-2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that record class (the `vkbckp` Vault Key backup identity for Vault Key records; the stored Vault Key identity for associated accounts).
+2. When the relay sends an `AUTH` challenge, build and sign kind `22242` with the Nostr key selected for that record class (the `vkbckp` Vault Key backup identity for Vault Key records; the stored Vault Key identity for associated keys).
 3. Send the response on the same relay connection; challenges and signed auth events are not persisted.
 4. Pin the challenged relay in Quartz's connection pool for the full operation timeout while waiting for a definitive AUTH acknowledgement. `fetchAll` removes its subscription after `CLOSED`, so an authenticated read maintains a temporary keep-alive subscription until the handshake and retry finish. If the initial subscription is closed with `auth-required`, wait for the successful AUTH `OK` and issue a fresh `REQ` on that same authenticated connection; the closed subscription cannot be reused.
 5. Retry a requested publication on the authenticated connection when necessary and observe publication acknowledgements for the entire connection lifetime so an `OK` produced by Quartz's post-authentication outbox resynchronization is not lost between retries.
@@ -73,19 +73,19 @@ The sync code is derived from the parsed Vault Key seed by `Seedify.toBraveSyncC
 | Backup | URL | Username | Password | Note |
 | --- | --- | --- | --- | --- |
 | Vault Key | `https://vaultkey.zenten/` | `vaultkey` | normalized Vault Key private key | none |
-| Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key | `label:<account name>`, when the account has a name |
+| Associated | `https://<createdAt>.zenten/` | decimal `createdAt` | normalized encrypted associated private key | `label:<key name>`, when the key has a name |
 
-The Vault Key record must keep an empty note; the associated-account note is the mirror of the Nostr `label` tag and is how a restored account keeps its name. The note is `label:<account name>` with no space directly after the colon, though the account name itself may contain spaces. Writing an associated account with no name (or a blank one) stores no note, and a record with more than one note is not treated as a Vault backup. Before writing, the service parses the key as Ed25519 OpenSSH. An existing record with the same key and the same decoded account label is success; one that differs in either is a conflict that fails and is not overwritten.
+The Vault Key record must keep an empty note; the associated-key note is the mirror of the Nostr `label` tag and is how a restored key keeps its name. The note is `label:<key name>` with no space directly after the colon, though the key name itself may contain spaces. Writing an associated key with no name (or a blank one) stores no note, and a record with more than one note is not treated as a Vault backup. Before writing, the service parses the key as Ed25519 OpenSSH. An existing record with the same key and the same decoded key label is success; one that differs in either is a conflict that fails and is not overwritten.
 
 For the protocol-level walkthrough (Nigori encryption, credential derivation, transport, and session lifecycle), see [Brave Sync and litesync backup protocol](../technical/brave-sync-backup-protocol.md).
 
 ## Retry and consolidation
 
-Account backup, pending retry, and two-phase consolidation are implemented by `AccountConsolidationEngine` and `background/BackupWorkers.kt`. Work is constrained to a connected network, all remote operations are serialized, and consolidation is enqueued after each unlocked launch instead of on a periodic schedule. The workers take the VaultKey passphrase from the in-memory `VaultKeySession` and fail closed when it is locked; the passphrase is never placed in WorkManager input data.
+Key backup, pending retry, and two-phase consolidation are implemented by `KeyConsolidationEngine` and `background/BackupWorkers.kt`. Work is constrained to a connected network, all remote operations are serialized, and consolidation is enqueued after each unlocked launch instead of on a periodic schedule. The workers take the VaultKey passphrase from the in-memory `VaultKeySession` and fail closed when it is locked; the passphrase is never placed in WorkManager input data.
 
 ## Secret handling
 
-Secure storage contains passphrase-encrypted account private keys only; the passphrase itself is never persisted. Non-secret DataStore state may contain canonical account IDs, source IDs, status/error categories, timestamps, pending-write counters, and checkpoints. It must not contain private keys, passphrases, payloads, sync codes, authentication tokens, or NIP-42 challenges.
+Secure storage contains passphrase-encrypted key private keys only; the passphrase itself is never persisted. Non-secret DataStore state may contain canonical key IDs, source IDs, status/error categories, timestamps, pending-write counters, and checkpoints. It must not contain private keys, passphrases, payloads, sync codes, authentication tokens, or NIP-42 challenges.
 
 Errors, logs, analytics, WorkManager input, and UI status must follow the same restriction.
 
@@ -94,17 +94,17 @@ Errors, logs, analytics, WorkManager input, and UI status must follow the same r
 | Situation | Behavior |
 | --- | --- |
 | Vault Key quorum unavailable | Retain local Vault Key, leave setup incomplete, allow retry. |
-| Associated write fails everywhere | Preserve usable local account and pending source writes. |
+| Associated write fails everywhere | Preserve usable local key and pending source writes. |
 | Initial source index fails | Mark `UNKNOWN`; do not infer absence or write that source in the cycle. |
 | Existing Brave record conflicts | Fail that source; do not overwrite. |
 | NIP-42 authentication fails | Report authentication failure; fail that relay and do not count it toward quorum. |
 | Relay connection, timeout, or event rejection | Report the corresponding network, timeout, or remote-rejection category rather than authentication failure. |
 | Relay reports the exact event ID already exists | Treat the retry as an idempotently confirmed write. |
-| Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local accounts. A key that does not open with the session passphrase is invalid, as is one whose declared `bcrypt_pbkdf` work factor falls outside 128–8192 rounds. |
+| Remote restore payload is invalid | Try newer/older duplicate candidates as applicable, then skip without altering local keys. A key that does not open with the session passphrase is invalid, as is one whose declared `bcrypt_pbkdf` work factor falls outside 128–8192 rounds. |
 
 ## Key locations
 
-- Engine: `domain/AccountConsolidationEngine.kt`
+- Engine: `domain/KeyConsolidationEngine.kt`
 - Source adapters: `domain/BackupSourceAdapters.kt`
 - Nostr event construction: `domain/BackupService.kt`
 - Relay transport/authentication: `network/nostr/NostrRelayService.kt`

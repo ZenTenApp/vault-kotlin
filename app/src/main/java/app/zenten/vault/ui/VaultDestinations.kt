@@ -60,23 +60,23 @@ object VaultDestinations {
     const val CREATE_VAULT_KEY_CONFIRM_SECRET_COMBINATIONS =
         "get-started/create-vault-key/confirm-secret-combinations"
 
-    /** Accounts list (main screen after setup). */
-    const val ACCOUNTS = "accounts"
+    /** Keys list (main screen after setup). */
+    const val KEYS = "keys"
 
-    /** Account detail. Arg: {id} = createdAt microsecond timestamp. */
-    const val ACCOUNT_DETAIL = "accounts/{id}"
+    /** Key detail. Arg: {id} = createdAt microsecond timestamp. */
+    const val KEY_DETAIL = "keys/{id}"
 
-    /** Create new associated account. */
-    const val NEW_ACCOUNT = "new-accounts"
+    /** Create new associated key. */
+    const val NEW_KEY = "new-keys"
 
-    /** Mandatory local-backup step immediately after account creation. */
-    const val LOCAL_ACCOUNT_BACKUP_EXPORT = "accounts/{id}/local-backup/export"
+    /** Mandatory local-backup step immediately after key creation. */
+    const val LOCAL_KEY_BACKUP_EXPORT = "keys/{id}/local-backup/export"
 
-    /** Mandatory paste-back confirmation that follows the account export. */
-    const val LOCAL_ACCOUNT_BACKUP_CONFIRM = "accounts/{id}/local-backup/confirm"
+    /** Mandatory paste-back confirmation that follows the key export. */
+    const val LOCAL_KEY_BACKUP_CONFIRM = "keys/{id}/local-backup/confirm"
 
-    /** VaultKey account and its per-source backup coverage. */
-    const val VAULT_KEY = "vaultKey-account"
+    /** VaultKey and its per-source backup coverage. */
+    const val VAULT_KEY = "vaultKey"
 
     /**
      * Nested graph for the Settings-initiated **Secret Combinations** review flow.
@@ -103,7 +103,7 @@ object VaultDestinations {
     /** App settings and vault management entry points. */
     const val SETTINGS = "settings"
 
-    fun accountDetail(id: Long): String = "accounts/$id"
-    fun localAccountBackupExport(id: Long): String = "accounts/$id/local-backup/export"
-    fun localAccountBackupConfirm(id: Long): String = "accounts/$id/local-backup/confirm"
+    fun keyDetail(id: Long): String = "keys/$id"
+    fun localKeyBackupExport(id: Long): String = "keys/$id/local-backup/export"
+    fun localKeyBackupConfirm(id: Long): String = "keys/$id/local-backup/confirm"
 }

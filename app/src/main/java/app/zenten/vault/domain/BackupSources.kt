@@ -1,6 +1,6 @@
 package app.zenten.vault.domain
 
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import kotlinx.serialization.Serializable
 import java.net.URI
 import java.util.Locale
@@ -81,30 +81,30 @@ object DefaultBackupSources {
 }
 
 @Serializable
-data class BackupAccountId(val value: String) {
+data class BackupKeyId(val value: String) {
     val isVaultKey: Boolean get() = value == VAULT_KEY_VALUE
     val createdAt: Long? get() = value.takeUnless { isVaultKey }?.toLongOrNull()
 
     companion object {
         const val VAULT_KEY_VALUE = "vaultkey"
-        val VaultKey = BackupAccountId(VAULT_KEY_VALUE)
-        fun associated(createdAt: Long) = BackupAccountId(createdAt.toString())
-        fun parse(value: String): BackupAccountId? = when {
+        val VaultKey = BackupKeyId(VAULT_KEY_VALUE)
+        fun associated(createdAt: Long) = BackupKeyId(createdAt.toString())
+        fun parse(value: String): BackupKeyId? = when {
             value == VAULT_KEY_VALUE -> VaultKey
-            value.isNotEmpty() && value.all(Char::isDigit) && value.toLongOrNull() != null -> BackupAccountId(value)
+            value.isNotEmpty() && value.all(Char::isDigit) && value.toLongOrNull() != null -> BackupKeyId(value)
             else -> null
         }
     }
 }
 
-interface RemoteAccountCandidate {
-    val id: BackupAccountId
+interface RemoteKeyCandidate {
+    val id: BackupKeyId
     val sortOrder: Long
 }
 
 data class SourceIndex(
-    val ids: Set<BackupAccountId>,
-    val candidates: Map<BackupAccountId, List<RemoteAccountCandidate>>,
+    val ids: Set<BackupKeyId>,
+    val candidates: Map<BackupKeyId, List<RemoteKeyCandidate>>,
     val invalidRecordCount: Int = 0,
 )
 
@@ -112,19 +112,19 @@ data class SourceIndex(
  * Secret run-scoped inputs for one consolidation operation.
  *
  * Carries the passphrase obtained from [VaultKeySession] so that restore and write can decrypt
- * or re-derive account material. This object is never persisted; the caller zeroes
+ * or re-derive key material. This object is never persisted; the caller zeroes
  * [passphrase] when the run finishes.
  */
 class VaultKeyRunSecrets(
-    val vaultKey: Account,
+    val vaultKey: Key,
     val passphrase: CharArray,
 )
 
-interface AccountBackupSource {
+interface KeyBackupSource {
     val config: BackupSourceConfig
     suspend fun index(secrets: VaultKeyRunSecrets): Result<SourceIndex>
-    suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account>
-    suspend fun write(secrets: VaultKeyRunSecrets, accountId: BackupAccountId, account: Account): Result<Unit>
+    suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteKeyCandidate): Result<Key>
+    suspend fun write(secrets: VaultKeyRunSecrets, keyId: BackupKeyId, key: Key): Result<Unit>
 }
 
 interface BackupSourceRunContext
@@ -132,7 +132,7 @@ interface BackupSourceRunContext
 interface BackupSourceFactory {
     /** Derives run-scoped credentials once; implementations must not persist this context. */
     fun createRunContext(secrets: VaultKeyRunSecrets): BackupSourceRunContext? = null
-    fun create(config: BackupSourceConfig, context: BackupSourceRunContext? = null): AccountBackupSource
+    fun create(config: BackupSourceConfig, context: BackupSourceRunContext? = null): KeyBackupSource
 }
 
 fun normalizeSourceEndpoint(type: BackupSourceType, raw: String): String {

@@ -23,19 +23,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
-import app.zenten.vault.data.kv.AccountSourceBackupState
+import app.zenten.vault.data.kv.KeySourceBackupState
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
-import app.zenten.vault.domain.BackupAccountId
+import app.zenten.vault.domain.BackupKeyId
 import app.zenten.vault.domain.BackupSourceRepository
 import app.zenten.vault.domain.BackupWorkScheduler
 import app.zenten.vault.domain.SetupService
-import app.zenten.vault.ui.accounts.BackupSourceRow
-import app.zenten.vault.ui.accounts.ExportPassphraseDialog
-import app.zenten.vault.ui.accounts.ExportTargetDialog
-import app.zenten.vault.ui.accounts.KeyQrCodeDialog
-import app.zenten.vault.ui.accounts.LocalAccountBackupShare
-import app.zenten.vault.ui.accounts.SourceStatusRow
+import app.zenten.vault.ui.keys.BackupSourceRow
+import app.zenten.vault.ui.keys.ExportPassphraseDialog
+import app.zenten.vault.ui.keys.ExportTargetDialog
+import app.zenten.vault.ui.keys.KeyQrCodeDialog
+import app.zenten.vault.ui.keys.LocalKeyBackupShare
+import app.zenten.vault.ui.keys.SourceStatusRow
 import app.zenten.vault.ui.components.VaultScreenScaffold
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -54,14 +54,14 @@ class VaultKeyDetailViewModel @Inject constructor(
     private val scheduler: BackupWorkScheduler,
     private val secureStorage: SecureStorageService,
 ) : ViewModel() {
-    val state = combine(sourceRepository.sources, appStorage.accountSourceStatuses, appStorage.setupComplete) { sources, statuses, complete ->
+    val state = combine(sourceRepository.sources, appStorage.keySourceStatuses, appStorage.setupComplete) { sources, statuses, complete ->
         VaultKeyDetailState(
             setupComplete = complete,
             sources = sources.filter { it.enabled }.map { source ->
-                val status = statuses.firstOrNull { it.accountId == BackupAccountId.VAULT_KEY_VALUE && it.sourceId == source.id }
+                val status = statuses.firstOrNull { it.keyId == BackupKeyId.VAULT_KEY_VALUE && it.sourceId == source.id }
                 BackupSourceRow(
                     source.id, source.label, source.endpoint, source.type,
-                    status?.state ?: AccountSourceBackupState.UNKNOWN,
+                    status?.state ?: KeySourceBackupState.UNKNOWN,
                     status?.lastCheckedAtMillis,
                     status?.lastSuccessfulBackupAtMillis,
                     status?.errorCategory,
@@ -91,14 +91,14 @@ class VaultKeyDetailViewModel @Inject constructor(
             // char copy so this module does not leave another long-lived copy for the GC to find.
             val chars = passphrase.toCharArray()
             try {
-                runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, chars) }.getOrNull()
+                runCatching { LocalKeyBackupShare.vaultKeyExportText(vaultKey, chars) }.getOrNull()
             } finally {
                 chars.fill('\u0000')
             }
         }
     }
 
-    /** Reconciles the Vault Key record only; associated accounts have their own actions. */
+    /** Reconciles the Vault Key record only; associated keys have their own actions. */
     fun consolidate() { scheduler.scheduleVaultKeyConsolidation() }
 }
 
@@ -118,7 +118,7 @@ fun VaultKeyDetailScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     // Target picker shown while the user chooses where to send the VaultKey export.
-    var exportTargets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
+    var exportTargets by remember { mutableStateOf<List<LocalKeyBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
     // Passphrase confirmation shown before the chosen action runs. Null means no dialog is open.
     var pendingPassphraseAction by remember { mutableStateOf<VaultKeyPassphraseAction?>(null) }
@@ -130,7 +130,7 @@ fun VaultKeyDetailScreen(
     // the target picker closes.
     var exportText by remember { mutableStateOf<String?>(null) }
     VaultScreenScaffold(
-        title = "VaultKey Account",
+        title = "VaultKey",
         onBack = navController::navigateUp,
         content = {
             Spacer(Modifier.height(16.dp))
@@ -193,7 +193,7 @@ fun VaultKeyDetailScreen(
                             false
                         } else {
                             exportText = text
-                            exportTargets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                            exportTargets = LocalKeyBackupShare.availableTargets(context.packageManager)
                             true
                         }
                     }
@@ -237,7 +237,7 @@ fun VaultKeyDetailScreen(
                     return@ExportTargetDialog
                 }
                 try {
-                    context.startActivity(LocalAccountBackupShare.targetedSendIntent(text, target))
+                    context.startActivity(LocalKeyBackupShare.targetedSendIntent(text, target))
                 } catch (_: ActivityNotFoundException) {
                     exportError = "That app is no longer available. Choose another app."
                 } catch (_: SecurityException) {

@@ -42,8 +42,8 @@ sealed interface VaultUnlockGateState {
      * unlocks forever. The only accurate response is to offer recovery.
      *
      * [reason] describes the VaultKey record when it is itself the unreadable one, and otherwise
-     * the most consequential reason found among the stored account records — a partial transfer
-     * where the VaultKey record did not arrive, or damaged account ciphertext. All of them mean the
+     * the most consequential reason found among the stored key records — a partial transfer
+     * where the VaultKey record did not arrive, or damaged key ciphertext. All of them mean the
      * same thing to the user: the local ciphertext cannot be opened here and recovery has to come
      * from outside this device. The distinct values are kept because a missing wrapping key, a
      * damaged payload, and a Keystore that could not be read are not the same problem, and the
@@ -72,7 +72,7 @@ class VaultUnlockGateViewModel @Inject constructor(
      * The most consequential reason any stored record cannot be read on this device, observed so
      * the gate can leave the recovery screen as soon as the user sets the unreadable records aside.
      *
-     * The reason rather than a Boolean, because a vault whose VaultKey is absent but whose account
+     * The reason rather than a Boolean, because a vault whose VaultKey is absent but whose key
      * records are damaged is not the same state as one whose wrapping key is gone, and the screen
      * must not describe the wrong cause.
      */
@@ -91,9 +91,9 @@ class VaultUnlockGateViewModel @Inject constructor(
             // screen fails to find its records.
             vaultKey is SecureRecordState.Unreadable ->
                 VaultUnlockGateState.VaultUnreadable(vaultKey.reason)
-            // A partial transfer can leave account ciphertext behind without a VaultKey record. The
+            // A partial transfer can leave key ciphertext behind without a VaultKey record. The
             // VaultKey looks absent, but this is not a fresh install: onboarding would silently
-            // orphan the unreadable accounts on disk. The reported reason is the scan's, so the
+            // orphan the unreadable keys on disk. The reported reason is the scan's, so the
             // screen explains the actual cause instead of assuming a missing key.
             unreadable != null && vaultKey is SecureRecordState.Absent ->
                 VaultUnlockGateState.VaultUnreadable(unreadable)

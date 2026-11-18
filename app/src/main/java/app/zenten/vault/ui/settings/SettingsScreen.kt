@@ -78,7 +78,7 @@ fun SettingsScreen(
                     Spacer(Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
                         Text(
-                            text = "VaultKey Account",
+                            text = "VaultKey",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )

@@ -30,7 +30,7 @@ This feature protects the **interactive application surface**.
 
 - Root, forensic extraction, or a compromised OS/process running under the app's UID.
 - Background consolidation while the user is absent: the passphrase is never persisted, so it can only run while an in-memory session is unlocked.
-- The signature-protected KeyHive `AssociatedAccountsProvider`, which must keep serving authorized sibling apps unattended.
+- The signature-protected KeyHive `AssociatedKeysProvider`, which must keep serving authorized sibling apps unattended.
 - Cryptographic use of the existing storage key without a recent user prompt.
 - A compromised trusted sibling application.
 

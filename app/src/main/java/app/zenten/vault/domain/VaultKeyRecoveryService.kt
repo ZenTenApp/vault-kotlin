@@ -8,7 +8,7 @@ import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
@@ -27,7 +27,7 @@ import java.time.Clock
  * to locate a candidate:
  * - the Brave Sync code, which appends Brave's date-derived 25th word; and
  * - the Nostr identity under which Vault Key relay records are published, because that identity
- *   is the NIP-06 key pair of the same 24-word Vault Key backup (`vkbckp`) associated account mnemonic.
+ *   is the NIP-06 key pair of the same 24-word Vault Key backup (`vkbckp`) associated key mnemonic.
  *
  * Every enabled, restore-trusted source is queried and every copy it holds is a candidate. A
  * candidate is accepted only when the passphrase decrypts it *and* its `vkbckp` backup mnemonic
@@ -88,11 +88,11 @@ class VaultKeyRecoveryService(
             // Only the SSH container is stored; every identity derived from it is rebuilt on demand.
             val normalized = recovered.first
             secureStorage.addVaultKey(
-                Account(
+                Key(
                     // Recovered under the same ID scheme as a created or imported Vault Key, so
                     // the stored record's ID does not end in three zeros.
-                    createdAt = newAccountCreatedAt(clock.millis()),
-                    zenTenKey = normalized,
+                    createdAt = newKeyCreatedAt(clock.millis()),
+                    encryptedKey = normalized,
                 ),
             )
             // The passphrase was just used to decrypt the recovered key, so record it in the
@@ -174,7 +174,7 @@ class VaultKeyRecoveryService(
      * Canonicalizes a stored key copy and proves both that the passphrase decrypts it and that the
      * key belongs to the supplied recovery words.
      *
-     * The 24 words address the backup (`vkbckp`) associated account, so the recovered seed's backup
+     * The 24 words address the backup (`vkbckp`) associated key, so the recovered seed's backup
      * mnemonic — not the raw seed mnemonic — is what must match. The 25th Brave word is a
      * date-derived freshness token and is not part of the identity.
      */

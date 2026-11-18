@@ -9,7 +9,7 @@ import com.vitorpamplona.quartz.nip19Bech32.toNsec
  * App-facing NIP-06/NIP-19 boundary; Quartz types do not escape this API.
  *
  * Callers derive an identity where they need it rather than storing one. The derivation is a pure
- * function of an account's SSH seed, so the Vault Key's own identity for associated-account records
+ * function of a key's SSH seed, so the Vault Key's own identity for associated-key records
  * is `NostrKeyDerivation.derive(Seedify.toMnemonic(seed))` and the recoverable Vault Key backup
  * identity is `NostrKeyDerivation.derive(Seedify.toVaultKeyBackupMnemonic(seed))`.
  */
@@ -36,17 +36,17 @@ object NostrKeyDerivation {
     }
 
     /**
-     * The Vault Key's own identity, used for associated-account backup records.
+     * The Vault Key's own identity, used for associated-key backup records.
      *
      * Derived from the same 24-word mnemonic as the Vault Key's seed, so a caller holding the
      * decrypted key can rebuild it at any time without storing it.
      */
-    fun fromAccountSeed(seed: ByteArray): NostrKeys = derive(Seedify.toMnemonic(seed))
+    fun fromKeySeed(seed: ByteArray): NostrKeys = derive(Seedify.toMnemonic(seed))
 
     /**
      * The recoverable Vault Key backup identity, which owns every Vault Key relay record.
      *
-     * Uses the `vkbckp` associated-account mnemonic so the identity can be rebuilt from the 24
+     * Uses the `vkbckp` associated-key mnemonic so the identity can be rebuilt from the 24
      * Secret Combinations alone. Never store the result: its whole point is being recomputable.
      */
     fun fromVaultKeyBackupSeed(seed: ByteArray): NostrKeys = derive(Seedify.toVaultKeyBackupMnemonic(seed))

@@ -4,21 +4,21 @@ import android.content.Context
 import androidx.core.content.edit
 import app.zenten.vault.crypto.KeyPresence
 import app.zenten.vault.crypto.KeystoreCryptoService
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 
 /**
- * Keystore-backed encrypted persistence for every sensitive account record.
+ * Keystore-backed encrypted persistence for every sensitive key record.
  *
  * Each preference value is JSON-serialized, encrypted with [KeystoreCryptoService] (AES-256-GCM
  * using an Android Keystore key), then stored as Base64 text. Preference keys and the file name
  * remain plaintext but contain only non-secret record identifiers.
  *
- * There is deliberately **no separate index/registry of accounts**. The account records are
- * themselves the index: each is stored under `accounts_<createdAt>` and also carries `createdAt`
+ * There is deliberately **no separate index/registry of keys**. The key records are
+ * themselves the index: each is stored under `keys_<createdAt>` and also carries `createdAt`
  * inside its authenticated ciphertext. Enumerating therefore means scanning that key prefix.
  *
  * Removing the registry is a correctness property, not just a simplification. An index has to be
@@ -28,11 +28,11 @@ import kotlinx.serialization.json.Json
  * longer list, back up, or export. With every mutation reduced to a single preference edit, there
  * is no multi-step update left to lose, so no caller has to remember to hold a lock.
  *
- * There is intentionally no migration code for the former `accounts_registry` preference. The app
+ * There is intentionally no migration code for the former `keys_registry` preference. The app
  * has not been released, so every install is a development install and no stored registry exists
- * in the field. Account records were always stored under `accounts_<createdAt>`, so they remain
- * readable as-is. A stale `accounts_registry` value on a development device is inert: it is not an
- * `accounts_<id>` key, so enumeration ignores it, and [clearAll] removes it.
+ * in the field. Key records were always stored under `keys_<createdAt>`, so they remain
+ * readable as-is. A stale `keys_registry` value on a development device is inert: it is not an
+ * `keys_<id>` key, so enumeration ignores it, and [clearAll] removes it.
  *
  * This store is device-local by design and is never migrated. Stopping migration takes two layers,
  * and neither is redundant: `res/xml/data_extraction_rules.xml` asks the system not to copy these
@@ -48,8 +48,8 @@ class SecureStorageService(
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     private val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
-    private val _accounts = MutableStateFlow(readAccounts())
-    val accountUpdates: StateFlow<List<Account>> = _accounts.asStateFlow()
+    private val _keys = MutableStateFlow(readKeys())
+    val keyUpdates: StateFlow<List<Key>> = _keys.asStateFlow()
 
     /**
      * Decrypted VaultKey record, used by the launch gate to know whether to ask for a passphrase.
@@ -59,7 +59,7 @@ class SecureStorageService(
      * vault. Anything that needs to tell those apart must use [vaultKeyState], not this flow.
      */
     private val _vaultKey = MutableStateFlow(read(VAULT_KEY))
-    val vaultKeyUpdates: StateFlow<Account?> = _vaultKey.asStateFlow()
+    val vaultKeyUpdates: StateFlow<Key?> = _vaultKey.asStateFlow()
 
     /**
      * VaultKey presence and readability, including the case a `null` record cannot express.
@@ -69,17 +69,17 @@ class SecureStorageService(
      * completed onboarding or recovery visible without a restart.
      */
     private val _vaultKeyState = MutableStateFlow(readState(VAULT_KEY))
-    val vaultKeyState: StateFlow<SecureRecordState<Account>> = _vaultKeyState.asStateFlow()
+    val vaultKeyState: StateFlow<SecureRecordState<Key>> = _vaultKeyState.asStateFlow()
 
     /**
      * The worst unreadability reason among stored records, or `null` when all are readable.
      *
      * Exposed as a flow rather than a one-shot read because [quarantineUnreadableRecords] changes
      * the answer, and the launch gate must leave the recovery screen without the Activity being
-     * recreated. Republished by every mutation path through [publishAccounts] and [publishVaultKey].
+     * recreated. Republished by every mutation path through [publishKeys] and [publishVaultKey].
      *
      * The launch gate needs this in addition to [vaultKeyState] because a transfer can be partial:
-     * `setup_complete` and the account records travel while the VaultKey record does not. Testing
+     * `setup_complete` and the key records travel while the VaultKey record does not. Testing
      * only the VaultKey would report that case as a fresh install, and onboarding over records that
      * are still on disk is the silent-loss path this state exists to prevent.
      *
@@ -89,12 +89,12 @@ class SecureStorageService(
     private val _unreadableRecords = MutableStateFlow(scanForUnreadableRecords())
     val unreadableRecords: StateFlow<UnreadableReason?> = _unreadableRecords.asStateFlow()
 
-    fun addVaultKey(account: Account) {
-        write(VAULT_KEY, account)
+    fun addVaultKey(key: Key) {
+        write(VAULT_KEY, key)
         publishVaultKey()
     }
 
-    fun getVaultKey(): Account? = read(VAULT_KEY)
+    fun getVaultKey(): Key? = read(VAULT_KEY)
 
     /**
      * Reads the VaultKey together with the reason it is unavailable, when it is.
@@ -102,7 +102,7 @@ class SecureStorageService(
      * Prefer this over [getVaultKey] anywhere the difference between "no vault" and "vault that
      * cannot be opened" changes what the user is shown.
      */
-    fun getVaultKeyState(): SecureRecordState<Account> = readState(VAULT_KEY)
+    fun getVaultKeyState(): SecureRecordState<Key> = readState(VAULT_KEY)
 
     fun removeVaultKey() {
         preferences.edit { remove(VAULT_KEY) }
@@ -110,32 +110,32 @@ class SecureStorageService(
     }
 
     /**
-     * Adds or replaces an account in a single preference edit.
+     * Adds or replaces a key in a single preference edit.
      *
      * One edit is atomic and process-safe, so concurrent saves never discard each other. Replacing
      * an existing ID is idempotent because the key is derived solely from `createdAt`.
      */
-    fun addAccount(account: Account) {
-        write(accountKey(account.createdAt), account)
-        publishAccounts()
+    fun addKey(key: Key) {
+        write(keyStorageKey(key.createdAt), key)
+        publishKeys()
     }
 
     /** Returns the record only when it decrypts and still claims the ID that was asked for. */
-    fun getAccountById(createdAt: Long): Account? = read(accountKey(createdAt))
+    fun getKeyById(createdAt: Long): Key? = read(keyStorageKey(createdAt))
         ?.takeIf { it.createdAt == createdAt }
 
-    /** Returns all readable records, ordered by ascending account ID (oldest first). */
-    fun getAccounts(): List<Account> = readAccounts()
+    /** Returns all readable records, ordered by ascending key ID (oldest first). */
+    fun getKeys(): List<Key> = readKeys()
 
     /** Removes the record in a single preference edit; removing an absent ID is a no-op. */
-    fun removeAccount(createdAt: Long) {
-        preferences.edit { remove(accountKey(createdAt)) }
-        publishAccounts()
+    fun removeKey(createdAt: Long) {
+        preferences.edit { remove(keyStorageKey(createdAt)) }
+        publishKeys()
     }
 
     fun clearAll() {
         preferences.edit { clear() }
-        publishAccounts()
+        publishKeys()
         publishVaultKey()
     }
 
@@ -170,7 +170,7 @@ class SecureStorageService(
      */
     private fun scanForUnreadableRecords(): UnreadableReason? = preferences.all.keys
         .asSequence()
-        .filter { it == VAULT_KEY || accountIdFromKey(it) != null }
+        .filter { it == VAULT_KEY || keyIdFromKey(it) != null }
         .mapNotNull { key -> (readState(key) as? SecureRecordState.Unreadable)?.reason }
         .maxByOrNull(::severity)
 
@@ -224,7 +224,7 @@ class SecureStorageService(
     fun quarantineUnreadableRecords(): Int {
         val unreadable = preferences.all.mapNotNull { (key, value) ->
             when {
-                key != VAULT_KEY && accountIdFromKey(key) == null -> null
+                key != VAULT_KEY && keyIdFromKey(key) == null -> null
                 // A non-String value would abort the whole edit and leave a half-applied
                 // quarantine, so it is skipped rather than cast blindly.
                 value !is String -> null
@@ -254,17 +254,17 @@ class SecureStorageService(
                 putString("$QUARANTINE_KEY_PREFIX$key", value)
             }
         }
-        publishAccounts()
+        publishKeys()
         publishVaultKey()
         return unreadable.size
     }
 
-    private fun write(key: String, account: Account) =
-        preferences.edit { putString(key, crypto.encrypt(json.encodeToString(account))) }
+    private fun write(prefsKey: String, key: Key) =
+        preferences.edit { putString(prefsKey, crypto.encrypt(json.encodeToString(key))) }
 
-    private fun read(key: String): Account? = preferences.getString(key, null)
+    private fun read(key: String): Key? = preferences.getString(key, null)
         ?.let(crypto::decrypt)
-        ?.let { encoded -> runCatching { json.decodeFromString<Account>(encoded) }.getOrNull() }
+        ?.let { encoded -> runCatching { json.decodeFromString<Key>(encoded) }.getOrNull() }
 
     /**
      * Reads a record while preserving *why* it is unavailable.
@@ -279,7 +279,7 @@ class SecureStorageService(
      * both, so only the presence check can separate them, and claiming the key is gone would offer
      * a permanent-recovery action for a state that may be transient.
      */
-    private fun readState(key: String): SecureRecordState<Account> {
+    private fun readState(key: String): SecureRecordState<Key> {
         val stored = preferences.getString(key, null) ?: return SecureRecordState.Absent
 
         val decrypted = crypto.decrypt(stored)
@@ -291,10 +291,10 @@ class SecureStorageService(
                 },
             )
 
-        val account = runCatching { json.decodeFromString<Account>(decrypted) }.getOrNull()
+        val key = runCatching { json.decodeFromString<Key>(decrypted) }.getOrNull()
             ?: return SecureRecordState.Unreadable(UnreadableReason.PayloadInvalid)
 
-        return SecureRecordState.Readable(account)
+        return SecureRecordState.Readable(key)
     }
 
     /** Re-publishes both VaultKey projections so a `null` record and its state never disagree. */
@@ -306,7 +306,7 @@ class SecureStorageService(
     }
 
     /**
-     * Rebuilds the account list from the encrypted records themselves.
+     * Rebuilds the key list from the encrypted records themselves.
      *
      * The order is explicit rather than incidental: without a registry there is no stored
      * insertion order to fall back on, so ascending `createdAt` is the canonical order. Every
@@ -317,41 +317,41 @@ class SecureStorageService(
      * later recovery path can still inspect it; [readState] is what reports why a single named
      * record is unreadable.
      */
-    private fun readAccounts(): List<Account> = preferences.all.keys
-        .mapNotNull(::accountIdFromKey)
-        .mapNotNull(::getAccountById)
+    private fun readKeys(): List<Key> = preferences.all.keys
+        .mapNotNull(::keyIdFromKey)
+        .mapNotNull(::getKeyById)
         .sortedBy { it.createdAt }
 
-    private fun publishAccounts() {
-        _accounts.value = readAccounts()
+    private fun publishKeys() {
+        _keys.value = readKeys()
         publishRecordHealth()
     }
 
     /**
-     * Extracts the account ID from an `accounts_<id>` preference key.
+     * Extracts the key ID from an `keys_<id>` preference key.
      *
      * Parsing the numeric suffix rejects any other preference whose name merely starts with the
      * prefix, so unrelated state can never be mistaken for a record.
      */
-    private fun accountIdFromKey(key: String): Long? = key
-        .takeIf { it.startsWith(ACCOUNT_KEY_PREFIX) }
-        ?.removePrefix(ACCOUNT_KEY_PREFIX)
+    private fun keyIdFromKey(key: String): Long? = key
+        .takeIf { it.startsWith(KEY_STORAGE_PREFIX) }
+        ?.removePrefix(KEY_STORAGE_PREFIX)
         ?.takeIf { suffix -> suffix.isNotEmpty() && suffix.all(Char::isDigit) }
         ?.toLongOrNull()
 
-    private fun accountKey(createdAt: Long) = "$ACCOUNT_KEY_PREFIX$createdAt"
+    private fun keyStorageKey(createdAt: Long) = "$KEY_STORAGE_PREFIX$createdAt"
 
     private companion object {
-        const val FILE_NAME = "vault_secure_accounts_v2"
+        const val FILE_NAME = "vault_secure_keys_v2"
         const val VAULT_KEY = "vault_key"
-        const val ACCOUNT_KEY_PREFIX = "accounts_"
+        const val KEY_STORAGE_PREFIX = "keys_"
 
         /**
          * Prefix that parks ciphertext the app could not decrypt.
          *
-         * Namespaced separately from `accounts_` on purpose: [accountIdFromKey] rejects anything
+         * Namespaced separately from `keys_` on purpose: [keyIdFromKey] rejects anything
          * that is not a pure numeric suffix, so a quarantined record can never be enumerated as a
-         * live account even if this class gains a looser key scan later.
+         * live key even if this class gains a looser key scan later.
          */
         const val QUARANTINE_KEY_PREFIX = "quarantined_"
     }

@@ -103,7 +103,7 @@ class StrandedVaultViewModel @Inject constructor(
  * Explains that stored records cannot be opened on this device, and clears the way to recovery.
  *
  * This replaces what previously happened when records arrived without their wrapping key: the gate
- * reported `Onboarding`, the launch router sent the user to an empty account list, and nothing
+ * reported `Onboarding`, the launch router sent the user to an empty key list, and nothing
  * explained why their vault had disappeared. App data is not meant to transfer between devices at
  * all (`res/xml/data_extraction_rules.xml` excludes every domain), so this is the fallback for when
  * that declaration is not honoured, a transfer is partial, or records are damaged.

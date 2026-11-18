@@ -46,9 +46,9 @@ class VaultKeySession @Inject constructor(
      */
     suspend fun unlock(candidate: CharArray): Result<Unit> = withContext(Dispatchers.Default) {
         runCatching {
-            val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
+            val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey is unavailable" }
             // Throws when the passphrase does not decrypt the key.
-            SshKeyCodec.parse(vaultKey.zenTenKey, candidate)
+            SshKeyCodec.parse(vaultKey.encryptedKey, candidate)
         }.map { store(candidate) }
     }
 

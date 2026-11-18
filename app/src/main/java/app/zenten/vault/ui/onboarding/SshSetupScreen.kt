@@ -67,12 +67,12 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
     LaunchedEffect(state.completed) {
         if (state.completed) {
             // A fresh import has Get started beneath this screen; a launch-resumed retry has only
-            // the SSH entry. Pop whichever onboarding entry exists so Back from Accounts cannot
+            // the SSH entry. Pop whichever onboarding entry exists so Back from Keys cannot
             // return to a completed setup screen.
             val hasGetStarted = runCatching {
                 navController.getBackStackEntry(VaultDestinations.GET_STARTED)
             }.isSuccess
-            navController.navigate(VaultDestinations.ACCOUNTS) {
+            navController.navigate(VaultDestinations.KEYS) {
                 if (hasGetStarted) popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }
                 else popUpTo(VaultDestinations.GET_STARTED_SSH) { inclusive = true }
             }

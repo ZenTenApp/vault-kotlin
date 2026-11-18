@@ -1,0 +1,406 @@
+package app.zenten.vault.domain
+
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import app.zenten.vault.data.kv.KeySourceBackupState
+import app.zenten.vault.data.kv.AppStorageService
+import app.zenten.vault.data.kv.BackupErrorCategory
+import app.zenten.vault.data.kv.ConsolidationTrigger
+import app.zenten.vault.data.kv.PendingWriteReason
+import app.zenten.vault.data.model.Key
+import app.zenten.vault.data.secure.SecureStorageService
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import java.io.File
+import java.nio.file.Files
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class KeyConsolidationEngineTest {
+    @Test
+    fun vault_key_backup_attempts_all_sources_in_order_and_requires_both_type_quorums() = runTest {
+        fixture { engine, _, storage, factory ->
+            every { storage.getKeys() } returns emptyList()
+            factory.sources.values.forEach { source ->
+                source.writeResult = Result.success(Unit)
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(setOf(BackupKeyId.VaultKey), emptyMap())
+            }
+
+            val result = engine.backupVaultKey(vaultKey, passphrase)
+
+            assertTrue(result.quorumReached)
+            assertEquals(1, factory.runContextCreations)
+            // Each source is indexed to prove absence, written, then re-indexed to confirm.
+            assertEquals(
+                DefaultBackupSources.all.flatMap {
+                    listOf("index:${it.id}:1", "write:${it.id}:vaultkey", "index:${it.id}:2")
+                },
+                factory.calls,
+            )
+        }
+    }
+
+    @Test
+    fun vault_key_write_acknowledged_but_absent_does_not_satisfy_quorum_and_queues_retry() = runTest {
+        fixture { engine, appStorage, _, factory ->
+            // Every source accepts writes but keeps indexing empty, so no record is ever observed.
+            factory.sources.values.forEach { it.writeResult = Result.success(Unit) }
+
+            val result = engine.backupVaultKey(vaultKey, passphrase)
+
+            assertFalse(result.quorumReached)
+            assertTrue(result.successfulSourceIds.isEmpty())
+            assertEquals(DefaultBackupSources.all.map { it.id }.toSet(), result.failedSourceIds)
+            // Wait for the DataStore background dispatcher to persist the latest write.
+            advanceUntilIdle()
+            val statuses = appStorage.keySourceStatuses.first()
+            assertTrue(statuses.all {
+                it.keyId == BackupKeyId.VAULT_KEY_VALUE &&
+                    it.state == KeySourceBackupState.BACKUP_FAILED &&
+                    it.errorCategory == BackupErrorCategory.REMOTE_REJECTED
+            })
+            val pending = appStorage.pendingSourceWrites.first()
+            assertEquals(DefaultBackupSources.all.size, pending.size)
+            assertTrue(pending.all { it.reason == PendingWriteReason.VAULT_KEY_QUORUM })
+        }
+    }
+
+    @Test
+    fun vault_key_visible_after_write_satisfies_quorum() = runTest {
+        fixture { engine, appStorage, _, factory ->
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(setOf(BackupKeyId.VaultKey), emptyMap())
+            }
+
+            val result = engine.backupVaultKey(vaultKey, passphrase)
+
+            assertTrue(result.quorumReached)
+            assertEquals(DefaultBackupSources.all.map { it.id }.toSet(), result.successfulSourceIds)
+            advanceUntilIdle()
+            assertTrue(appStorage.pendingSourceWrites.first().isEmpty())
+            assertTrue(appStorage.keySourceStatuses.first().all {
+                it.state == KeySourceBackupState.PRESENT && it.lastSuccessfulBackupAtMillis != null
+            })
+        }
+    }
+
+    @Test
+    fun vault_key_read_back_index_failure_is_unknown_and_does_not_satisfy_quorum() = runTest {
+        fixture { engine, appStorage, _, factory ->
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                // The re-index after the write cannot be answered, so absence is unknowable.
+                source.indexResults += Result.failure(java.io.IOException("offline"))
+            }
+
+            val result = engine.backupVaultKey(vaultKey, passphrase)
+
+            assertFalse(result.quorumReached)
+            assertTrue(result.successfulSourceIds.isEmpty())
+            advanceUntilIdle()
+            assertTrue(appStorage.keySourceStatuses.first().all {
+                it.state == KeySourceBackupState.UNKNOWN && it.lastSuccessfulBackupAtMillis == null
+            })
+            assertTrue(appStorage.pendingSourceWrites.first().all {
+                it.reason == PendingWriteReason.VAULT_KEY_QUORUM
+            })
+        }
+    }
+
+    @Test
+    fun vault_key_backup_does_not_write_when_source_index_fails() = runTest {
+        fixture { engine, _, _, factory ->
+            val first = factory.sources.values.first()
+            first.indexResult = Result.failure(java.io.IOException("offline"))
+
+            val result = engine.backupVaultKey(vaultKey, passphrase)
+
+            assertTrue(first.config.id in result.failedSourceIds)
+            assertTrue("write:${first.config.id}:vaultkey" !in factory.calls)
+        }
+    }
+
+    @Test
+    fun failed_quorum_is_reported_after_all_sources_are_attempted() = runTest {
+        fixture { engine, _, _, factory ->
+            factory.sources.values.forEach { source ->
+                if (source.config.type == BackupSourceType.NOSTR_RELAY) {
+                    source.writeResult = Result.success(Unit)
+                    source.indexes += SourceIndex(emptySet(), emptyMap())
+                    source.indexes += SourceIndex(setOf(BackupKeyId.VaultKey), emptyMap())
+                } else {
+                    source.writeResult = Result.failure(IllegalStateException("rejected"))
+                }
+            }
+
+            val result = engine.backupVaultKey(vaultKey, passphrase)
+
+            assertTrue(result.relayQuorum)
+            assertFalse(result.braveQuorum)
+            // Relays are attempted, written, and read back; rejected Brave writes get no read-back.
+            assertEquals(DefaultBackupSources.all.size * 2 + 2, factory.calls.size)
+        }
+    }
+
+    @Test
+    fun scheduled_vault_key_consolidation_uses_the_stored_vault_key_and_ignores_keys() = runTest {
+        fixture { engine, _, storage, factory ->
+            every { storage.getKeys() } returns listOf(key(10, "local"))
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(setOf(BackupKeyId.VaultKey), emptyMap())
+            }
+
+            val result = engine.consolidateVaultKey(passphrase)!!
+
+            assertTrue(result.quorumReached)
+            // Only the Vault Key record is indexed, written, and read back; key IDs are never touched.
+            assertEquals(
+                DefaultBackupSources.all.flatMap {
+                    listOf("index:${it.id}:1", "write:${it.id}:vaultkey", "index:${it.id}:2")
+                },
+                factory.calls,
+            )
+        }
+    }
+
+    @Test
+    fun scheduled_vault_key_consolidation_is_skipped_while_its_own_result_is_fresh() = runTest {
+        fixture { engine, _, _, factory ->
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(setOf(BackupKeyId.VaultKey), emptyMap())
+            }
+            // The first cycle records a completion timestamp at the fixed test clock.
+            assertTrue(engine.consolidateVaultKey(passphrase) != null)
+            val callsAfterFirstRun = factory.calls.size
+
+            assertEquals(null, engine.consolidateVaultKey(passphrase))
+            assertEquals(callsAfterFirstRun, factory.calls.size)
+            // An explicit user action still bypasses freshness.
+            assertTrue(engine.consolidateVaultKey(passphrase, force = true) != null)
+            assertTrue(factory.calls.size > callsAfterFirstRun)
+        }
+    }
+
+    @Test
+    fun scheduled_vault_key_consolidation_runs_again_while_a_vault_key_write_is_pending() = runTest {
+        fixture { engine, appStorage, _, factory ->
+            // Fail every write so the engine records a pending Vault Key retry entry.
+            factory.sources.values.forEach { it.writeResult = Result.failure(IllegalStateException("rejected")) }
+            assertFalse(engine.consolidateVaultKey(passphrase)!!.quorumReached)
+            assertTrue(appStorage.pendingSourceWrites.first().any { it.keyId == BackupKeyId.VAULT_KEY_VALUE })
+            val callsAfterFirstRun = factory.calls.size
+
+            // Freshness must not suppress a cycle that still has queued work.
+            assertTrue(engine.consolidateVaultKey(passphrase) != null)
+            assertTrue(factory.calls.size > callsAfterFirstRun)
+        }
+    }
+
+    @Test
+    fun scheduled_vault_key_consolidation_does_nothing_without_a_stored_vault_key() = runTest {
+        fixture { engine, _, storage, factory ->
+            every { storage.getVaultKey() } returns null
+
+            assertEquals(null, engine.consolidateVaultKey(passphrase, force = true))
+            assertTrue(factory.calls.isEmpty())
+        }
+    }
+
+    @Test
+    fun targeted_consolidation_only_updates_and_writes_the_selected_key() = runTest {
+        fixture { engine, appStorage, storage, factory ->
+            val selected = key(10, "selected")
+            val unrelated = key(20, "unrelated")
+            every { storage.getKeyById(10) } returns selected
+            every { storage.getKeys() } returns listOf(selected, unrelated)
+            val selectedId = BackupKeyId.associated(10)
+            val verified = setOf(selectedId)
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(verified, emptyMap())
+            }
+
+            val result = engine.consolidateKey(10, passphrase)
+
+            assertEquals(DefaultBackupSources.all.size, result.writes)
+            assertTrue(factory.calls.filter { it.startsWith("write:") }.all { it.endsWith(":10") })
+            assertTrue(appStorage.keySourceStatuses.first().none { it.keyId == "20" })
+        }
+    }
+
+    @Test
+    fun targeted_consolidation_does_not_write_when_selected_key_is_already_present() = runTest {
+        fixture { engine, _, storage, factory ->
+            val selected = key(10, "selected")
+            every { storage.getKeyById(10) } returns selected
+            val present = setOf(BackupKeyId.associated(10))
+            factory.sources.values.forEach { it.indexes += SourceIndex(present, emptyMap()) }
+
+            val result = engine.consolidateKey(10, passphrase)
+
+            assertEquals(0, result.writes)
+            assertTrue(factory.calls.none { it.startsWith("write:") })
+        }
+    }
+
+    @Test
+    fun general_consolidation_excludes_vault_key_writes_and_statuses() = runTest {
+        fixture { engine, appStorage, storage, factory ->
+            every { storage.getKeys() } returns listOf(key(10, "local"))
+            val verified = setOf(BackupKeyId.VaultKey, BackupKeyId.associated(10))
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(emptySet(), emptyMap())
+                source.indexes += SourceIndex(verified, emptyMap())
+            }
+
+            engine.consolidate(passphrase, ConsolidationTrigger.MANUAL, force = true)!!
+
+            assertTrue(factory.calls.filter { it.startsWith("write:") }.none { it.endsWith(":vaultkey") })
+            assertTrue(appStorage.keySourceStatuses.first().none { it.keyId == BackupKeyId.VAULT_KEY_VALUE })
+        }
+    }
+
+    @Test
+    fun consolidation_does_not_write_keys_already_indexed_at_a_source() = runTest {
+        fixture { engine, _, storage, factory ->
+            every { storage.getKeys() } returns listOf(key(10, "local"))
+            val allPresent = setOf(BackupKeyId.VaultKey, BackupKeyId.associated(10))
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(allPresent, emptyMap())
+                source.indexes += SourceIndex(allPresent, emptyMap())
+            }
+
+            val result = engine.consolidate(passphrase, ConsolidationTrigger.MANUAL, force = true)!!
+
+            assertEquals(0, result.writes)
+            assertTrue(factory.calls.none { it.startsWith("write:") })
+        }
+    }
+
+    @Test
+    fun consolidation_restores_all_sources_before_backing_up_and_verifies_once_after_writes() = runTest {
+        fixture { engine, appStorage, storage, factory ->
+            val restored = key(20, "restored")
+            val local = mutableListOf(key(10, "local"))
+            every { storage.getKeys() } answers { local.toList() }
+            every { storage.addKey(any()) } answers { local += firstArg<Key>() }
+            factory.sources.values.forEach { source ->
+                source.indexes += SourceIndex(setOf(BackupKeyId.VaultKey, BackupKeyId.associated(10)), emptyMap())
+                source.indexes += SourceIndex(setOf(BackupKeyId.VaultKey, BackupKeyId.associated(10), BackupKeyId.associated(20)), emptyMap())
+            }
+            val first = factory.sources.getValue(DefaultBackupSources.all.first().id)
+            val candidate = FakeCandidate(BackupKeyId.associated(20))
+            first.indexes.clear()
+            first.indexes += SourceIndex(
+                setOf(BackupKeyId.VaultKey, BackupKeyId.associated(10), BackupKeyId.associated(20)),
+                mapOf(BackupKeyId.associated(20) to listOf(candidate)),
+            )
+            first.indexes += first.indexes.first()
+            first.restored[candidate] = restored
+
+            val result = engine.consolidate(passphrase, ConsolidationTrigger.MANUAL, force = true)!!
+
+            assertEquals(1, result.restored)
+            val firstWrite = factory.calls.indexOfFirst { it.startsWith("write:") }
+            val fourthInitialIndex = factory.calls.indexOf("index:${DefaultBackupSources.all.last().id}:1")
+            assertTrue(firstWrite > fourthInitialIndex)
+            assertEquals(2, factory.sources.values.first().indexCount)
+            assertTrue(factory.sources.values.all { it.indexCount == 2 })
+            assertTrue(appStorage.keySourceStatuses.first().any {
+                it.keyId == "20" && it.state == KeySourceBackupState.PRESENT
+            })
+        }
+    }
+
+    private suspend fun TestScope.fixture(
+        block: suspend (KeyConsolidationEngine, AppStorageService, SecureStorageService, FakeFactory) -> Unit,
+    ) {
+        val directory = Files.createTempDirectory("consolidation").toFile()
+        try {
+            val appStorage = AppStorageService(PreferenceDataStoreFactory.create(scope = backgroundScope) {
+                File(directory, "settings.preferences_pb")
+            })
+            val storage = mockk<SecureStorageService>()
+            every { storage.getVaultKey() } returns vaultKey
+            every { storage.getKeys() } returns emptyList()
+            every { storage.getKeyById(any()) } returns null
+            every { storage.addKey(any()) } just runs
+            val factory = FakeFactory()
+            val engine = KeyConsolidationEngine(
+                BackupSourceRepository(appStorage), factory, storage, appStorage,
+                Clock.fixed(Instant.ofEpochMilli(1_700_000_000_000), ZoneOffset.UTC),
+            )
+            block(engine, appStorage, storage, factory)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    private class FakeFactory : BackupSourceFactory {
+        val calls = mutableListOf<String>()
+        val sources = DefaultBackupSources.all.associate { it.id to FakeSource(it, calls) }
+        var runContextCreations = 0
+
+        override fun createRunContext(secrets: VaultKeyRunSecrets): BackupSourceRunContext =
+            object : BackupSourceRunContext {}.also { runContextCreations++ }
+
+        override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): KeyBackupSource =
+            sources.getValue(config.id)
+    }
+
+    private class FakeSource(
+        override val config: BackupSourceConfig,
+        private val calls: MutableList<String>,
+    ) : KeyBackupSource {
+        val indexes = ArrayDeque<SourceIndex>()
+        // Per-call failures, consumed before [indexes]; [indexResult] overrides every call.
+        val indexResults = ArrayDeque<Result<SourceIndex>>()
+        val restored = mutableMapOf<RemoteKeyCandidate, Key>()
+        var writeResult: Result<Unit> = Result.success(Unit)
+        var indexResult: Result<SourceIndex>? = null
+        var indexCount = 0
+
+        override suspend fun index(secrets: VaultKeyRunSecrets): Result<SourceIndex> {
+            indexCount++
+            calls += "index:${config.id}:$indexCount"
+            indexResult?.let { return it }
+            indexResults.removeFirstOrNull()?.let { return it }
+            return Result.success(indexes.removeFirstOrNull() ?: SourceIndex(emptySet(), emptyMap()))
+        }
+
+        override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteKeyCandidate): Result<Key> =
+            restored[candidate]?.let { Result.success(it) } ?: Result.failure(IllegalArgumentException("invalid"))
+
+        override suspend fun write(secrets: VaultKeyRunSecrets, keyId: BackupKeyId, key: Key): Result<Unit> {
+            calls += "write:${config.id}:${keyId.value}"
+            return writeResult
+        }
+    }
+
+    private data class FakeCandidate(
+        override val id: BackupKeyId,
+        override val sortOrder: Long = 1,
+    ) : RemoteKeyCandidate
+
+    companion object {
+        val passphrase = "pass".toCharArray()
+        val vaultKey = key(1, "vaultKey")
+        fun key(id: Long, key: String) = Key(id, key)
+    }
+}

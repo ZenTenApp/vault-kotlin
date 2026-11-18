@@ -2,7 +2,7 @@ package app.zenten.vault.domain
 
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateVaultKeyStep
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import app.zenten.vault.ui.availability.RemoteOperationReadiness
@@ -26,7 +26,7 @@ class SetupServiceTest {
     @Test
     fun quorum_failure_retains_vault_key_and_leaves_setup_incomplete() = runTest {
         val fixture = Fixture()
-        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = false,
             successfulSourceIds = setOf("relay"),
@@ -61,7 +61,7 @@ class SetupServiceTest {
     @Test
     fun generated_flow_does_not_mark_an_imported_key_as_pending() = runTest {
         val fixture = Fixture()
-        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = false,
             braveQuorum = false,
             successfulSourceIds = emptySet(),
@@ -93,7 +93,7 @@ class SetupServiceTest {
     @Test
     fun generated_vault_key_is_persisted_and_all_source_backups_are_attempted_without_completing_setup() = runTest {
         val fixture = Fixture()
-        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = false,
             braveQuorum = false,
             successfulSourceIds = emptySet(),
@@ -122,7 +122,7 @@ class SetupServiceTest {
         // The create flow backs up under the `vkbckp` identity, not the stored key's own.
         coEvery {
             fixture.engine.backupVaultKey(vaultKey, any(), any())
-        } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = true,
             successfulSourceIds = setOf("relay", "brave"),
@@ -163,7 +163,7 @@ class SetupServiceTest {
     fun retrying_the_generated_backup_records_the_new_quorum_and_leaves_completion_to_the_wizard() = runTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getVaultKey() } returns vaultKey
-        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = false,
             successfulSourceIds = setOf("relay"),
@@ -182,7 +182,7 @@ class SetupServiceTest {
     fun retry_uses_retained_vault_key_and_completes_after_both_quorums() = runTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getVaultKey() } returns vaultKey
-        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = true,
             successfulSourceIds = setOf("relay", "brave"),
@@ -196,32 +196,32 @@ class SetupServiceTest {
     }
 
     @Test
-    fun associated_account_is_saved_before_remote_work_is_scheduled() = runTest {
+    fun associated_key_is_saved_before_remote_work_is_scheduled() = runTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getVaultKey() } returns vaultKey
         every { fixture.appStorage.setupComplete } returns flowOf(true)
-        val account = Account(20, "associated")
+        val key = Key(20, "associated")
 
-        assertTrue(fixture.service.addAccount(vaultKey, account).isSuccess)
+        assertTrue(fixture.service.addKey(vaultKey, key).isSuccess)
 
         verifyOrder {
-            fixture.secureStorage.addAccount(account)
-            fixture.scheduler.scheduleAccountConsolidation(account.createdAt)
+            fixture.secureStorage.addKey(key)
+            fixture.scheduler.scheduleKeyConsolidation(key.createdAt)
         }
     }
 
     @Test
-    fun associated_account_is_rejected_when_vault_key_backup_quorum_is_incomplete() = runTest {
+    fun associated_key_is_rejected_when_vault_key_backup_quorum_is_incomplete() = runTest {
         val fixture = Fixture()
         every { fixture.appStorage.setupComplete } returns flowOf(false)
-        val account = Account(20, "associated")
+        val key = Key(20, "associated")
 
-        val result = fixture.service.addAccount(vaultKey, account)
+        val result = fixture.service.addKey(vaultKey, key)
 
         assertFalse(result.isSuccess)
         assertTrue(result.exceptionOrNull()?.message?.contains("quorum") == true)
-        verify(exactly = 0) { fixture.secureStorage.addAccount(any()) }
-        verify(exactly = 0) { fixture.scheduler.scheduleAccountConsolidation(any()) }
+        verify(exactly = 0) { fixture.secureStorage.addKey(any()) }
+        verify(exactly = 0) { fixture.scheduler.scheduleKeyConsolidation(any()) }
     }
 
     @Test
@@ -272,7 +272,7 @@ class SetupServiceTest {
         val fixture = Fixture()
         every { fixture.secureStorage.getVaultKey() } returns vaultKey
         coEvery { fixture.precondition.check() } returns RemoteOperationReadiness.TIME_UNVERIFIABLE
-        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { fixture.engine.backupVaultKey(vaultKey, any(), any()) } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true,
             braveQuorum = true,
             successfulSourceIds = setOf("relay", "brave"),
@@ -287,7 +287,7 @@ class SetupServiceTest {
     private class Fixture {
         val secureStorage = mockk<SecureStorageService>()
         val appStorage = mockk<AppStorageService>()
-        val engine = mockk<AccountConsolidationEngine>()
+        val engine = mockk<KeyConsolidationEngine>()
         val precondition = mockk<RemoteOperationPrecondition>()
         val scheduler = mockk<BackupWorkScheduler>()
         val session = VaultKeySession(secureStorage)
@@ -299,9 +299,9 @@ class SetupServiceTest {
             coEvery { precondition.check() } returns RemoteOperationReadiness.READY
             every { secureStorage.addVaultKey(any()) } just runs
             every { secureStorage.removeVaultKey() } just runs
-            every { secureStorage.addAccount(any()) } just runs
+            every { secureStorage.addKey(any()) } just runs
             every { scheduler.scheduleConsolidation() } just runs
-            every { scheduler.scheduleAccountConsolidation(any()) } just runs
+            every { scheduler.scheduleKeyConsolidation(any()) } just runs
             coJustRun { appStorage.clearSetupComplete() }
             coJustRun { appStorage.setSetupComplete() }
             coJustRun { appStorage.setCreateVaultKeyStep(any()) }
@@ -311,9 +311,9 @@ class SetupServiceTest {
     }
 
     companion object {
-        val vaultKey = Account(
+        val vaultKey = Key(
             createdAt = 1,
-            zenTenKey = "vaultKey",
+            encryptedKey = "vaultKey",
         )
     }
 }

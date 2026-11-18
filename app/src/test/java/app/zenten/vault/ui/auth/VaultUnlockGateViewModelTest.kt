@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 import app.zenten.vault.crypto.KeyPresence
 import app.zenten.vault.crypto.KeystoreCryptoService
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.data.secure.UnreadableReason
 import app.zenten.vault.domain.BackupWorkScheduler
@@ -35,7 +35,7 @@ import java.util.Base64
  *
  * This is the regression guard for the device-migration defect: the gate previously asked only
  * "is there a record?", so a vault whose wrapping key was left behind on the old phone looked
- * exactly like a brand-new install and the user was shown an empty account list with no
+ * exactly like a brand-new install and the user was shown an empty key list with no
  * explanation. Every test asserts the resulting state, because the state is what picks the screen.
  *
  * Storage is a real [SecureStorageService] over a stubbed crypto transform, the same technique
@@ -131,7 +131,7 @@ class VaultUnlockGateViewModelTest {
     @Test
     fun readable_vault_requires_the_passphrase() = runTest {
         val storage = healthyStorage()
-        storage.addVaultKey(Account(createdAt = 1, zenTenKey = "encrypted-vault-key"))
+        storage.addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
 
         assertEquals(VaultUnlockGateState.PassphraseRequired(), gate(storage = storage).settled())
     }
@@ -139,12 +139,12 @@ class VaultUnlockGateViewModelTest {
     /**
      * The defect this work fixes. An unreadable vault must never be reported as onboarding,
      * because onboarding combined with a durable `setupComplete` flag is exactly what produced an
-     * empty account list with no explanation. It must not be reported as `PassphraseRequired`
+     * empty key list with no explanation. It must not be reported as `PassphraseRequired`
      * either, since no passphrase can open a record whose wrapping key is gone.
      */
     @Test
     fun vault_with_a_missing_keystore_key_reports_unreadable_not_onboarding() = runTest {
-        healthyStorage().addVaultKey(Account(createdAt = 1, zenTenKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
 
         // Same ciphertext, but the wrap key is now absent: the migration state.
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
@@ -192,7 +192,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun setting_the_stranded_vault_aside_returns_the_gate_to_onboarding() = runTest {
-        healthyStorage().addVaultKey(Account(createdAt = 1, zenTenKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
         assertEquals(
             VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreKeyMissing),
@@ -205,15 +205,15 @@ class VaultUnlockGateViewModelTest {
     }
 
     /**
-     * A partial transfer: account ciphertext arrives, the VaultKey record does not.
+     * A partial transfer: key ciphertext arrives, the VaultKey record does not.
      *
      * The gate would otherwise see an absent VaultKey and report a fresh install, sending the user
-     * to onboarding while their account records sit unreadable on disk with nothing to explain them.
+     * to onboarding while their key records sit unreadable on disk with nothing to explain them.
      */
     @Test
-    fun unreadable_account_records_without_a_vault_key_report_unreadable_not_onboarding() = runTest {
+    fun unreadable_key_records_without_a_vault_key_report_unreadable_not_onboarding() = runTest {
         val storage = healthyStorage()
-        storage.addAccount(Account(createdAt = 10, zenTenKey = "encrypted-account-key"))
+        storage.addKey(Key(createdAt = 10, encryptedKey = "encrypted-key"))
 
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
 
@@ -224,12 +224,12 @@ class VaultUnlockGateViewModelTest {
     }
 
     /**
-     * Setting the partial case aside must reach onboarding too, and must not leave the account
+     * Setting the partial case aside must reach onboarding too, and must not leave the key
      * records counted as unreadable afterwards.
      */
     @Test
     fun setting_aside_a_partial_transfer_returns_the_gate_to_onboarding() = runTest {
-        healthyStorage().addAccount(Account(createdAt = 10, zenTenKey = "encrypted-account-key"))
+        healthyStorage().addKey(Key(createdAt = 10, encryptedKey = "encrypted-key"))
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
         assertEquals(
             VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreKeyMissing),
@@ -250,7 +250,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun setting_aside_a_mounted_gate_leaves_the_recovery_screen_without_recreating_it() = runTest {
-        healthyStorage().addVaultKey(Account(createdAt = 1, zenTenKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
         val mountedGate = gate(storage = stranded)
         mountedGate.awaitState(VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreKeyMissing))
@@ -261,35 +261,35 @@ class VaultUnlockGateViewModelTest {
     }
 
     /**
-     * A readable vault must not be stranded by an unrelated broken account record.
+     * A readable vault must not be stranded by an unrelated broken key record.
      *
      * Blocks correctness in the other direction: unreadable-record state is consulted only when the
-     * VaultKey is absent, so a damaged account cannot lock the user out of a working vault.
+     * VaultKey is absent, so a damaged key cannot lock the user out of a working vault.
      */
     @Test
-    fun a_readable_vault_with_a_corrupt_account_still_asks_for_the_passphrase() = runTest {
+    fun a_readable_vault_with_a_corrupt_key_still_asks_for_the_passphrase() = runTest {
         val storage = healthyStorage()
-        storage.addVaultKey(Account(createdAt = 1, zenTenKey = "encrypted-vault-key"))
+        storage.addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("accounts_20", "not-a-valid-payload")
+            .putString("keys_20", "not-a-valid-payload")
             .commit()
 
         assertEquals(VaultUnlockGateState.PassphraseRequired(), gate(storage = storage).settled())
     }
 
     /**
-     * A partial transfer whose account ciphertext is damaged, not sealed under a lost key.
+     * A partial transfer whose key ciphertext is damaged, not sealed under a lost key.
      *
      * The gate previously hard-coded `KeystoreKeyMissing` for every absent-VaultKey case, which
      * told the user to look for a device they may still be holding. The reason must come from the
      * scan so the recovery screen can describe the actual cause.
      */
     @Test
-    fun unreadable_account_records_report_their_own_reason_when_the_vault_key_is_absent() = runTest {
+    fun unreadable_key_records_report_their_own_reason_when_the_vault_key_is_absent() = runTest {
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString("accounts_20", "not-a-valid-payload")
+            .putString("keys_20", "not-a-valid-payload")
             .commit()
 
         assertEquals(
@@ -307,7 +307,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun an_unavailable_keystore_reports_keystore_unavailable_not_a_missing_key() = runTest {
-        healthyStorage().addVaultKey(Account(createdAt = 1, zenTenKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
 
         val unqueryable = SecureStorageService(context, cryptoWith(KeyPresence.Unavailable))
 
@@ -319,6 +319,6 @@ class VaultUnlockGateViewModelTest {
 
     private companion object {
         // Mirrors SecureStorageService.FILE_NAME, which is private to the implementation.
-        const val FILE_NAME = "vault_secure_accounts_v2"
+        const val FILE_NAME = "vault_secure_keys_v2"
     }
 }

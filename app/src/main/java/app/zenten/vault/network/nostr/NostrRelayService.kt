@@ -45,7 +45,7 @@ interface NostrRelayGateway {
     suspend fun fetchByAuthorAndKind(authorPubkey: String, kind: Int): List<NostrEvent>
 
     /**
-     * Uses this account's private key only to answer a relay's NIP-42 challenge. It is never
+     * Uses this key's private key only to answer a relay's NIP-42 challenge. It is never
      * sent to the relay, and is deliberately optional for relays that do not require auth.
      */
     suspend fun publishAuthenticated(event: NostrEvent, privateKey: ByteArray): PublishResult = publish(event)

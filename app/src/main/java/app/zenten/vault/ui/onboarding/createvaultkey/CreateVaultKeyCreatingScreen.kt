@@ -28,7 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
-import app.zenten.vault.domain.AccountConsolidationEngine
+import app.zenten.vault.domain.KeyConsolidationEngine
 import app.zenten.vault.domain.BackupSourceType
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.theme.LocalExtendedColors
@@ -39,7 +39,7 @@ fun CreateVaultKeyCreatingScreen(navController: NavHostController) {
     val viewModel = rememberCreateVaultKeyViewModel(navController)
     val state by viewModel.state.collectAsState()
 
-    // Leaving midway could expose an earlier wizard step after the account was committed.
+    // Leaving midway could expose an earlier wizard step after the key was committed.
     BackHandler(enabled = true) {}
 
     LaunchedEffect(state.navigateToBackup, state.generationFailed) {
@@ -114,7 +114,7 @@ fun CreateVaultKeyCreatingScreen(navController: NavHostController) {
 
 internal fun vaultKeyCreationTerminalLines(
     stage: VaultKeyCreationStage?,
-    progress: AccountConsolidationEngine.VaultKeyBackupProgress?,
+    progress: KeyConsolidationEngine.VaultKeyBackupProgress?,
     creatingText: String,
     seedText: String,
     syncCodeText: String,
@@ -148,7 +148,7 @@ internal fun vaultKeyCreationTerminalLines(
     }
 
 internal fun backupSourceLines(
-    progress: AccountConsolidationEngine.VaultKeyBackupProgress?,
+    progress: KeyConsolidationEngine.VaultKeyBackupProgress?,
     relayTexts: List<String>,
     syncServerTexts: List<String>,
 ): List<String> {

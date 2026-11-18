@@ -3,16 +3,16 @@ package app.zenten.vault.domain
 import app.zenten.vault.bravesync.BravePasswordService
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * Stores Vault SSH keys in the password-only Brave Sync adapter.
  *
- * The vaultKey account derives the Sync code; records are deliberately limited to
- * canonical single-line OpenSSH private-key Base64 values. Associated-account records also
- * carry the account label as a note so recovery can restore the name without local state;
+ * The vaultKey derives the Sync code; records are deliberately limited to
+ * canonical single-line OpenSSH private-key Base64 values. Associated-key records also
+ * carry the key label as a note so recovery can restore the name without local state;
  * the Vault Key record never has a note because the Vault Key has no user-set name.
  */
 class BraveSyncBackupService(
@@ -20,111 +20,111 @@ class BraveSyncBackupService(
     private val passwordService: BravePasswordService,
     private val runSyncCode: String? = null,
 ) {
-    suspend fun backupVaultKey(vaultKey: Account, passphrase: CharArray): Result<Unit> = backup(vaultKey, VAULT_KEY_ID, passphrase)
+    suspend fun backupVaultKey(vaultKey: Key, passphrase: CharArray): Result<Unit> = backup(vaultKey, VAULT_KEY_ID, passphrase)
 
-    suspend fun backupAssociatedAccount(vaultKey: Account, account: Account, passphrase: CharArray): Result<Unit> =
-        backup(vaultKey, account.createdAt.toString(), passphrase, account)
+    suspend fun backupAssociatedKey(vaultKey: Key, key: Key, passphrase: CharArray): Result<Unit> =
+        backup(vaultKey, key.createdAt.toString(), passphrase, key)
 
     /** Lists decrypted record metadata/payloads. SSH key parsing remains deferred to restoration. */
-    suspend fun listRecords(vaultKey: Account, passphrase: CharArray): Result<BravePasswordService.ListResult> = withContext(Dispatchers.IO) {
+    suspend fun listRecords(vaultKey: Key, passphrase: CharArray): Result<BravePasswordService.ListResult> = withContext(Dispatchers.IO) {
         runCatching { passwordService.list(syncCode(vaultKey, passphrase)) }
     }
 
-    fun accountId(entry: BravePasswordService.Password): String? = when {
-        entry.username == VAULT_KEY_ID && entry.url == accountUrl(VAULT_KEY_ID) && entry.notes.isEmpty() -> VAULT_KEY_ID
-        entry.username.toLongOrNull() != null && entry.url == accountUrl(entry.username) && entry.notes.size <= 1 -> entry.username
+    fun keyId(entry: BravePasswordService.Password): String? = when {
+        entry.username == VAULT_KEY_ID && entry.url == keyUrl(VAULT_KEY_ID) && entry.notes.isEmpty() -> VAULT_KEY_ID
+        entry.username.toLongOrNull() != null && entry.url == keyUrl(entry.username) && entry.notes.size <= 1 -> entry.username
         else -> null
     }
 
     /**
-     * Decodes one associated-account record, or returns `null` when intake fails.
+     * Decodes one associated-key record, or returns `null` when intake fails.
      *
      * A record that does not open with [passphrase] returns `null`, so callers skip it rather
-     * than persisting an account that could never be unlocked or exported. The Vault Key record
-     * is also rejected here: normal recovery deliberately restores associated accounts only.
+     * than persisting a key that could never be unlocked or exported. The Vault Key record
+     * is also rejected here: normal recovery deliberately restores associated keys only.
      */
-    fun decodeAssociatedAccount(entry: BravePasswordService.Password, passphrase: CharArray): Account? = runCatching {
+    fun decodeAssociatedKey(entry: BravePasswordService.Password, passphrase: CharArray): Key? = runCatching {
         // The vaultkey record has no numeric ID, so it is rejected here: normal recovery
-        // deliberately restores associated accounts only.
-        val accountId = requireNotNull(accountId(entry)?.toLongOrNull())
+        // deliberately restores associated keys only.
+        val keyId = requireNotNull(keyId(entry)?.toLongOrNull())
         // Metadata-only checks (numeric ID, container structure, work-factor band) can pass on a
         // container encrypted under a different passphrase, because the private section is
         // AES-CTR and authenticates nothing. Only actually decrypting the key proves the restored
-        // account is usable.
+        // key is usable.
         val key = canonicalKey(entry.password, passphrase)
-        // The note is the only place the account name survives a device change; a missing or
+        // The note is the only place the key name survives a device change; a missing or
         // blank one leaves the name unset, so the restored card shows no name.
-        accountFromSshKey(accountId, key, entry.notesText())
+        keyFromSshKey(keyId, key, entry.notesText())
     }.getOrNull()
 
-    /** Checks the vaultKey record separately because normal recovery deliberately restores associated accounts only. */
-    suspend fun hasVaultKeyBackup(vaultKey: Account, passphrase: CharArray): Result<Boolean> = withContext(Dispatchers.IO) {
+    /** Checks the vaultKey record separately because normal recovery deliberately restores associated keys only. */
+    suspend fun hasVaultKeyBackup(vaultKey: Key, passphrase: CharArray): Result<Boolean> = withContext(Dispatchers.IO) {
         runCatching {
             passwordService.list(syncCode(vaultKey, passphrase)).passwords.any { entry ->
-                entry.username == VAULT_KEY_ID && entry.url == accountUrl(VAULT_KEY_ID) &&
+                entry.username == VAULT_KEY_ID && entry.url == keyUrl(VAULT_KEY_ID) &&
                     entry.notes.isEmpty() &&
                     runCatching { canonicalKey(entry.password, passphrase) }.isSuccess
             }
         }
     }
 
-    suspend fun discoverAssociatedAccounts(vaultKey: Account, passphrase: CharArray): RecoveryResult = withContext(Dispatchers.IO) {
+    suspend fun discoverAssociatedKeys(vaultKey: Key, passphrase: CharArray): RecoveryResult = withContext(Dispatchers.IO) {
         val syncCode = syncCode(vaultKey, passphrase)
         val discovered = passwordService.list(syncCode)
-        val valid = mutableListOf<Account>()
+        val valid = mutableListOf<Key>()
         val skipped = mutableListOf<String>()
         discovered.passwords.forEach { entry ->
-            val accountId = accountId(entry)?.toLongOrNull()
-            if (accountId == null) {
+            val keyId = keyId(entry)?.toLongOrNull()
+            if (keyId == null) {
                 skipped += entry.id
                 return@forEach
             }
-            val account = decodeAssociatedAccount(entry, passphrase)
-            if (account == null) skipped += entry.id else valid += account
+            val key = decodeAssociatedKey(entry, passphrase)
+            if (key == null) skipped += entry.id else valid += key
         }
         RecoveryResult(valid, skipped, discovered.decryptionFailures, discovered.passwords.size)
     }
 
-    private suspend fun backup(vaultKey: Account, accountId: String, passphrase: CharArray, account: Account = vaultKey): Result<Unit> =
-        // The Vault Key record never carries a note; only associated accounts do.
-        backupRecord(vaultKey, accountId, passphrase, account, if (accountId == VAULT_KEY_ID) null else accountLabel(account))
+    private suspend fun backup(vaultKey: Key, keyId: String, passphrase: CharArray, key: Key = vaultKey): Result<Unit> =
+        // The Vault Key record never carries a note; only associated keys do.
+        backupRecord(vaultKey, keyId, passphrase, key, if (keyId == VAULT_KEY_ID) null else keyLabel(key))
 
     /**
-     * Writes one record. [label] is the plain account label to store, or `null` for no note.
+     * Writes one record. [label] is the plain key label to store, or `null` for no note.
      *
      * The Vault Key record always passes `null`: its readers require an empty note, and the
      * Vault Key has no user-set name to publish.
      */
     private suspend fun backupRecord(
-        vaultKey: Account,
-        accountId: String,
+        vaultKey: Key,
+        keyId: String,
         passphrase: CharArray,
-        account: Account,
+        key: Key,
         label: String?,
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val syncCode = syncCode(vaultKey, passphrase)
-                val url = accountUrl(accountId)
-                val key = canonicalKey(account.zenTenKey, passphrase)
+                val url = keyUrl(keyId)
+                val key = canonicalKey(key.encryptedKey, passphrase)
                 // The stored note carries the self-describing prefix; [label] stays plain so the
                 // idempotency check can compare it against a decoded note.
-                val note = label?.let { "$ACCOUNT_NOTE_PREFIX$it" }
+                val note = label?.let { "$KEY_NOTE_PREFIX$it" }
                 if (runSyncCode != null) {
                     // The engine invokes write only after this source's index proved the ID
                     // absent, so another list/refetch would duplicate network work.
-                    passwordService.createKnownMissing(syncCode, url, accountId, key, note)
+                    passwordService.createKnownMissing(syncCode, url, keyId, key, note)
                 } else {
                     // Standalone callers do not provide an index, so retain the idempotency check.
                     val existing = passwordService.list(syncCode).passwords.firstOrNull {
-                        it.url == url && it.username == accountId
+                        it.url == url && it.username == keyId
                     }
-                    if (existing == null) passwordService.create(syncCode, url, accountId, key, note)
+                    if (existing == null) passwordService.create(syncCode, url, keyId, key, note)
                     // Compare the decoded label against the plain [label] rather than against the
-                    // prefixed [note], so a repeat backup of an unchanged account stays idempotent
+                    // prefixed [note], so a repeat backup of an unchanged key stays idempotent
                     // while a genuinely different name still conflicts.
                     else require(existing.password == key && existing.notesText() == label) {
-                        "Brave Sync already contains a different Vault backup for $accountId"
+                        "Brave Sync already contains a different Vault backup for $keyId"
                     }
                 }
                 Unit
@@ -132,40 +132,40 @@ class BraveSyncBackupService(
         }
 
     /**
-     * Builds the plain account label for an associated account, or `null` when it has no name.
+     * Builds the plain key label for an associated key, or `null` when it has no name.
      *
      * Only the *outside* of the name is trimmed: leading and trailing whitespace is removed so
      * the stored value never begins with a space directly after the prefix, while spaces inside
-     * the name are kept, because a label may be multi-word ("Work account"). The label is stored
-     * as a note prefixed with [ACCOUNT_NOTE_PREFIX]; the prefix keeps the note self-describing
+     * the name are kept, because a label may be multi-word ("Work key"). The label is stored
+     * as a note prefixed with [KEY_NOTE_PREFIX]; the prefix keeps the note self-describing
      * for a person reading it in Brave's password manager, where Vault's note otherwise looks
-     * like free text. A nameless account gets no note rather than an empty value. The Vault Key
-     * has no note, so its record keeps the empty-note form that [accountId] and
+     * like free text. A nameless key gets no note rather than an empty value. The Vault Key
+     * has no note, so its record keeps the empty-note form that [keyId] and
      * [hasVaultKeyBackup] require.
      */
-    private fun accountLabel(account: Account): String? =
-        account.accountName?.trim()?.takeIf { it.isNotEmpty() }
+    private fun keyLabel(key: Key): String? =
+        key.keyName?.trim()?.takeIf { it.isNotEmpty() }
 
     /**
-     * Returns the account label from a record's note, or `null` when the note is absent or does
-     * not carry [ACCOUNT_NOTE_PREFIX].
+     * Returns the key label from a record's note, or `null` when the note is absent or does
+     * not carry [KEY_NOTE_PREFIX].
      *
-     * The accepted form is `label:<name>`, matching what [accountLabel] writes: no space
+     * The accepted form is `label:<name>`, matching what [keyLabel] writes: no space
      * immediately after `label:`, but any spaces inside `<name>` are part of the label. The
-     * remainder is therefore used as-is rather than trimmed, since [accountLabel] already
+     * remainder is therefore used as-is rather than trimmed, since [keyLabel] already
      * stripped the outside whitespace and a value such as `label: Name` is not a Vault label.
      * No legacy spelling is supported because the app has not shipped.
      */
     private fun BravePasswordService.Password.notesText(): String? = notes.singleOrNull()?.value
-        ?.takeIf { it.startsWith(ACCOUNT_NOTE_PREFIX) }
-        ?.removePrefix(ACCOUNT_NOTE_PREFIX)
+        ?.takeIf { it.startsWith(KEY_NOTE_PREFIX) }
+        ?.removePrefix(KEY_NOTE_PREFIX)
         ?.takeIf { it.isNotBlank() && it == it.trim() }
 
-    private fun syncCode(vaultKey: Account, passphrase: CharArray): String {
+    private fun syncCode(vaultKey: Key, passphrase: CharArray): String {
         // Consolidation supplies a run-scoped code so all endpoints reuse one SSH
         // decryption and one date-derived 25th word. Standalone callers still derive it.
         runSyncCode?.let { return it }
-        val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
+        val seed = SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed
         return Seedify.toBraveSyncCode(seed)
     }
 
@@ -175,10 +175,10 @@ class BraveSyncBackupService(
         return normalized
     }
 
-    private fun accountUrl(accountId: String): String = "https://$accountId.zenten/"
+    private fun keyUrl(keyId: String): String = "https://$keyId.zenten/"
 
     data class RecoveryResult(
-        val accounts: List<Account>,
+        val keys: List<Key>,
         val skippedEntryIds: List<String>,
         val decryptionFailures: Int,
         val discoveredEntryCount: Int,
@@ -188,11 +188,11 @@ class BraveSyncBackupService(
         const val VAULT_KEY_ID = "vaultkey"
 
         /**
-         * Prefix of the single note Vault stores on associated-account records.
+         * Prefix of the single note Vault stores on associated-key records.
          *
-         * No space follows the colon: the note is exactly `label:<account name>`. There is no
+         * No space follows the colon: the note is exactly `label:<key name>`. There is no
          * legacy spaced form to accept, because the backup format has not shipped yet.
          */
-        const val ACCOUNT_NOTE_PREFIX = "label:"
+        const val KEY_NOTE_PREFIX = "label:"
     }
 }

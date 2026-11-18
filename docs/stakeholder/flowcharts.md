@@ -45,7 +45,7 @@ flowchart TD
     RecoverError --> RecoverPassphrase
     RecoverSources -->|"Recovered, decrypted, and inside the KDF band"| RecoverStore["Store VaultKey, mark setup complete, schedule consolidation"]
     RecoverStore --> RecoverSession["Establish in-memory passphrase session"]
-    RecoverSession --> Accounts
+    RecoverSession --> Keys
     Welcome -->|"Create VaultKey"| CreateIntro["Getting Started: unrecoverable-loss warning + consent gate"]
     CreateIntro -->|"Back"| Welcome
     CreateIntro -->|"Confirm (consent checked)"| CreatePassphrase["Create Passphrase: met length requirement disappears after 2-second success feedback"]
@@ -60,7 +60,7 @@ flowchart TD
     CreateGenerate -->|Failure| CreateGenerateFailed["Return to confirmation with generic retry message; nothing created"]
     CreateGenerateFailed --> CreateConfirm
     CreateGenerate -->|Success| CreateStore["Show secure-save stage; store generated Vault Key locally"]
-    CreateStore --> CreateIdentity["Derive Nostr identity from the 24-word vkbckp (Vault Key BacKup) associated-account mnemonic"]
+    CreateStore --> CreateIdentity["Derive Nostr identity from the 24-word vkbckp (Vault Key BacKup) associated-key mnemonic"]
     CreateIdentity --> CreateRemote["Use that identity for initial relay backup; use 24 words + daily 25th word for Brave Sync"]
     CreateRemote --> CreateProgress["Persist next unfinished wizard step"]
     CreateProgress --> CreateBackupIntro["Create Backup: explain the first Vault Backup"]
@@ -87,23 +87,23 @@ flowchart TD
     CreateQuorumMissing -->|"Retry succeeds"| MarkComplete
     CreateQuorumMissing -->|"Retry fails"| CreateQuorumMissing
     CreateQuorum -->|Yes| MarkComplete["Mark generated VaultKey setup complete"]
-    MarkComplete --> Accounts
+    MarkComplete --> Keys
     Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
     ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
-    PendingExport -->|Yes| Export["Export Account"]
-    PendingExport -->|No| Accounts["Accounts"]
+    PendingExport -->|Yes| Export["Export Key"]
+    PendingExport -->|No| Keys["Keys"]
     Export --> ConfirmBackup["Confirm Backup"]
-    ConfirmBackup --> Accounts
+    ConfirmBackup --> Keys
     ConfirmBackup -.->|Back| Export
-    Accounts --> Create["Create new SSH account"]
-    Accounts --> Detail["Account Details"]
-    Accounts --> Settings["Settings"]
+    Keys --> Create["Create new SSH key"]
+    Keys --> Detail["Key Details"]
+    Keys --> Settings["Settings"]
     Settings --> Vault Key["Vault Key"]
-    Detail -->|"Back"| Accounts
-    Detail -->|"Export Account to Notes"| DetailPassphrase{"Passphrase matches stored account?"}
-    Detail -->|"Export Account to Clipboard"| DetailPassphrase
-    Detail -->|"Show Account Key as QR Code"| DetailPassphrase
+    Detail -->|"Back"| Keys
+    Detail -->|"Export Key to Notes"| DetailPassphrase{"Passphrase matches stored key?"}
+    Detail -->|"Export Key to Clipboard"| DetailPassphrase
+    Detail -->|"Show Key as QR Code"| DetailPassphrase
     DetailPassphrase -->|"No"| DetailPassphrase
     DetailPassphrase -->|"Yes, notes"| DetailExport["Choose an app to receive the self-describing export"]
     DetailPassphrase -->|"Yes, clipboard"| DetailClipboard["Copy the self-describing export text to the clipboard"]
@@ -116,9 +116,9 @@ flowchart TD
 
 The interactive app relocks on cold start or process restart, and requires authentication on the first foreground return after more than 30 seconds in the background, evaluated on return rather than by a timer. Returning sooner keeps the in-memory session unlocked; an Activity recreation for a configuration change (rotation, theme, locale, or font size) also retains the session because it is held by an Activity-scoped ViewModel, so it does not re-prompt; a continuously foregrounded app is not locked for inactivity. If stored records are present but cannot be decrypted on this device — the wrapping Keystore key is gone or the payload is damaged — the gate shows **Vault needs recovery** instead of onboarding or a passphrase prompt, because no passphrase can open those records here. The screen's wording follows the actual cause: a missing wrapping key, damaged records, or a Keystore the device could not read. Its primary action clears the launch-routing flags and sets the unreadable ciphertext aside under a quarantine prefix, then continues to **Get started** so **Recover VaultKey** is reachable. When the cause is that the device could not read its Keystore, the screen offers **Check again** instead and nothing can be set aside, because the records may still be readable. App data is never migrated between devices: `res/xml/data_extraction_rules.xml` excludes every domain from cloud backup and device-to-device transfer, so the intended new-device path is a fresh install followed by **Recover VaultKey**, not a restore of local state. See [Device migration and backup](../features/device-migration-and-backup.md). When a VaultKey is stored, passing device authentication is followed by a **VaultKey passphrase** screen; the passphrase is verified by decrypting the stored key, held only in memory, and dropped when the session relocks, so it is re-entered each session. Removing the device lock causes the next foreground check to show the mandatory setup warning. The whole activity blocks screenshots, screen recording, and sensitive Recents previews where Android supports it. This UI gate does not change trusted sibling-app access through the signature-protected KeyHive provider, but background consolidation now requires the unlocked in-memory passphrase and fails closed otherwise; a job that started while unlocked keeps its own passphrase copy, finishes after the foreground session locks, and zeroes the copy on completion.
 
-After passphrase verification, the dedicated **Creating VaultKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. Vault Key backup and consolidation use the Nostr identity derived from the 24-word `vkbckp` (Vault Key BacKup) associated-account mnemonic for relay operations; Brave Sync uses those same 24 words plus its daily 25th word. General associated-account consolidation uses the Vault Key Nostr identity on relays and the Vault Key backup seed on Brave Sync. The two record classes remain separate, so account consolidation cannot create a duplicate Vault Key relay copy under the Vault Key identity. The app resumes the mandatory export screen after a restart when an account has been created but its local export step has not yet been confirmed. It likewise resumes the generated-VaultKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, or at **Save your Secret Combinations** after the pasted key matched. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. A wrong **Confirm Backup** paste (unsupported or non-matching) is rate-limited: the first three failures block the wizard for one, two, and then three minutes behind a non-dismissible countdown, and the fourth returns to **Create Backup** and resets the counter; clipboard and storage errors are not counted. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. After all segments match, Vault checks the remote backup quorum recorded by the create-flow backup. If it was never reached, the verification screen stays open, explains that no relay plus Brave Sync copy of the VaultKey is confirmed, and offers **Retry VaultKey backup**; a retry that reaches quorum marks setup complete and replaces the wizard with the account list, while a retry that fails keeps the same blocked state. A reached quorum marks setup complete and replaces the wizard with the account list directly.
+After passphrase verification, the dedicated **Creating VaultKey** screen blocks system Back and provides creation, secure-save, and per-source synchronization progress until it advances automatically. Vault Key backup and consolidation use the Nostr identity derived from the 24-word `vkbckp` (Vault Key BacKup) associated-key mnemonic for relay operations; Brave Sync uses those same 24 words plus its daily 25th word. General associated-key consolidation uses the Vault Key Nostr identity on relays and the Vault Key backup seed on Brave Sync. The two record classes remain separate, so key consolidation cannot create a duplicate Vault Key relay copy under the Vault Key identity. The app resumes the mandatory export screen after a restart when a key has been created but its local export step has not yet been confirmed. It likewise resumes the generated-VaultKey wizard at **Create Backup** after the key has been committed, at **Confirm Backup** after Android accepted the export, or at **Save your Secret Combinations** after the pasted key matched. Back navigation to key generation is blocked because generation is irreversible, while **Confirm Backup** can return to **Create Backup** to repeat the export. A wrong **Confirm Backup** paste (unsupported or non-matching) is rate-limited: the first three failures block the wizard for one, two, and then three minutes behind a non-dismissible countdown, and the fourth returns to **Create Backup** and resets the counter; clipboard and storage errors are not counted. Back from combination verification returns to the saved-combinations screen while preserving entered verification inputs, so returning to verification resumes at the active segment. After all segments match, Vault checks the remote backup quorum recorded by the create-flow backup. If it was never reached, the verification screen stays open, explains that no relay plus Brave Sync copy of the VaultKey is confirmed, and offers **Retry VaultKey backup**; a retry that reaches quorum marks setup complete and replaces the wizard with the key list, while a retry that fails keeps the same blocked state. A reached quorum marks setup complete and replaces the wizard with the key list directly.
 
-## Vault Key-account setup
+## Vault Key setup
 
 ```mermaid
 flowchart TD
@@ -138,8 +138,8 @@ flowchart TD
     Sources --> Missing["Write Vault Key only to successfully checked sources where it is absent"]
     Missing --> Quorum{"Eligible Nostr and Brave backups confirmed?"}
     Quorum -->|Yes| Complete["Mark setup complete"]
-    Complete --> Schedule["Schedule associated-account consolidation"]
-    Schedule --> Accounts["Open Accounts"]
+    Complete --> Schedule["Schedule associated-key consolidation"]
+    Schedule --> Keys["Open Keys"]
     Quorum -->|No| Incomplete["Keep Vault Key stored, record pending backup state, and leave setup incomplete"]
     Incomplete --> Retry["Retry backup without re-importing"]
     Retry --> Sources
@@ -148,42 +148,42 @@ flowchart TD
 
 The setup screen never renders the supplied key and does not show secret material in errors. Vault clears the current Android clipboard entry before opening the passphrase step, but operating-system or third-party clipboard history can remain outside its control. A failed source check is treated as unknown, not as permission to write another backup.
 
-## Associated-account creation and local export
+## Associated-key creation and local export
 
 ```mermaid
 flowchart TD
-    Add["Select Create New Account"] --> EnterPassphrase["Enter Vault Key passphrase"]
+    Add["Select Create New Key"] --> EnterPassphrase["Enter Vault Key passphrase"]
     EnterPassphrase --> Verify{"Passphrase valid?"}
-    Verify -->|No| Rejected["Show error and do not create account"]
-    Verify -->|Yes| EnterName["Enter mandatory account name, 3-128 characters"]
-    EnterName --> Check{"Name valid, Vault Key quorum complete, and fewer than 99 associated accounts?"}
+    Verify -->|No| Rejected["Show error and do not create key"]
+    Verify -->|Yes| EnterName["Enter mandatory key name, 3-128 characters"]
+    EnterName --> Check{"Name valid, Vault Key quorum complete, and fewer than 99 associated keys?"}
     Check -->|No| Rejected
-    Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH account"]
-    Generate --> Save["Save account locally and record pending export"]
+    Check -->|Yes| Generate["Generate encrypted Ed25519 OpenSSH key"]
+    Generate --> Save["Save key locally and record pending export"]
     Save --> Queue["Queue targeted background consolidation"]
-    Queue --> Export["Export Account screen"]
+    Queue --> Export["Export Key screen"]
     Export --> Choose["Choose a trusted text-capable app from the in-app picker"]
     Choose --> ConfirmBackup["Confirm Backup screen"]
     ConfirmBackup --> Paste["Copy the saved key back and paste it in"]
     ConfirmBackup -.->|Back| Export
-    Paste --> Confirm{"Clipboard read/cleared and pasted key matches stored account?"}
+    Paste --> Confirm{"Clipboard read/cleared and pasted key matches stored key?"}
     Confirm -->|No| Paste
     Confirm -->|Yes| Clear["Clear pending export"]
-    Clear --> Accounts["Open Accounts without waiting"]
+    Clear --> Keys["Open Keys without waiting"]
 ```
 
-Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key; the paste-back check only proves the user kept a readable copy, not that it stays durable or private. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. The exported text uses OpenSSH PEM markers around a single-line Base64 body, then adds `unixTimestamp:<creation ID>`, `label:<account name>` (empty after the colon when the account has no name), and `createdAt:<the account-detail card's full human-readable date and time>` on separate lines. The associated account's `npub` is deliberately not exported. Back navigation is blocked on the export screen until the pasted key matches the stored account, which clears the current clipboard entry as part of the check. Confirmation removes the completed export screen from navigation history, so Back from **Accounts** cannot reopen it. The targeted background consolidation queued when the account was generated runs independently, so relay or Brave Sync latency or failure does not prevent navigation to **Accounts**. No kind 0 profile or kind 10050 DM relay list is published: the account name is carried publicly on the account's own backup record instead, as the plain `label` tag on its kind 37802 relay event and the `label:<name>` note on its Brave Sync record, and the creation screen does not disclose this (D4). Those remote copies can be replicated and cannot be recalled.
+Launching the selected app is recorded, but Android cannot confirm that the receiving app retained the key; the paste-back check only proves the user kept a readable copy, not that it stays durable or private. The in-app picker launches the chosen activity directly so the encrypted key remains a text export without exposing the Android Sharesheet's Copy action. The exported text uses OpenSSH PEM markers around a single-line Base64 body, then adds `unixTimestamp:<creation ID>`, `label:<key name>` (empty after the colon when the key has no name), and `createdAt:<the key-detail card's full human-readable date and time>` on separate lines. The associated key's `npub` is deliberately not exported. Back navigation is blocked on the export screen until the pasted key matches the stored key, which clears the current clipboard entry as part of the check. Confirmation removes the completed export screen from navigation history, so Back from **Keys** cannot reopen it. The targeted background consolidation queued when the key was generated runs independently, so relay or Brave Sync latency or failure does not prevent navigation to **Keys**. No kind 0 profile or kind 10050 DM relay list is published: the key name is carried publicly on the key's own backup record instead, as the plain `label` tag on its kind 37802 relay event and the `label:<name>` note on its Brave Sync record, and the creation screen does not disclose this (D4). Those remote copies can be replicated and cannot be recalled.
 
-## Associated-account consolidation and automatic recovery
+## Associated-key consolidation and automatic recovery
 
 ```mermaid
 flowchart TD
-    Trigger["Successful setup, account action, or the post-unlock account worker"] --> Phase1["Phase 1: build a remote inventory and restore missing local accounts"]
-    Phase1 --> Index["For each enabled source, retrieve stored associated-account IDs"]
+    Trigger["Successful setup, key action, or the post-unlock key worker"] --> Phase1["Phase 1: build a remote inventory and restore missing local keys"]
+    Phase1 --> Index["For each enabled source, retrieve stored associated-key IDs"]
     Index --> IndexOK{"Could the app retrieve that source's stored ID list?"}
     IndexOK -->|No| Unknown["Mark the source unavailable or unknown and exclude it from this run's repair"]
-    IndexOK -->|Yes| Restore{"Valid missing local account found on a trusted restore source?"}
-    Restore -->|Yes| Recover["Decrypt, validate, and save the missing account locally"]
+    IndexOK -->|Yes| Restore{"Valid missing local key found on a trusted restore source?"}
+    Restore -->|Yes| Recover["Decrypt, validate, and save the missing key locally"]
     Restore -->|No| NextSource["Continue collecting source inventories"]
     Recover --> NextSource
     Unknown --> NextSource
@@ -191,15 +191,15 @@ flowchart TD
     AllIndexed -->|No| Index
     AllIndexed -->|Yes| Phase2["Phase 2: repair missing remote backups"]
     Phase2 --> SelectSource["Choose a source whose inventory was retrieved successfully"]
-    SelectSource --> Compare["Compare the complete local vault, including recovered accounts, with that source's inventory"]
-    Compare --> MissingRemote{"Associated-account ID absent from this source?"}
+    SelectSource --> Compare["Compare the complete local vault, including recovered keys, with that source's inventory"]
+    Compare --> MissingRemote{"Associated-key ID absent from this source?"}
     MissingRemote -->|Yes| Write["Write that missing backup to the source"]
-    MissingRemote -->|No| NextAccount["Check the next local account"]
+    MissingRemote -->|No| NextKey["Check the next local key"]
     Write --> Acknowledged{"Source acknowledges the write?"}
-    Acknowledged -->|Yes| NextAccount
+    Acknowledged -->|Yes| NextKey
     Acknowledged -->|No| Pending["Record the failed backup as pending for retry"]
-    Pending --> NextAccount
-    NextAccount --> SourceComplete{"All local accounts checked for this source?"}
+    Pending --> NextKey
+    NextKey --> SourceComplete{"All local keys checked for this source?"}
     SourceComplete -->|No| Compare
     SourceComplete -->|Yes| ReadBack["Read back the source and update per-source status"]
     ReadBack --> MoreSources{"Another successfully checked source?"}
@@ -207,21 +207,21 @@ flowchart TD
     MoreSources -->|No| Result["Show backed up, missing, failed, or unknown status"]
 ```
 
-Phase 1 completes for every source before phase 2 begins. This ensures accounts recovered from one source are included when the app repairs another source. Existing local accounts are never overwritten by remote records. Sources whose inventory cannot be retrieved are not written to because the app cannot safely determine whether a backup is absent. This general flow excludes Vault Key records; Vault Key consolidation is handled independently with the `vkbckp` (Vault Key BacKup) Vault Key backup relay identity.
+Phase 1 completes for every source before phase 2 begins. This ensures keys recovered from one source are included when the app repairs another source. Existing local keys are never overwritten by remote records. Sources whose inventory cannot be retrieved are not written to because the app cannot safely determine whether a backup is absent. This general flow excludes Vault Key records; Vault Key consolidation is handled independently with the `vkbckp` (Vault Key BacKup) Vault Key backup relay identity.
 
-**How the source check works:** Before reading or writing account data, the app asks each backup source for its list of stored identifiers: `vaultkey` for the Vault Key and a numeric creation ID for each associated account. A successful response is a reliable basis for deciding whether a backup is already present or needs writing. A failed response does not prove an account is absent, so the app does not write to that source during the current run.
+**How the source check works:** Before reading or writing key data, the app asks each backup source for its list of stored identifiers: `vaultkey` for the Vault Key and a numeric creation ID for each associated key. A successful response is a reliable basis for deciding whether a backup is already present or needs writing. A failed response does not prove a key is absent, so the app does not write to that source during the current run.
 
-## Targeted account consolidation
+## Targeted key consolidation
 
 ```mermaid
 flowchart TD
-    Trigger["Select Consolidate backup on an associated account"] --> Select["Use the selected account ID"]
-    Select --> Index["For each enabled source, retrieve stored associated-account IDs"]
+    Trigger["Select Consolidate backup on an associated key"] --> Select["Use the selected key ID"]
+    Select --> Index["For each enabled source, retrieve stored associated-key IDs"]
     Index --> IndexOK{"Could the app retrieve that source's stored ID list?"}
-    IndexOK -->|No| Unknown["Mark that account's source status unavailable or unknown"]
-    IndexOK -->|Yes| Present{"Selected account ID already present?"}
+    IndexOK -->|No| Unknown["Mark that key's source status unavailable or unknown"]
+    IndexOK -->|Yes| Present{"Selected key ID already present?"}
     Present -->|Yes| BackedUp["Record the source as backed up"]
-    Present -->|No| Write["Write only the selected account to the source"]
+    Present -->|No| Write["Write only the selected key to the source"]
     Write --> WriteOK{"Source acknowledges the write?"}
     WriteOK -->|No| Failed["Record backup failure and keep it pending for retry"]
     WriteOK -->|Yes| ReadBack["Read back the source and update status"]
@@ -231,26 +231,26 @@ flowchart TD
     ReadBack --> Next
     Next --> Complete{"All sources processed?"}
     Complete -->|No| Index
-    Complete -->|Yes| Result["Show the selected account's per-source backup status"]
+    Complete -->|Yes| Result["Show the selected key's per-source backup status"]
 ```
 
-Targeted consolidation only checks, writes, and updates status for the selected associated account. It does not restore missing accounts and does not process unrelated associated accounts.
+Targeted consolidation only checks, writes, and updates status for the selected associated key. It does not restore missing keys and does not process unrelated associated keys.
 
 ## Backup-status actions
 
 ```mermaid
 flowchart LR
-    Accounts["Accounts"] --> Account["Open associated account"]
-    Account --> Status["Review per-source status"]
+    Keys["Keys"] --> Key["Open associated key"]
+    Key --> Status["Review per-source status"]
     Status --> One["Select Consolidate backup"]
     One --> Targeted["Run targeted consolidation"]
-    Status --> ExportNotes["Select Export Account to Notes"]
-    ExportNotes --> ExportPassphrase["Confirm the account passphrase"]
+    Status --> ExportNotes["Select Export Key to Notes"]
+    ExportNotes --> ExportPassphrase["Confirm the key passphrase"]
     ExportPassphrase --> ExportPick["Choose an app to receive the self-describing export"]
-    Status --> ExportClipboard["Select Export Account to Clipboard"]
+    Status --> ExportClipboard["Select Export Key to Clipboard"]
     ExportClipboard --> ExportPassphrase
     ExportPassphrase --> Clipboard["Copy the self-describing export text to the clipboard"]
-    Accounts --> Settings["Open Settings"]
+    Keys --> Settings["Open Settings"]
     Settings --> VaultKey["Open Vault Key"]
     VaultKey --> VaultKeyState{"Vault Key quorum complete?"}
     VaultKeyState -->|No| Retry["Retry Vault Key setup"]
@@ -310,6 +310,6 @@ flowchart TD
     Complete -->|Yes| Result["Report relay and Brave quorum"]
 ```
 
-Vault Key consolidation never restores, writes, or changes status for associated accounts, and consolidation itself never restores a Vault Key from a remote copy — it only repairs a device that is already set up. Reading a remote Vault Key copy back into the app is the separate **Recover VaultKey** flow, which needs the 24 Secret Combinations and the passphrase. Consolidation runs on its own post-unlock schedule so a failed Vault Key backup is retried without depending on account consolidation. Both consolidation workers take the passphrase from the in-memory session and fail closed when it is locked; the passphrase is never stored or passed through WorkManager input.
+Vault Key consolidation never restores, writes, or changes status for associated keys, and consolidation itself never restores a Vault Key from a remote copy — it only repairs a device that is already set up. Reading a remote Vault Key copy back into the app is the separate **Recover VaultKey** flow, which needs the 24 Secret Combinations and the passphrase. Consolidation runs on its own post-unlock schedule so a failed Vault Key backup is retried without depending on key consolidation. Both consolidation workers take the passphrase from the in-memory session and fail closed when it is locked; the passphrase is never stored or passed through WorkManager input.
 
 Per-source statuses are `Backed up`, `Missing`, `Checking`, `Backing up`, `Backup failed`, or `Unavailable / unknown`. The status reflects the latest completed or active operation; it is not a guarantee that a remote service remains reachable.

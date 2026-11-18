@@ -2,7 +2,7 @@
 <!--
     Vault does not migrate app data between devices, in either direction.
 
-    Nothing this app stores can be used on a different device. The VaultKey and every account
+    Nothing this app stores can be used on a different device. The VaultKey and every key
     record are ciphertext sealed with an Android Keystore key, and Keystore keys are hardware-bound
     and never leave the device that created them. Copying the ciphertext to a new phone therefore
     produces hidden, permanently unreadable records rather than a working vault.
@@ -19,7 +19,7 @@
 
     Migration is instead the user's explicit path: install the app fresh, then either re-import the
     exported VaultKey or run Recover VaultKey with the 24 Secret Combinations, and let
-    consolidation restore the accounts from their relay and Brave Sync backups.
+    consolidation restore the keys from their relay and Brave Sync backups.
 
     Cross-platform transfer (Android 16 QPR2 / API 36.1) is not excluded here. That mode requires a
     declared iOS `bundleId`/`teamId` to pair with a counterpart app, and this project has no iOS

@@ -89,20 +89,20 @@ class VaultDestinationsTest {
     }
 
     @Test
-    fun accountDetail_buildsRouteFromId() {
-        assertEquals("accounts/1234567890", VaultDestinations.accountDetail(1234567890L))
+    fun keyDetail_buildsRouteFromId() {
+        assertEquals("keys/1234567890", VaultDestinations.keyDetail(1234567890L))
     }
 
     @Test
-    fun accountDetail_routeMatchesTemplateShape() {
+    fun keyDetail_routeMatchesTemplateShape() {
         // Template uses {id}; built route substitutes the numeric id.
-        assertEquals("accounts/{id}", VaultDestinations.ACCOUNT_DETAIL)
-        assertEquals("accounts/0", VaultDestinations.accountDetail(0L))
+        assertEquals("keys/{id}", VaultDestinations.KEY_DETAIL)
+        assertEquals("keys/0", VaultDestinations.keyDetail(0L))
     }
 
     @Test
-    fun localAccountBackup_buildsRoutesFromId() {
-        assertEquals("accounts/1234567890/local-backup/export", VaultDestinations.localAccountBackupExport(1234567890L))
-        assertEquals("accounts/{id}/local-backup/export", VaultDestinations.LOCAL_ACCOUNT_BACKUP_EXPORT)
+    fun localKeyBackup_buildsRoutesFromId() {
+        assertEquals("keys/1234567890/local-backup/export", VaultDestinations.localKeyBackupExport(1234567890L))
+        assertEquals("keys/{id}/local-backup/export", VaultDestinations.LOCAL_KEY_BACKUP_EXPORT)
     }
 }

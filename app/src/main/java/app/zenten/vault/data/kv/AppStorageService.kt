@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/** Non-secret app state. Sensitive accounts and encrypted remote payloads must never be placed here. */
+/** Non-secret app state. Sensitive keys and encrypted remote payloads must never be placed here. */
 class AppStorageService(private val dataStore: DataStore<Preferences>, private val json: Json = Json) {
     val setupComplete: Flow<Boolean> = dataStore.data.map { it[SETUP_COMPLETE] ?: false }
     val sshKdfRounds: Flow<Int> = dataStore.data.map { preferences ->
@@ -44,20 +44,20 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
     }
     val customBackupSources: Flow<List<BackupSourceConfig>> = jsonFlow(CUSTOM_BACKUP_SOURCES)
     val pendingSourceWrites: Flow<List<PendingSourceWrite>> = jsonFlow(PENDING_SOURCE_WRITES)
-    val accountSourceStatuses: Flow<List<AccountSourceStatus>> = jsonFlow(ACCOUNT_SOURCE_STATUSES)
+    val keySourceStatuses: Flow<List<KeySourceStatus>> = jsonFlow(KEY_SOURCE_STATUSES)
     val consolidationCheckpoint: Flow<ConsolidationCheckpoint?> = dataStore.data.map { preferences ->
         preferences[CONSOLIDATION_CHECKPOINT]?.let { runCatching { json.decodeFromString<ConsolidationCheckpoint>(it) }.getOrNull() }
     }
     val lastConsolidationCompletedAtMillis: Flow<Long?> = dataStore.data.map { it[LAST_CONSOLIDATION_COMPLETED] }
 
-    /** Tracked apart from account consolidation because the Vault Key has its own cycle. */
+    /** Tracked apart from key consolidation because the Vault Key has its own cycle. */
     val lastVaultKeyConsolidationCompletedAtMillis: Flow<Long?> =
         dataStore.data.map { it[LAST_VAULT_KEY_CONSOLIDATION_COMPLETED] }
-    val locallyBackedUpAccountIds: Flow<Set<String>> = dataStore.data.map { preferences ->
-        decodeList<String>(preferences[LOCALLY_BACKED_UP_ACCOUNT_IDS]).toSet()
+    val locallyBackedUpKeyIds: Flow<Set<String>> = dataStore.data.map { preferences ->
+        decodeList<String>(preferences[LOCALLY_BACKED_UP_KEY_IDS]).toSet()
     }
-    val pendingLocalBackupAccountIds: Flow<Set<String>> = dataStore.data.map { preferences ->
-        decodeList<String>(preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS]).toSet()
+    val pendingLocalBackupKeyIds: Flow<Set<String>> = dataStore.data.map { preferences ->
+        decodeList<String>(preferences[PENDING_LOCAL_BACKUP_KEY_IDS]).toSet()
     }
     
     /**
@@ -119,9 +119,9 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
      * onboarding after a stranded vault has been set aside.
      *
      * The pending local-backup markers must go too. They are persisted separately from the records
-     * they refer to, so a device migration can leave a marker pointing at an account whose
-     * ciphertext no longer decrypts; the mandatory export screen then has no account to export and
-     * no way back, because its only release path needs a decrypted account. Clearing them here is
+     * they refer to, so a device migration can leave a marker pointing at a key whose
+     * ciphertext no longer decrypts; the mandatory export screen then has no key to export and
+     * no way back, because its only release path needs a decrypted key. Clearing them here is
      * what gives that screen an exit rather than adding a second escape hatch inside it.
      *
      * Setup-completion and quorum flags are cleared for the reason recorded on
@@ -154,8 +154,8 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
             it.remove(SECRET_COMBINATIONS_VIEW_STEP)
             it.remove(VAULT_KEY_PASTE_ATTEMPTS)
             it.remove(VAULT_KEY_PASTE_BLOCKED_UNTIL)
-            it.remove(PENDING_LOCAL_BACKUP_ACCOUNT_IDS)
-            it.remove(LOCALLY_BACKED_UP_ACCOUNT_IDS)
+            it.remove(PENDING_LOCAL_BACKUP_KEY_IDS)
+            it.remove(LOCALLY_BACKED_UP_KEY_IDS)
         }
     }
 
@@ -205,32 +205,32 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
 
     suspend fun setPendingSourceWrites(writes: List<PendingSourceWrite>) = dataStore.edit {
         if (writes.isEmpty()) it.remove(PENDING_SOURCE_WRITES)
-        else it[PENDING_SOURCE_WRITES] = json.encodeToString(writes.distinctBy { write -> write.accountId to write.sourceId })
+        else it[PENDING_SOURCE_WRITES] = json.encodeToString(writes.distinctBy { write -> write.keyId to write.sourceId })
     }
 
     suspend fun upsertPendingSourceWrite(write: PendingSourceWrite) = dataStore.edit { preferences ->
-        val current = decodeList<PendingSourceWrite>(preferences[PENDING_SOURCE_WRITES]).associateBy { it.accountId to it.sourceId }.toMutableMap()
-        current[write.accountId to write.sourceId] = write
+        val current = decodeList<PendingSourceWrite>(preferences[PENDING_SOURCE_WRITES]).associateBy { it.keyId to it.sourceId }.toMutableMap()
+        current[write.keyId to write.sourceId] = write
         preferences[PENDING_SOURCE_WRITES] = json.encodeToString(current.values.toList())
     }
 
-    suspend fun clearPendingSourceWrite(accountId: String, sourceId: String) = dataStore.edit { preferences ->
+    suspend fun clearPendingSourceWrite(keyId: String, sourceId: String) = dataStore.edit { preferences ->
         val remaining = decodeList<PendingSourceWrite>(preferences[PENDING_SOURCE_WRITES]).filterNot {
-            it.accountId == accountId && it.sourceId == sourceId
+            it.keyId == keyId && it.sourceId == sourceId
         }
         if (remaining.isEmpty()) preferences.remove(PENDING_SOURCE_WRITES)
         else preferences[PENDING_SOURCE_WRITES] = json.encodeToString(remaining)
     }
 
-    suspend fun setAccountSourceStatuses(statuses: List<AccountSourceStatus>) = dataStore.edit {
-        it[ACCOUNT_SOURCE_STATUSES] = json.encodeToString(statuses.distinctBy { status -> status.accountId to status.sourceId })
+    suspend fun setKeySourceStatuses(statuses: List<KeySourceStatus>) = dataStore.edit {
+        it[KEY_SOURCE_STATUSES] = json.encodeToString(statuses.distinctBy { status -> status.keyId to status.sourceId })
     }
 
-    suspend fun upsertAccountSourceStatus(status: AccountSourceStatus) = dataStore.edit { preferences ->
-        val current = decodeList<AccountSourceStatus>(preferences[ACCOUNT_SOURCE_STATUSES])
-            .associateBy { it.accountId to it.sourceId }.toMutableMap()
-        current[status.accountId to status.sourceId] = status
-        preferences[ACCOUNT_SOURCE_STATUSES] = json.encodeToString(current.values.toList())
+    suspend fun upsertKeySourceStatus(status: KeySourceStatus) = dataStore.edit { preferences ->
+        val current = decodeList<KeySourceStatus>(preferences[KEY_SOURCE_STATUSES])
+            .associateBy { it.keyId to it.sourceId }.toMutableMap()
+        current[status.keyId to status.sourceId] = status
+        preferences[KEY_SOURCE_STATUSES] = json.encodeToString(current.values.toList())
     }
 
     suspend fun setConsolidationCheckpoint(checkpoint: ConsolidationCheckpoint?) = dataStore.edit {
@@ -245,34 +245,26 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
 
     /**
      * Records when a Vault Key cycle last finished. It does not clear the consolidation
-     * checkpoint, which belongs to the separate account-consolidation cycle.
+     * checkpoint, which belongs to the separate key-consolidation cycle.
      */
     suspend fun markVaultKeyConsolidationCompleted(atMillis: Long) = dataStore.edit {
         it[LAST_VAULT_KEY_CONSOLIDATION_COMPLETED] = atMillis
     }
 
-    /** Records only an account ID; private key material remains in encrypted storage. */
-    suspend fun markAccountLocallyBackedUp(accountId: Long) = dataStore.edit { preferences ->
-        val ids = decodeList<String>(preferences[LOCALLY_BACKED_UP_ACCOUNT_IDS]).toMutableSet()
-        ids += accountId.toString()
-        preferences[LOCALLY_BACKED_UP_ACCOUNT_IDS] = json.encodeToString(ids.toList())
-        val pending = decodeList<String>(preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS]).filterNot { it == accountId.toString() }
-        if (pending.isEmpty()) preferences.remove(PENDING_LOCAL_BACKUP_ACCOUNT_IDS)
-        else preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS] = json.encodeToString(pending)
+    /** Records only a key ID; private key material remains in encrypted storage. */
+    suspend fun markKeyLocallyBackedUp(keyId: Long) = dataStore.edit { preferences ->
+        val ids = decodeList<String>(preferences[LOCALLY_BACKED_UP_KEY_IDS]).toMutableSet()
+        ids += keyId.toString()
+        preferences[LOCALLY_BACKED_UP_KEY_IDS] = json.encodeToString(ids.toList())
+        val pending = decodeList<String>(preferences[PENDING_LOCAL_BACKUP_KEY_IDS]).filterNot { it == keyId.toString() }
+        if (pending.isEmpty()) preferences.remove(PENDING_LOCAL_BACKUP_KEY_IDS)
+        else preferences[PENDING_LOCAL_BACKUP_KEY_IDS] = json.encodeToString(pending)
     }
 
-    suspend fun requireAccountLocalBackup(accountId: Long) = dataStore.edit { preferences ->
-        val ids = decodeList<String>(preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS]).toMutableSet()
-        ids += accountId.toString()
-        preferences[PENDING_LOCAL_BACKUP_ACCOUNT_IDS] = json.encodeToString(ids.toList())
-    }
-
-    /** Removes state from superseded implementations. */
-    suspend fun clearLegacyBackupState() = dataStore.edit {
-        it.remove(stringPreferencesKey("failed_backup_account_ids"))
-        it.remove(stringPreferencesKey("pending_account_backups"))
-        it.remove(stringPreferencesKey("backup_statuses"))
-        it.remove(stringPreferencesKey("qr_backed_up_account_ids_v1"))
+    suspend fun requireKeyLocalBackup(keyId: Long) = dataStore.edit { preferences ->
+        val ids = decodeList<String>(preferences[PENDING_LOCAL_BACKUP_KEY_IDS]).toMutableSet()
+        ids += keyId.toString()
+        preferences[PENDING_LOCAL_BACKUP_KEY_IDS] = json.encodeToString(ids.toList())
     }
 
     private inline fun <reified T> jsonFlow(key: Preferences.Key<String>): Flow<List<T>> = dataStore.data.map {
@@ -292,12 +284,12 @@ class AppStorageService(private val dataStore: DataStore<Preferences>, private v
         val SECRET_COMBINATIONS_VIEW_STEP = stringPreferencesKey("secret_combinations_view_step_v1")
         val CUSTOM_BACKUP_SOURCES = stringPreferencesKey("custom_backup_sources_v2")
         val PENDING_SOURCE_WRITES = stringPreferencesKey("pending_source_writes_v2")
-        val ACCOUNT_SOURCE_STATUSES = stringPreferencesKey("account_source_statuses_v2")
+        val KEY_SOURCE_STATUSES = stringPreferencesKey("key_source_statuses_v2")
         val CONSOLIDATION_CHECKPOINT = stringPreferencesKey("consolidation_checkpoint_v2")
         val LAST_CONSOLIDATION_COMPLETED = longPreferencesKey("last_consolidation_completed_v2")
         val LAST_VAULT_KEY_CONSOLIDATION_COMPLETED = longPreferencesKey("last_vault_key_consolidation_completed_v1")
-        val LOCALLY_BACKED_UP_ACCOUNT_IDS = stringPreferencesKey("locally_backed_up_account_ids_v1")
-        val PENDING_LOCAL_BACKUP_ACCOUNT_IDS = stringPreferencesKey("pending_local_backup_account_ids_v1")
+        val LOCALLY_BACKED_UP_KEY_IDS = stringPreferencesKey("locally_backed_up_key_ids_v1")
+        val PENDING_LOCAL_BACKUP_KEY_IDS = stringPreferencesKey("pending_local_backup_key_ids_v1")
         val VAULT_KEY_PASTE_ATTEMPTS = intPreferencesKey("vault_key_paste_attempts_v1")
         val VAULT_KEY_PASTE_BLOCKED_UNTIL = longPreferencesKey("vault_key_paste_blocked_until_v1")
     }
@@ -323,7 +315,7 @@ enum class SecretCombinationsViewStep {
 
 @Serializable
 data class PendingSourceWrite(
-    val accountId: String,
+    val keyId: String,
     val sourceId: String,
     val reason: PendingWriteReason,
     val attemptCount: Int = 0,
@@ -334,10 +326,10 @@ data class PendingSourceWrite(
 enum class PendingWriteReason { VAULT_KEY_QUORUM, DIRECT_BACKUP, CONSOLIDATION, RETRY }
 
 @Serializable
-data class AccountSourceStatus(
-    val accountId: String,
+data class KeySourceStatus(
+    val keyId: String,
     val sourceId: String,
-    val state: AccountSourceBackupState,
+    val state: KeySourceBackupState,
     val lastCheckedAtMillis: Long? = null,
     val lastSuccessfulBackupAtMillis: Long? = null,
     val lastAttemptAtMillis: Long? = null,
@@ -345,7 +337,7 @@ data class AccountSourceStatus(
 )
 
 @Serializable
-enum class AccountSourceBackupState { PRESENT, WRITE_CONFIRMED, MISSING, CHECKING, BACKING_UP, BACKUP_FAILED, UNKNOWN }
+enum class KeySourceBackupState { PRESENT, WRITE_CONFIRMED, MISSING, CHECKING, BACKING_UP, BACKUP_FAILED, UNKNOWN }
 
 @Serializable
 enum class BackupErrorCategory {
@@ -355,7 +347,7 @@ enum class BackupErrorCategory {
     REMOTE_REJECTED,
     REMOTE_PROTOCOL_ERROR,
     INVALID_REMOTE_RECORD,
-    LOCAL_ACCOUNT_UNAVAILABLE,
+    LOCAL_KEY_UNAVAILABLE,
     UNKNOWN,
 }
 
@@ -365,7 +357,7 @@ data class ConsolidationCheckpoint(
     val trigger: ConsolidationTrigger,
     val phase: ConsolidationPhase,
     val currentSourceId: String? = null,
-    val currentAccountId: String? = null,
+    val currentKeyId: String? = null,
     val startedAtMillis: Long,
     val updatedAtMillis: Long,
 )

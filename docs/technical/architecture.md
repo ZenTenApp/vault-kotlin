@@ -15,12 +15,12 @@ The dark palette sets `surface` equal to `background` (`#121212`), so `surface` 
 ```text
 app.zenten.vault
 ├── ui/           Compose screens, navigation, and view models
-├── domain/       Source model, setup, account, backup, and consolidation orchestration
+├── domain/       Source model, setup, key, backup, and consolidation orchestration
 ├── crypto/       SSH parsing, seed derivation, Nostr derivation, NIP-44
-├── data/         Secure account storage and non-secret operational preferences
+├── data/         Secure key storage and non-secret operational preferences
 ├── network/      Nostr relay transport, event encoding, and NIP-42 authentication
 ├── bravesync/    Brave Sync client, crypto, password records, and transport
-├── background/   WorkManager targeted and post-unlock all-account consolidation and retry
+├── background/   WorkManager targeted and post-unlock all-key consolidation and retry
 └── di/           Hilt dependency injection
 ```
 
@@ -31,8 +31,8 @@ flowchart TD
     Unlock[AppUnlockCoordinator: device-lock capability + system authentication] --> Guard[AppAccessGuard: validated network + HTTPS clock-skew check]
     Guard --> UI[Compose UI]
     UI[Compose UI] --> VM[View models]
-    VM --> Setup[SetupService / AccountService]
-    Setup --> Engine[AccountConsolidationEngine]
+    VM --> Setup[SetupService / KeyService]
+    Setup --> Engine[KeyConsolidationEngine]
     Workers[Backup workers] --> Engine
     Engine --> Repo[BackupSourceRepository]
     Engine --> Secure[SecureStorageService]
@@ -47,23 +47,23 @@ flowchart TD
 
 `BackupSourceConfig` represents one independently checked and written endpoint. Four fixed defaults (two Nostr relays and two litesync Brave Sync servers) are merged with persisted custom sources in stable order. The default entries are immutable in repository operations. Each source declares type, endpoint, ordering, enabled/restore/trust/quorum policy, and authentication mode.
 
-`DefaultBackupSourceFactory` constructs one `AccountBackupSource` adapter per configuration. Nostr adapters address exactly one relay through `NostrRelayGateway`; Brave adapters construct `BraveSyncTransport` with exactly one configured server URL. Existing Nostr event and Brave password-record formats are preserved.
+`DefaultBackupSourceFactory` constructs one `KeyBackupSource` adapter per configuration. Nostr adapters address exactly one relay through `NostrRelayGateway`; Brave adapters construct `BraveSyncTransport` with exactly one configured server URL. Existing Nostr event and Brave password-record formats are preserved.
 
 The current app has no custom-source management UI. The repository API is retained so a future UI can create and manage custom sources without reimplementing persistence, endpoint validation, ordering, or processing support.
 
 ## Serialization boundary
 
-`AccountConsolidationEngine` owns one coroutine `Mutex` around Vault Key backup, account backup, pending retry, and consolidation. Within each operation it uses ordered loops and suspend calls without `async`, ensuring no intentional network concurrency across sources or accounts.
+`KeyConsolidationEngine` owns one coroutine `Mutex` around Vault Key backup, key backup, pending retry, and consolidation. Within each operation it uses ordered loops and suspend calls without `async`, ensuring no intentional network concurrency across sources or keys.
 
-The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key only), `consolidateAccount` (one associated account), and `consolidate` (all associated accounts, with restore). Vault Key reconciliation is separate from account consolidation because the two record classes are published under different Nostr identities; see [Encrypted backup](../features/encrypted-backup.md).
+The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key only), `consolidateKey` (one associated key), and `consolidate` (all associated keys, with restore). Vault Key reconciliation is separate from key consolidation because the two record classes are published under different Nostr identities; see [Encrypted backup](../features/encrypted-backup.md).
 
 ## Core lifecycle
 
 1. **Vault Key setup:** persist Vault Key locally, inspect/write all sources sequentially, and complete setup only with one eligible Nostr plus one eligible Brave success. Retain the local Vault Key on quorum failure. Both entry paths honour this: the imported-key path throws on quorum failure and stays retryable, while the generated-VaultKey path stores the outcome in `AppStorageService.vaultKeyQuorumReached` and `SetupService.completeGeneratedVaultKeySetup` refuses completion until that flag is set, so the wizard's later export/transcription steps cannot complete setup on a key that never reached a remote source.
 2. **Associated creation:** generate and save locally, then enqueue background backup; failed sources are persisted as pending IDs.
-3. **Consolidation restore:** index every source and restore missing valid associated accounts from trusted sources.
+3. **Consolidation restore:** index every source and restore missing valid associated keys from trusted sources.
 4. **Consolidation backup:** use retained phase-1 indexes to fill gaps, then perform one final read-back per successfully indexed source.
-5. **Status:** persist per-account/per-source state and coarse errors. UI observes this state in account and Vault Key details.
+5. **Status:** persist per-key/per-source state and coarse errors. UI observes this state in key and Vault Key details.
 
 ## Device-authentication gate
 
@@ -71,36 +71,36 @@ The engine exposes three scoped entry points: `backupVaultKey` (the Vault Key on
 
 ## App-entry safety gate
 
-`RemoteOperationPrecondition` is the single prerequisite policy for timestamp-sensitive remote operations. It requires an active network with `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and a device clock within two minutes of HTTPS server time. It makes non-cached `HEAD` requests to `https://www.google.com/generate_204` and then `https://cloudflare.com`, parses the first usable HTTP `Date` header, and adjusts the result by half of the measured request round-trip time before comparing it to the wall clock. `AppAccessGuard` applies this policy on creation, resume, network changes, system clock/timezone changes (`ACTION_TIME_CHANGED`/`ACTION_TIMEZONE_CHANGED` via a non-exported receiver), and manual retry, replacing navigation with `AppBlockedScreen` for proven internet or clock-skew failures. `AccountConsolidationWorker` and `VaultKeyConsolidationWorker` apply the same policy before producing timestamped remote data and retry when internet is not validated or clock skew is known bad. `SetupService` applies the same policy directly before its in-process Vault Key backup calls (`performSetup`, `retryVaultKeyBackup`, and the create-flow `persistGeneratedVaultKeyAndBackup`), so user-reachable in-process work cannot sign timestamped Nostr events or Brave Sync tokens with a known-bad clock. `VaultApplication` is not part of this policy: it performs no start-time consolidation and does not consult the precondition. Its only startup work is clearing legacy backup state and supplying the WorkManager Hilt worker factory; consolidation is enqueued after each successful passphrase unlock instead (see Background execution). If neither server is available or supplies a valid `Date` header, all paths continue because that failure cannot prove a device-time error. HTTPS/TLS protects the response in transit, but the check does not independently prove either endpoint's clock or the network is trustworthy.
+`RemoteOperationPrecondition` is the single prerequisite policy for timestamp-sensitive remote operations. It requires an active network with `NET_CAPABILITY_VALIDATED` (excluding captive portals and local-only connections) and a device clock within two minutes of HTTPS server time. It makes non-cached `HEAD` requests to `https://www.google.com/generate_204` and then `https://cloudflare.com`, parses the first usable HTTP `Date` header, and adjusts the result by half of the measured request round-trip time before comparing it to the wall clock. `AppAccessGuard` applies this policy on creation, resume, network changes, system clock/timezone changes (`ACTION_TIME_CHANGED`/`ACTION_TIMEZONE_CHANGED` via a non-exported receiver), and manual retry, replacing navigation with `AppBlockedScreen` for proven internet or clock-skew failures. `KeyConsolidationWorker` and `VaultKeyConsolidationWorker` apply the same policy before producing timestamped remote data and retry when internet is not validated or clock skew is known bad. `SetupService` applies the same policy directly before its in-process Vault Key backup calls (`performSetup`, `retryVaultKeyBackup`, and the create-flow `persistGeneratedVaultKeyAndBackup`), so user-reachable in-process work cannot sign timestamped Nostr events or Brave Sync tokens with a known-bad clock. `VaultApplication` is not part of this policy: it performs no start-time consolidation and does not consult the precondition. Its only startup work is clearing legacy backup state and supplying the WorkManager Hilt worker factory; consolidation is enqueued after each successful passphrase unlock instead (see Background execution). If neither server is available or supplies a valid `Date` header, all paths continue because that failure cannot prove a device-time error. HTTPS/TLS protects the response in transit, but the check does not independently prove either endpoint's clock or the network is trustworthy.
 
 ## Background execution
 
-- One `AccountConsolidationWorker` handles both targeted and all-account work. An optional account ID selects targeted work; otherwise it runs a full associated-account cycle.
+- One `KeyConsolidationWorker` handles both targeted and all-key work. An optional key ID selects targeted work; otherwise it runs a full associated-key cycle.
 - One `VaultKeyConsolidationWorker` handles the Vault Key record only. It is a separate worker because that record uses a different Nostr identity and must be retried on its own schedule.
-- One-time targeted work is unique per account.
+- One-time targeted work is unique per key.
 - Pending-write retry is unique work.
 - Immediate consolidation is unique work after setup.
-- Consolidation has no periodic schedule. Because the VaultKey passphrase is never persisted, two independent one-time jobs (Vault Key and associated accounts) are enqueued after each successful passphrase unlock, and user actions enqueue targeted work. Both carry a connected-network constraint and take the passphrase from the in-memory `VaultKeySession`; they fail closed when it is locked and are never given the passphrase through WorkManager input.
-- No profile publication work exists. The account label travels with the account's backup record instead: the `label` tag on its kind `37802` relay event and the `label:<name>` note on its Brave Sync record, exactly as documented in [Encrypted backup](../features/encrypted-backup.md). No kind `0` profile or kind `10050` DM relay list is published, and no relay profile read path remains.
+- Consolidation has no periodic schedule. Because the VaultKey passphrase is never persisted, two independent one-time jobs (Vault Key and associated keys) are enqueued after each successful passphrase unlock, and user actions enqueue targeted work. Both carry a connected-network constraint and take the passphrase from the in-memory `VaultKeySession`; they fail closed when it is locked and are never given the passphrase through WorkManager input.
+- No profile publication work exists. The key label travels with the key's backup record instead: the `label` tag on its kind `37802` relay event and the `label:<name>` note on its Brave Sync record, exactly as documented in [Encrypted backup](../features/encrypted-backup.md). No kind `0` profile or kind `10050` DM relay list is published, and no relay profile read path remains.
 - `VaultApplication` supplies WorkManager's Hilt worker factory through `Configuration.Provider`; the manifest removes the default WorkManager startup initializer to avoid initializing it without that configuration.
-- A persisted checkpoint describes interrupted progress; operations are idempotent by canonical account ID.
+- A persisted checkpoint describes interrupted progress; operations are idempotent by canonical key ID.
 
 ## Security boundaries
 
 - Secrets are stored only through `SecureStorageService`, which encrypts each value with `KeystoreCryptoService` (AES-256-GCM using a non-exportable Android Keystore key), or transiently in crypto/network operations.
-- Each account is one self-describing encrypted record under the preference key `accounts_<createdAt>`. There is no separate index of accounts: listing scans that key prefix, takes the account ID from the authenticated record contents, and returns records in ascending ID order. Keeping the index out of the store is a correctness choice, not a size optimization — see below.
-- Every secure-storage mutation is exactly one `SharedPreferences` edit. `SharedPreferences` makes a single edit atomic, so concurrent account creation, consolidation restore, and removal cannot drop one another's updates. This is why no storage mutex is needed and why no caller has to coordinate with the consolidation engine's operation lock.
+- Each key is one self-describing encrypted record under the preference key `keys_<createdAt>`. There is no separate index of keys: listing scans that key prefix, takes the key ID from the authenticated record contents, and returns records in ascending ID order. Keeping the index out of the store is a correctness choice, not a size optimization — see below.
+- Every secure-storage mutation is exactly one `SharedPreferences` edit. `SharedPreferences` makes a single edit atomic, so concurrent key creation, consolidation restore, and removal cannot drop one another's updates. This is why no storage mutex is needed and why no caller has to coordinate with the consolidation engine's operation lock.
 - A record that fails to decrypt or parse, or whose authenticated `createdAt` disagrees with its preference key, is skipped when listing and left untouched on disk for a future recovery path.
 - `AppStorageService`, WorkManager input, checkpoints, status, and diagnostics contain no keys, passphrases, encrypted backup payloads, sync codes, tokens, or NIP-42 challenges.
 - Relay authentication signs kind `22242` on the challenged connection using the Vault Key-derived Nostr identity and does not persist the challenge.
-- Remote payloads are decrypted only to restore an account missing locally.
+- Remote payloads are decrypted only to restore a key missing locally.
 
 ## Key references
 
 - `domain/BackupSources.kt`
 - `domain/BackupSourceRepository.kt`
 - `domain/BackupSourceAdapters.kt`
-- `domain/AccountConsolidationEngine.kt`
+- `domain/KeyConsolidationEngine.kt`
 - `domain/SetupService.kt`
 - `background/BackupWorkers.kt`
 - `domain/BackupService.kt`

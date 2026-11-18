@@ -1,58 +1,58 @@
-# KeyHive associated-account provider
+# KeyHive associated-key provider
 
-This document explains the KeyHive integration layer: what it is, how the provider exposes associated accounts to trusted sibling applications, and how Android process lifecycle affects those requests.
+This document explains the KeyHive integration layer: what it is, how the provider exposes associated keys to trusted sibling applications, and how Android process lifecycle affects those requests.
 
 ## What KeyHive is
 
-KeyHive is the integration layer that lets the Vault app share associated-account data with *other* trusted applications installed on the same device. It is implemented as an Android **Content Provider**, not a service or an in-process API.
+KeyHive is the integration layer that lets the Vault app share associated-key data with *other* trusted applications installed on the same device. It is implemented as an Android **Content Provider**, not a service or an in-process API.
 
 Primary source locations:
 
-- `app/src/main/java/app/zenten/vault/keyhive/AssociatedAccountsProvider.kt`
-- `app/src/main/java/app/zenten/vault/keyhive/SharedAssociatedAccount.kt`
+- `app/src/main/java/app/zenten/vault/keyhive/AssociatedKeysProvider.kt`
+- `app/src/main/java/app/zenten/vault/keyhive/SharedAssociatedKey.kt`
 - Manifest declaration in `app/src/main/AndroidManifest.xml`
 
 ## How it works
 
 KeyHive reuses standard Android inter-process communication (IPC) with strict access controls.
 
-- **Content Provider:** `AssociatedAccountsProvider` extends Android's `ContentProvider`. It exposes the authority `app.zenten.vault.keys`.
+- **Content Provider:** `AssociatedKeysProvider` extends Android's `ContentProvider`. It exposes the authority `app.zenten.vault.keys`.
 - **Signature-level permission:** The provider is protected by the read permission `app.zenten.permission.VAULT_ACCESS`, declared with `android:readPermission`. Only applications signed with the same developer certificate as the Vault app can hold this permission. It is not open to arbitrary apps on the device.
 - **Read-only:** The provider blocks writes. `insert` returns `null`, and `update`/`delete` return `0`. Only `query` is supported.
-- **Internal data access:** On creation the provider resolves its dependency through Hilt (`EntryPointAccessors.fromApplication(...)`) to obtain the app's `SecureStorageService`, then reads encrypted account records from secure storage when a query arrives.
+- **Internal data access:** On creation the provider resolves its dependency through Hilt (`EntryPointAccessors.fromApplication(...)`) to obtain the app's `SecureStorageService`, then reads encrypted key records from secure storage when a query arrives.
 
 Manifest declaration:
 
 ```xml
 <provider
-    android:name=".keyhive.AssociatedAccountsProvider"
+    android:name=".keyhive.AssociatedKeysProvider"
     android:authorities="app.zenten.vault.keys"
     android:exported="true"
     android:grantUriPermissions="false"
     android:readPermission="app.zenten.permission.VAULT_ACCESS" />
 ```
 
-## How sibling apps get the accounts
+## How sibling apps get the keys
 
 Sibling apps query the provider through Android's `ContentResolver`:
 
 1. **Request:** The sibling app calls `ContentResolver.query(...)` against the provider authority.
 2. **Endpoints:** The provider matches two URIs with `UriMatcher`:
-   - `content://app.zenten.vault.keys/accounts` — returns a JSON array of account creation timestamps.
-   - `content://app.zenten.vault.keys/accounts/{id}` — returns one account's details as JSON. The ID must be a positive integer that round-trips exactly as its string form.
+   - `content://app.zenten.vault.keys/keys` — returns a JSON array of key creation timestamps.
+   - `content://app.zenten.vault.keys/keys/{id}` — returns one key's details as JSON. The ID must be a positive integer that round-trips exactly as its string form.
 3. **Format:** Results are returned as a `MatrixCursor` with the columns `format` and `data`. The format identifier is `json_v1`, and the JSON payload is in the `data` column.
-4. **Payload shape:** The JSON is a `SharedAssociatedAccount` object containing only:
-   - `createdAt` — the account creation timestamp.
+4. **Payload shape:** The JSON is a `SharedAssociatedKey` object containing only:
+   - `createdAt` — the key creation timestamp.
    - `zentenKey` — the passphrase-encrypted OpenSSH private key (the same key material used in manual export).
-   - `accountName` — the account label the user gave it, or an empty string when the account has none.
+   - `keyName` — the key label the user gave it, or an empty string when the key has none.
 
-`SharedAssociatedAccount` is deliberately the only record shape exposed to sibling apps. It carries only the encrypted key container and the label. The passphrase is never a stored field on `Account`, and neither half of the account's Nostr identity is stored either — both are derived on demand from the decrypted seed — so there is no identity field for the provider to withhold or for a sibling app to obtain. Sibling apps must obtain the passphrase from the user. The label is always present as a string, so sibling apps never have to handle a null; accounts without a label (for example, a restored record whose `label` tag or Brave Sync note was missing) simply carry an empty value.
+`SharedAssociatedKey` is deliberately the only record shape exposed to sibling apps. It carries only the encrypted key container and the label. The passphrase is never a stored field on `Key`, and neither half of the key's Nostr identity is stored either — both are derived on demand from the decrypted seed — so there is no identity field for the provider to withhold or for a sibling app to obtain. Sibling apps must obtain the passphrase from the user. The label is always present as a string, so sibling apps never have to handle a null; keys without a label (for example, a restored record whose `label` tag or Brave Sync note was missing) simply carry an empty value.
 
 Queries with a `selection`, `selectionArgs`, or `sortOrder` are rejected (return `null`), as are malformed IDs and unmatched URIs. Any exception during a query is caught and surfaced as `null` rather than leaking internal state.
 
 ## Process and lifecycle behavior
 
-The Vault app does **not** need to be in the foreground for a sibling app to read accounts, but its process must be alive to serve the request.
+The Vault app does **not** need to be in the foreground for a sibling app to read keys, but its process must be alive to serve the request.
 
 When a sibling app queries the provider, Android routes the call across process boundaries:
 
@@ -75,22 +75,22 @@ The device-authentication gate applies to interactive UI only. The signature-pro
 
 - Access is limited to same-signature apps through `app.zenten.permission.VAULT_ACCESS`; `grantUriPermissions` is disabled so the permission cannot be delegated per-URI.
 - The provider is read-only.
-- Only `SharedAssociatedAccount` is serialized: the encrypted private key plus the account label. The vault passphrase and the account's Nostr identity are never exposed — the passphrase is not stored on the account, and neither half of the identity exists as a stored field, since both are derived on demand from the decrypted seed.
+- Only `SharedAssociatedKey` is serialized: the encrypted private key plus the key label. The vault passphrase and the key's Nostr identity are never exposed — the passphrase is not stored on the key, and neither half of the identity exists as a stored field, since both are derived on demand from the decrypted seed.
 - The provider runs regardless of the interactive unlock gate, so its permission boundary, not the UI lock, is the security control for sibling access.
 
 ## Accepted decision (D5)
 
 Same-signature unattended access is an **accepted product requirement**, not an oversight:
 
-- Every application signed with the Vault release certificate is inside the KeyHive trust boundary. It may read each account's encrypted OpenSSH container and label at any time, with no device authentication and no Vault Key passphrase.
-- The protection is the encrypted container itself: a sibling app still needs the user's Vault Key passphrase to use the private key, and it never receives the passphrase or the account's Nostr identity (private or public) from the provider.
+- Every application signed with the Vault release certificate is inside the KeyHive trust boundary. It may read each key's encrypted OpenSSH container and label at any time, with no device authentication and no Vault Key passphrase.
+- The protection is the encrypted container itself: a sibling app still needs the user's Vault Key passphrase to use the private key, and it never receives the passphrase or the key's Nostr identity (private or public) from the provider.
 - A compromised trusted sibling app, a leaked or stolen signing key, or a hostile app added under the same certificate reads this data. That is outside the protection boundary by design rather than by accident.
 - Review topic 8 in the [security model](security-model.md#required-production-review-topics) — a separate authentication-bound Keystore domain for interactive private-key disclosure — is **closed as not planned** while KeyHive access must remain unattended.
 - Consequence for release process: production signing-key custody and sibling-app review are security controls for this boundary, not merely release hygiene. Adding an app to the trusted certificate set is a security change.
 
 ## Key references
 
-- `app/src/main/java/app/zenten/vault/keyhive/AssociatedAccountsProvider.kt`
-- `app/src/main/java/app/zenten/vault/keyhive/SharedAssociatedAccount.kt`
+- `app/src/main/java/app/zenten/vault/keyhive/AssociatedKeysProvider.kt`
+- `app/src/main/java/app/zenten/vault/keyhive/SharedAssociatedKey.kt`
 - `app/src/main/java/app/zenten/vault/di/KeyHiveProviderEntryPoint.kt`
 - `app/src/main/AndroidManifest.xml`

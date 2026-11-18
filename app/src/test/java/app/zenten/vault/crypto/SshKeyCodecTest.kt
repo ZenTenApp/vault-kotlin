@@ -65,7 +65,7 @@ class SshKeyCodecTest {
     }
 
     @Test
-    fun generates_brave_sync_code_from_vault_key_backup_associated_account_and_daily_word() {
+    fun generates_brave_sync_code_from_vault_key_backup_associated_key_and_daily_word() {
         val seed = SshKeyCodec.parse(
             root()["keys"]!!.jsonObject["encryptedEd25519Pem"]!!.jsonPrimitive.content,
             "phase1-test-passphrase".toCharArray(),
@@ -160,7 +160,7 @@ class SshKeyCodecTest {
     }
 
     @Test
-    fun rejects_unencrypted_keys_and_generates_passphrase_encrypted_associated_accounts() {
+    fun rejects_unencrypted_keys_and_generates_passphrase_encrypted_associated_keys() {
         assertThrows(IllegalArgumentException::class.java) {
             SshKeyCodec.parse(value(vector("unencrypted-ed25519"), "sshKeyPem"), "any-passphrase".toCharArray())
         }
@@ -275,7 +275,7 @@ class SshKeyCodecTest {
                 SshKeyCodec.parse(containerWithRounds(rounds), "phase1-test-passphrase".toCharArray())
             }
             // Public-key metadata does not need the KDF, but it is read through the same
-            // container reader, so Account Details cannot report an out-of-band key either.
+            // container reader, so Key Details cannot report an out-of-band key either.
             assertThrows(IllegalArgumentException::class.java) {
                 SshKeyCodec.publicKeyFromEncryptedPrivateKey(containerWithRounds(rounds))
             }
