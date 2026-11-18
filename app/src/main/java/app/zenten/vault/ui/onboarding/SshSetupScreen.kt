@@ -35,6 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.crypto.SshKeyCodec
+import app.zenten.vault.ui.keys.LocalKeyBackupShare
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PasteError
 import app.zenten.vault.ui.components.VaultPillButton
@@ -218,6 +219,13 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                             }
                             if (pastedKey.isBlank()) {
                                 clipboardError = PasteError(R.string.ssh_setup_clipboard_empty_error)
+                                return@VaultPillButton
+                            }
+                            // A notes export of an associated key is a valid encrypted key too, so
+                            // the structural check below would accept it as the VaultKey. Its
+                            // metadata label gives it away, so refuse it up front.
+                            if (LocalKeyBackupShare.isAssociatedKeyExport(pastedKey)) {
+                                clipboardError = PasteError(R.string.ssh_setup_clipboard_associated_key_error)
                                 return@VaultPillButton
                             }
                             val validatedKey = runCatching {

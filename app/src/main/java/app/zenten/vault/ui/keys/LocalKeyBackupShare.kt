@@ -59,7 +59,28 @@ object LocalKeyBackupShare {
     internal fun vaultKeyExportText(key: Key, passphrase: CharArray): String {
         // Decryption is the passphrase gate: it throws on a wrong passphrase before any text exists.
         SshKeyCodec.parse(key.zenTenKey, passphrase)
-        return selfDescribingExportText(key, "VaultKey")
+        return selfDescribingExportText(key, VAULT_KEY_LABEL)
+    }
+
+    /** Fixed `label:` value written into every Vault Key export. */
+    const val VAULT_KEY_LABEL = "VaultKey"
+
+    /**
+     * True when pasted text is a self-describing export of an associated key rather than the Vault Key.
+     *
+     * Exports carry a `label:` line after the PEM block. The Vault Key always writes
+     * [VAULT_KEY_LABEL], while an associated key writes its own name (possibly empty). So any
+     * `label:` line with a different value means the user copied the wrong note. Text with no
+     * `label:` line (a bare PEM or Base64 key) is not judged here, because it carries no hint.
+     */
+    fun isAssociatedKeyExport(text: String): Boolean {
+        val label = text.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("label:") }
+            ?.removePrefix("label:")
+            ?.trim()
+            ?: return false
+        return label != VAULT_KEY_LABEL
     }
 
     /**
