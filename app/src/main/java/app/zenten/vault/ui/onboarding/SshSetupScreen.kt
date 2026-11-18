@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +37,7 @@ import app.zenten.vault.R
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PasteError
+import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.components.VaultScreenScaffold
 
 /**
@@ -173,17 +174,12 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
             // again is not offered: only the retry below applies.
             if (resumingPendingBackup) {
                 Spacer(Modifier.height(8.dp))
-                Button(
+                VaultPillButton(
+                    label = stringResource(R.string.ssh_setup_retry_action),
                     onClick = viewModel::retryStoredVaultKey,
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !state.inProgress,
-                ) {
-                    if (state.inProgress) {
-                        CircularProgressIndicator()
-                    } else {
-                        Text(stringResource(R.string.ssh_setup_retry_action))
-                    }
-                }
+                    icon = if (state.inProgress) ({ ButtonSpinner() }) else null,
+                )
                 return@VaultScreenScaffold
             }
             when (step) {
@@ -192,7 +188,9 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                         Text(it.render(), color = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.height(8.dp))
                     }
-                    Button(
+                    VaultPillButton(
+                        label = stringResource(R.string.ssh_setup_paste_action),
+                        enabled = !state.inProgress,
                         onClick = {
                             clipboardError = null
                             val pastedKey = runCatching {
@@ -204,7 +202,7 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                                     .orEmpty()
                             }.getOrElse {
                                 clipboardError = PasteError(R.string.ssh_setup_clipboard_read_error)
-                                return@Button
+                                return@VaultPillButton
                             }
 
                             val clipboardCleared = runCatching {
@@ -216,11 +214,11 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                             }.isSuccess
                             if (!clipboardCleared) {
                                 clipboardError = PasteError(R.string.ssh_setup_clipboard_clear_error)
-                                return@Button
+                                return@VaultPillButton
                             }
                             if (pastedKey.isBlank()) {
                                 clipboardError = PasteError(R.string.ssh_setup_clipboard_empty_error)
-                                return@Button
+                                return@VaultPillButton
                             }
                             val validatedKey = runCatching {
                                 SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pastedKey)
@@ -234,44 +232,42 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                                         PasteError(R.string.ssh_setup_clipboard_kdf_rounds_error, error.declaredRounds)
                                     else -> PasteError(R.string.ssh_setup_clipboard_invalid_error)
                                 }
-                                return@Button
+                                return@VaultPillButton
                             }
 
                             keyInput = validatedKey
                             step = SetupStep.PASSPHRASE
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !state.inProgress,
-                    ) {
-                        Text(stringResource(R.string.ssh_setup_paste_action))
-                    }
+                    )
                 }
 
-                SetupStep.PASSPHRASE -> Button(
+                SetupStep.PASSPHRASE -> VaultPillButton(
+                    label = stringResource(R.string.ssh_setup_create_action),
                     onClick = { viewModel.performSetup(keyInput, passphrase) },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = passphrase.isNotBlank() && !state.inProgress,
-                ) {
-                    if (state.inProgress) {
-                        CircularProgressIndicator()
-                    } else {
-                        Text(stringResource(R.string.ssh_setup_create_action))
-                    }
-                }
+                    icon = if (state.inProgress) ({ ButtonSpinner() }) else null,
+                )
             }
 
             if (state.canRetryStoredVaultKey) {
                 Spacer(Modifier.height(8.dp))
-                Button(
+                VaultPillButton(
+                    label = stringResource(R.string.ssh_setup_retry_action),
                     onClick = viewModel::retryStoredVaultKey,
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !state.inProgress,
-                ) {
-                    Text(stringResource(R.string.ssh_setup_retry_action))
-                }
+                )
             }
         },
     )
+}
+
+/**
+ * Small spinner shown beside a pill button's label while setup runs. The default
+ * indicator is 40dp, which would overflow the button, so it is sized to the label.
+ */
+@Composable
+private fun ButtonSpinner() {
+    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
 }
 
 /** Number of steps in the import flow, used by the progress label. */
