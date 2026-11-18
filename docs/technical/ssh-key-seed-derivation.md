@@ -32,7 +32,7 @@ The resulting `Account` holds only the normalized private key; the identity used
 
 ### Accepted input and OpenSSH-v1 parsing
 
-`crypto/SshKeyCodec.kt` accepts a PEM-wrapped key, raw Base64, or the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper. When OpenSSH `BEGIN`/`END` markers are present, only the text between them is decoded, so the public metadata lines appended by self-describing exports (`npub`, creation ID, display name, `Created on ...` date) are ignored on paste. It Base64-decodes the extracted body and verifies the OpenSSH-v1 magic prefix:
+`crypto/SshKeyCodec.kt` accepts a PEM-wrapped key, raw Base64, or the supported `{"OPENSSH PRIVATE KEY":"..."}` wrapper. When OpenSSH `BEGIN`/`END` markers are present, only the text between them is decoded, so the public metadata lines appended by self-describing exports (`unixTimestamp:`, `label:`, and `createdAt:` lines) are ignored on paste. It Base64-decodes the extracted body and verifies the OpenSSH-v1 magic prefix:
 
 ```text
 openssh-key-v1\0

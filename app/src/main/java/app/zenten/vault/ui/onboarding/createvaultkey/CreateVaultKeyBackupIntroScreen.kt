@@ -36,7 +36,7 @@ fun CreateVaultKeyBackupIntroScreen(
     val state by viewModel.state.collectAsState()
     var targets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<Int?>(null) }
-    // Building the export derives the VaultKey npub from the session passphrase, which is
+    // Building the export decrypts the VaultKey with the session passphrase, which is
     // suspending work (bcrypt decryption), so the click handlers run on a coroutine scope.
     val scope = rememberCoroutineScope()
 

@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.model.Account
 
@@ -42,29 +41,26 @@ object LocalAccountBackupShare {
     /**
      * Builds the self-describing text saved during mandatory associated-account export.
      *
-     * The npub line is deliberately omitted so the exported backup does not link the account to
-     * a Nostr identity. An account restored without a label exports an empty display-name line
-     * rather than any identifier.
+     * No Nostr identity is written, so the exported backup does not link the account to a Nostr
+     * identity. An account restored without a label exports an empty display-name line rather
+     * than any identifier.
      */
     internal fun accountExportText(account: Account): String =
-        selfDescribingExportText(account, account.accountName?.trim().orEmpty(), npub = null)
+        selfDescribingExportText(account, account.accountName?.trim().orEmpty())
 
     /**
      * Builds the same self-describing export for the Vault Key. The Vault Key has no
-     * user-set display name, so the fixed label "VaultKey" is written instead. The Vault Key's
-     * npub stays in its export because that key pair is the Vault Key's own identity.
+     * user-set display name, so the fixed label "VaultKey" is written instead.
      *
-     * [passphrase] is required only to derive that npub: the identity is no longer stored on the
-     * account, so it is rebuilt here from the seed inside the encrypted container. A passphrase
-     * that does not decrypt the key throws rather than producing an export whose npub line is
-     * silently missing.
+     * [passphrase] is not used to build the text. It is checked by decrypting the key, so the
+     * export is only produced for the correct passphrase, and a wrong one throws. The Vault Key's
+     * npub is deliberately not written, the same as for associated accounts.
      */
-    internal fun vaultKeyExportText(account: Account, passphrase: CharArray): String =
-        selfDescribingExportText(
-            account,
-            "VaultKey",
-            npub = NostrKeyDerivation.fromAccountSeed(SshKeyCodec.parse(account.zenTenKey, passphrase).seed).npub,
-        )
+    internal fun vaultKeyExportText(account: Account, passphrase: CharArray): String {
+        // Decryption is the passphrase gate: it throws on a wrong passphrase before any text exists.
+        SshKeyCodec.parse(account.zenTenKey, passphrase)
+        return selfDescribingExportText(account, "VaultKey")
+    }
 
     /**
      * Wraps the passphrase-encrypted key in PEM markers as one Base64 body line. Both the
@@ -77,21 +73,17 @@ object LocalAccountBackupShare {
     ).joinToString("\n")
 
     /**
-     * @param npub the Vault Key's derived identity, or `null` for an associated-account export.
-     *   Associated-account exports never carry an npub, so the text cannot link the account to
-     *   a Nostr identity.
+     * Builds the metadata lines after the PEM block. Each line has a fixed prefix so it is
+     * readable in a note without context:
+     * - `unixTimestamp:` is the raw account ID (creation time in microseconds), for exact matching.
+     * - `label:` is the display name.
+     * - `createdAt:` is the human-readable creation time, shown in the account-detail format.
      */
-    private fun selfDescribingExportText(
-        account: Account,
-        displayName: String,
-        npub: String?,
-    ): String = listOfNotNull(
+    private fun selfDescribingExportText(account: Account, displayName: String): String = listOf(
         pemBlock(account),
-        npub,
-        account.createdAt.toString(),
-        // The "label:" prefix marks this line as the name, so it is readable in a note without context.
+        "unixTimestamp:${account.createdAt}",
         "label:$displayName",
-        "Created on ${formatAccountCreatedAt(account.createdAt)}",
+        "createdAt:${formatAccountCreatedAt(account.createdAt)}",
     ).joinToString("\n")
 
     internal fun <T : Target> orderedTargets(availableTargets: List<T>): List<T> =
