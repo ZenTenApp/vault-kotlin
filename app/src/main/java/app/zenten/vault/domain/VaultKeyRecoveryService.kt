@@ -92,7 +92,7 @@ class VaultKeyRecoveryService(
                     // Recovered under the same ID scheme as a created or imported Vault Key, so
                     // the stored record's ID does not end in three zeros.
                     createdAt = newKeyCreatedAt(clock.millis()),
-                    encryptedKey = normalized,
+                    zenTenKey = normalized,
                 ),
             )
             // The passphrase was just used to decrypt the recovered key, so record it in the

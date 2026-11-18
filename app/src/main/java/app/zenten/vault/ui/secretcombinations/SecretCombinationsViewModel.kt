@@ -159,7 +159,7 @@ class SecretCombinationsViewModel @Inject constructor(
                     runCatching {
                         val passphrase = vaultKeySession.snapshot() ?: return@let null
                         try {
-                            val seed = SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed
+                            val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
                             Seedify.toVaultKeyBackupWordIndices(seed)
                         } finally {
                             passphrase.fill('\u0000')

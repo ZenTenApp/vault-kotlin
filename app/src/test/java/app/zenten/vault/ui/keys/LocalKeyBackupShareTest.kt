@@ -47,7 +47,7 @@ class LocalKeyBackupShareTest {
             .replace("\\n", "\n")
         val key = Key(
             createdAt = 1_700_000_000_000_000L,
-            encryptedKey = encodedKey,
+            zenTenKey = encodedKey,
             keyName = " Personal key ",
         )
 
@@ -68,7 +68,7 @@ class LocalKeyBackupShareTest {
     fun nameless_key_export_writes_an_empty_display_name_line() {
         val key = Key(
             createdAt = 1_700_000_000_000_000L,
-            encryptedKey = goldenEncryptedKey(),
+            zenTenKey = goldenEncryptedKey(),
         )
 
         val lines = LocalKeyBackupShare.keyExportText(key).lines()
@@ -82,7 +82,7 @@ class LocalKeyBackupShareTest {
         val encodedKey = goldenEncryptedKey()
         val key = Key(
             createdAt = 1_700_000_000_000_000L,
-            encryptedKey = encodedKey,
+            zenTenKey = encodedKey,
         )
 
         val text = LocalKeyBackupShare.vaultKeyExportText(key, GOLDEN_PASSPHRASE)
@@ -103,7 +103,7 @@ class LocalKeyBackupShareTest {
     fun vault_key_export_fails_when_the_passphrase_does_not_decrypt_the_key() {
         val key = Key(
             createdAt = 1_700_000_000_000_000L,
-            encryptedKey = goldenEncryptedKey(),
+            zenTenKey = goldenEncryptedKey(),
         )
 
         // A wrong passphrase cannot decrypt the key, so the attempt fails instead of producing text.
@@ -116,7 +116,7 @@ class LocalKeyBackupShareTest {
     fun clipboard_and_qr_payload_is_the_same_text_as_the_notes_export() {
         val key = Key(
             createdAt = 1_700_000_000_000_000L,
-            encryptedKey = goldenEncryptedKey(),
+            zenTenKey = goldenEncryptedKey(),
             keyName = "Personal key",
         )
 

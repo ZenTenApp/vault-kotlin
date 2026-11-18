@@ -123,7 +123,7 @@ class OnboardingViewModel @Inject constructor(
             // Sync code) is rebuilt from the seed by the flow that needs it.
             val key = Key(
                 createdAt = createdAt,
-                encryptedKey = normalizedKey,
+                zenTenKey = normalizedKey,
             )
             // The passphrase was just used to parse the key, so remember it in the session
             // (never on disk) before backing up and any retry needs it.

@@ -21,7 +21,7 @@ data class SharedAssociatedKey(
 
 fun Key.toSharedAssociatedKey() = SharedAssociatedKey(
     createdAt = createdAt.toString(),
-    zentenKey = encryptedKey,
+    zentenKey = zenTenKey,
     // A restored key can have no label; the wire field is non-null, so it becomes empty text.
     keyName = keyName?.trim().orEmpty(),
 )

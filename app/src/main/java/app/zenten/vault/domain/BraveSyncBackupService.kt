@@ -106,7 +106,7 @@ class BraveSyncBackupService(
             runCatching {
                 val syncCode = syncCode(vaultKey, passphrase)
                 val url = keyUrl(keyId)
-                val key = canonicalKey(key.encryptedKey, passphrase)
+                val key = canonicalKey(key.zenTenKey, passphrase)
                 // The stored note carries the self-describing prefix; [label] stays plain so the
                 // idempotency check can compare it against a decoded note.
                 val note = label?.let { "$KEY_NOTE_PREFIX$it" }
@@ -165,7 +165,7 @@ class BraveSyncBackupService(
         // Consolidation supplies a run-scoped code so all endpoints reuse one SSH
         // decryption and one date-derived 25th word. Standalone callers still derive it.
         runSyncCode?.let { return it }
-        val seed = SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed
+        val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
         return Seedify.toBraveSyncCode(seed)
     }
 

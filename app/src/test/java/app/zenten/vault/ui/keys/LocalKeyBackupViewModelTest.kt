@@ -89,7 +89,7 @@ class LocalKeyBackupViewModelTest {
         )
         return Key(
             createdAt = generated.createdAt,
-            encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
+            zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
             keyName = "Work key",
         )
     }

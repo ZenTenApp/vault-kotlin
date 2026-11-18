@@ -18,7 +18,7 @@ class RecoveryService(
     suspend fun discoverAssociatedKeys(vaultKey: Key, passphrase: CharArray): RecoveryResult {
         // The Vault Key identity is derived from its seed: decrypting the container requires the
         // passphrase this call already holds, so nothing needs to be stored to find the records.
-        val identity = NostrKeyDerivation.fromKeySeed(SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed)
+        val identity = NostrKeyDerivation.fromKeySeed(SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed)
         val events = relayGateway.fetchAuthenticatedByAuthorAndKind(
             identity.pubkey,
             BackupService.ASSOCIATED_KEY_BACKUP_KIND,
@@ -47,7 +47,7 @@ class RecoveryService(
     }
 
     fun decodeAssociatedKey(event: NostrEvent, vaultKey: Key, passphrase: CharArray): Key? = runCatching {
-        val identity = NostrKeyDerivation.fromKeySeed(SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed)
+        val identity = NostrKeyDerivation.fromKeySeed(SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed)
         require(NostrEventCodec.isValid(event))
         require(event.kind == BackupService.ASSOCIATED_KEY_BACKUP_KIND && event.pubkey == identity.pubkey)
         val dTag = event.tags.single { it.firstOrNull() == "d" }.getOrNull(1)

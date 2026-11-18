@@ -58,7 +58,7 @@ class SecretCombinationsViewModelTest {
         secureStorage = mockk()
         every { secureStorage.getVaultKey() } returns Key(
             createdAt = generated.createdAt,
-            encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
+            zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
         )
         appStorage = mockk()
         coJustRun { appStorage.setSecretCombinationsViewStep(any()) }

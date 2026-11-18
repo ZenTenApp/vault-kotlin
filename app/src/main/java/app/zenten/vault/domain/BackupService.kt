@@ -44,7 +44,7 @@ class BackupService(
         validateContract(key, dTag, kind)
         if (kind == ASSOCIATED_KEY_BACKUP_KIND) requireEncryptedAssociatedKey(key)
         // The NIP-44 plaintext is exactly the single-line base64 OpenSSH private key.
-        val encrypted = Nip44.encryptSelf(key.encryptedKey, identity.privateKey, identity.publicKey)
+        val encrypted = Nip44.encryptSelf(key.zenTenKey, identity.privateKey, identity.publicKey)
         return NostrEventCodec.sign(
             privateKey = identity.privateKey,
             publicKey = identity.publicKey,
@@ -77,7 +77,7 @@ class BackupService(
         // passphrase is no longer stored, and the key was already validated when it was
         // generated or restored.
         require(
-            runCatching { app.zenten.vault.crypto.SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(key.encryptedKey) }.isSuccess,
+            runCatching { app.zenten.vault.crypto.SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(key.zenTenKey) }.isSuccess,
         ) { "Associated-key SSH key must be passphrase-encrypted" }
     }
 

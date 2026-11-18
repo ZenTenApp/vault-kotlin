@@ -32,7 +32,7 @@ class DefaultBackupSourceFactory(
      * that spans midnight cannot use two different sync codes.
      */
     override fun createRunContext(secrets: VaultKeyRunSecrets): BackupSourceRunContext {
-        val seed = SshKeyCodec.parse(secrets.vaultKey.encryptedKey, secrets.passphrase).seed
+        val seed = SshKeyCodec.parse(secrets.vaultKey.zenTenKey, secrets.passphrase).seed
         return BraveRunContext(
             syncCode = Seedify.toBraveSyncCode(seed),
             vaultKeyBackupIdentity = NostrKeyDerivation.fromVaultKeyBackupSeed(seed),
@@ -287,6 +287,6 @@ private class SourceIndexBuilder(private var invalidRecordCount: Int = 0) {
 internal fun keyFromSshKey(createdAt: Long, sshPrivateKey: String, keyName: String? = null): Key =
     Key(
         createdAt = createdAt,
-        encryptedKey = SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(sshPrivateKey),
+        zenTenKey = SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(sshPrivateKey),
         keyName = keyName,
     )
