@@ -134,7 +134,7 @@ class KeyServiceTest {
     }
 
     @Test
-    fun create_associated_key_rejects_the_vault_key_term_in_any_spelling() = runTest {
+    fun create_associated_key_rejects_the_vault_term_in_any_spelling() = runTest {
         val storage = mockk<SecureStorageService>()
         val setup = mockk<SetupService>()
         every { storage.getVaultKey() } returns Key(1, encryptedKey(VAULT_PASSPHRASE))
@@ -143,15 +143,15 @@ class KeyServiceTest {
             val result = KeyService(storage, setup, appStorage()).createAssociatedKey(VAULT_PASSPHRASE, name)
 
             assertFalse(result.isSuccess, name)
-            assertEquals("Key name cannot contain \"vault key\"", result.exceptionOrNull()?.message, name)
+            assertEquals("Key name cannot contain \"vault\"", result.exceptionOrNull()?.message, name)
         }
         coVerify(exactly = 0) { setup.addKey(any(), any()) }
     }
 
     @Test
     fun reserved_term_check_allows_names_that_only_look_similar() {
-        // "vault" and "key" apart, or other words, are fine; the check only matches the joined term.
-        for (name in listOf("Vault server", "Key server", "Vault keeper", "Work key", "vaul key")) {
+        // Names without the letters "vault" in sequence are fine.
+        for (name in listOf("Key server", "Work key", "vaul key", "Safe box")) {
             assertFalse(KeyService.containsReservedKeyNameTerm(name), name)
         }
         assertTrue(KeyService.containsReservedKeyNameTerm("vault​KEY"))
