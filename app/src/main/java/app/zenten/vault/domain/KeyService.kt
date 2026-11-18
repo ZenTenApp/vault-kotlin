@@ -69,7 +69,7 @@ class KeyService(
         require(normalizedKeyName.length in MIN_KEY_NAME_LENGTH..MAX_KEY_NAME_LENGTH) {
             "Key name must be between $MIN_KEY_NAME_LENGTH and $MAX_KEY_NAME_LENGTH characters"
         }
-        // Blocks names that impersonate the VaultKey, which is an internal identity users must not see.
+        // Blocks any name containing "vault", which could impersonate the VaultKey, which is an internal identity users must not see.
         require(!containsReservedKeyNameTerm(normalizedKeyName)) {
             "Key name cannot contain \"$RESERVED_KEY_NAME_TERM_DISPLAY\""
         }
@@ -118,17 +118,17 @@ class KeyService(
         const val MAX_KEY_NAME_LENGTH = 128
 
         /** Wording shown to the user for the reserved term. */
-        const val RESERVED_KEY_NAME_TERM_DISPLAY = "vault key"
+        const val RESERVED_KEY_NAME_TERM_DISPLAY = "vault"
 
         /** The reserved term in the comparison form: lowercase letters only. */
-        private const val RESERVED_KEY_NAME_TERM = "vaultkey"
+        private const val RESERVED_KEY_NAME_TERM = "vault"
 
         /**
-         * True when [name] contains "vault key" in any spelling of case, spacing, or punctuation.
+         * True when [name] contains "vault" in any spelling of case, spacing, or punctuation.
          *
          * The name is folded to NFKC first so full-width or compatibility letters match their plain
          * forms, then only letters are kept. Digits and symbols are dropped too, so "Vault-Key",
-         * "VAULT_KEY", "v a u l t k e y", and "vault.key" are all rejected. Lowercasing uses
+         * "VAULT_KEY", "v a u l t", and "my.vault" are all rejected. Lowercasing uses
          * `lowercaseChar()`, which does not depend on the device locale.
          */
         fun containsReservedKeyNameTerm(name: String): Boolean {
