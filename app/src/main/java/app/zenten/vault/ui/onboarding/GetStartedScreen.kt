@@ -1,10 +1,14 @@
 package app.zenten.vault.ui.onboarding
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -35,7 +39,13 @@ private val BrandMarkHeight = 200.dp
 private val BrandMarkWidth = BrandMarkHeight * (243.89f / 304.23f) // ≈ 160.dp
 
 /** Vertical gap between stacked action buttons. */
-private val ButtonSpacing = 8.dp
+private val ButtonSpacing = 12.dp
+
+/** Taller than the shared pill default (54dp) for easier tapping on this screen. */
+private val ActionButtonMinHeight = 56.dp
+
+/** Space under the last button; the Scaffold padding already covers the nav bar. */
+private val BottomPadding = 24.dp
 
 /**
  * First-run entry screen offering the vault-key paths: create, recover, or
@@ -51,64 +61,83 @@ fun GetStartedScreen(navController: NavHostController) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        Column(
+        // BoxWithConstraints gives the visible height so the content can be at least
+        // that tall, which lets the buttons sit at the bottom on tall screens.
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                // Scrolls on short screens so the action buttons remain reachable.
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(innerPadding),
         ) {
-            Spacer(Modifier.height(24.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Minimum height = screen height; on short screens or with large
+                    // fonts the content grows taller and scrolls so buttons stay reachable.
+                    .heightIn(min = maxHeight)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                // With the extra height, this pushes the buttons to the bottom edge.
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(48.dp))
 
-            BrandMark()
+                    BrandMark()
 
-            Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(24.dp))
 
-            Text(
-                text = stringResource(R.string.get_started_title),
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
-            )
+                    Text(
+                        text = stringResource(R.string.get_started_title),
+                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center,
+                    )
 
-            Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(12.dp))
 
-            Text(
-                text = stringResource(R.string.get_started_subtitle),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+                    Text(
+                        text = stringResource(R.string.get_started_subtitle),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
 
-            Spacer(Modifier.height(40.dp))
+                    // Keeps the text from touching the buttons when the screen is short.
+                    Spacer(Modifier.height(40.dp))
+                }
 
-            // Generated-key setup continues through local backup confirmation.
-            VaultPillButton(
-                label = createLabel,
-                style = VaultPillButtonStyle.Secondary,
-                onClick = { navController.navigate(VaultDestinations.CREATE_VAULT_KEY_INTRO) },
-            )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Generated-key setup continues through local backup confirmation.
+                    VaultPillButton(
+                        label = createLabel,
+                        style = VaultPillButtonStyle.Secondary,
+                        modifier = Modifier.heightIn(min = ActionButtonMinHeight),
+                        onClick = { navController.navigate(VaultDestinations.CREATE_VAULT_KEY_INTRO) },
+                    )
 
-            Spacer(Modifier.height(ButtonSpacing))
+                    Spacer(Modifier.height(ButtonSpacing))
 
-            VaultPillButton(
-                label = recoverLabel,
-                style = VaultPillButtonStyle.Secondary,
-                onClick = { navController.navigate(VaultDestinations.RECOVER_VAULT_KEY_COMBINATIONS) },
-            )
+                    VaultPillButton(
+                        label = recoverLabel,
+                        style = VaultPillButtonStyle.Secondary,
+                        modifier = Modifier.heightIn(min = ActionButtonMinHeight),
+                        onClick = { navController.navigate(VaultDestinations.RECOVER_VAULT_KEY_COMBINATIONS) },
+                    )
 
-            Spacer(Modifier.height(ButtonSpacing))
+                    Spacer(Modifier.height(ButtonSpacing))
 
-            // Existing-key setup remains available as the alternate path.
-            VaultPillButton(
-                label = loginLabel,
-                style = VaultPillButtonStyle.Secondary,
-                onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
-            )
+                    // Existing-key setup remains available as the alternate path.
+                    VaultPillButton(
+                        label = loginLabel,
+                        style = VaultPillButtonStyle.Secondary,
+                        modifier = Modifier.heightIn(min = ActionButtonMinHeight),
+                        onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
+                    )
 
-            Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(BottomPadding))
+                }
+            }
         }
     }
 }

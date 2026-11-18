@@ -89,7 +89,7 @@ flowchart TD
 - **Create VaultKey** opens the Create VaultKey wizard, whose implemented screens collect consent and a passphrase, verify the passphrase, generate the VaultKey, export it as the first local Vault Backup, and verify the exported copy by pasting it back.
 - **Login with VaultKey** is the only implemented action and opens **Set up Vault Key** to import an existing Ed25519 OpenSSH key. It uses a neutral raised surface rather than the primary action color to show its secondary visual priority.
 - All colors come from the app theme. The app's own shield mark is the exception: its colors live in its asset because it is not tinted.
-- The content scrolls vertically so short screens cannot clip the buttons.
+- The branding sits at the top and the three buttons are anchored to the bottom of the screen with 12dp spacing and at least 56dp height each. When the screen is too short (or fonts are large) the content scrolls vertically so the buttons are never clipped.
 
 ### Create VaultKey wizard
 
