@@ -38,7 +38,7 @@ class RootViewModelTest {
     ): RootViewModel {
         val appStorage = mockk<AppStorageService>()
         every { appStorage.setupComplete } returns flowOf(setupComplete)
-        every { appStorage.pendingLocalBackupAccountIds } returns flowOf(pendingLocalBackupIds)
+        every { appStorage.pendingLocalBackupKeyIds } returns flowOf(pendingLocalBackupIds)
         every { appStorage.createVaultKeyStep } returns flowOf(createStep)
         every { appStorage.secretCombinationsViewStep } returns flowOf(secretCombinationsStep)
         every { appStorage.importedVaultKeySetupPending } returns flowOf(importedVaultKeySetupPending)
@@ -85,9 +85,9 @@ class RootViewModelTest {
     }
 
     @Test
-    fun completed_setup_opens_accounts_even_if_a_stale_pending_flag_exists() = runTest {
+    fun completed_setup_opens_keys_even_if_a_stale_pending_flag_exists() = runTest {
         val viewModel = viewModel(setupComplete = true, importedVaultKeySetupPending = true)
 
-        assertEquals(VaultDestinations.ACCOUNTS, viewModel.destination.first { it != null })
+        assertEquals(VaultDestinations.KEYS, viewModel.destination.first { it != null })
     }
 }

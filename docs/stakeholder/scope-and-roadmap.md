@@ -13,19 +13,19 @@
 | --- | --- | --- |
 | Android first-run entry and vault-key setup screen | Implemented | Supports pasted Vault Key private-key material and passphrase entry. |
 | Custom backup-source management | Deferred | The current app exposes no management UI. Domain persistence and source processing remain available for a future implementation. |
-| Vault Key-account validation and deterministic vault identity | Implemented | Technical behavior is covered by automated tests; production security review is still a release gate. |
-| Generate associated Ed25519 SSH accounts | Implemented | Created accounts appear in the account list using creation IDs. |
-| View public key and fingerprint | Implemented | Available on associated-account detail. |
-| Passphrase-gated encrypted-key export | Implemented | Account details offer **Export Account to Notes** and **Export Account to Clipboard**, each requiring the account passphrase first. The private key is never shown in plain text, and screens are screenshot-protected. |
+| Vault Key validation and deterministic vault identity | Implemented | Technical behavior is covered by automated tests; production security review is still a release gate. |
+| Generate associated Ed25519 SSH keys | Implemented | Created keys appear in the key list using creation IDs. |
+| View public key and fingerprint | Implemented | Available on associated-key detail. |
+| Passphrase-gated encrypted-key export | Implemented | Key details offer **Export Key to Notes** and **Export Key to Clipboard**, each requiring the key passphrase first. The private key is never shown in plain text, and screens are screenshot-protected. |
 | Re-display and verify VaultKey Secret Combinations | Implemented | Reachable from **Settings**. Passphrase-gated, non-cancellable once entered, and resumes after a restart until verification completes. |
 | Encrypted Nostr relay backup | Implemented | Requires operational validation and production hardening. |
 | Brave Sync backup and discovery | Implemented | Requires end-to-end interoperability and release validation. |
 | Backup status and manual sync | Partial | Current UI shows destination markers; richer plain-language status, timestamps, and recovery guidance remain. |
-| Automatically discover and restore associated accounts | Partial | Recovery services exist; validate the end-to-end automatic restoration experience. |
+| Automatically discover and restore associated keys | Partial | Recovery services exist; validate the end-to-end automatic restoration experience. |
 | File import and QR key intake | Planned | Archived product specification describes these options; current UI is paste-oriented. |
-| Key export/share workflow | Partial | Passphrase-gated export to installed notes-capable apps and clipboard copy are implemented for associated accounts and for the Vault Key. File export, QR, and a complete share flow are not. |
-| Rename or rotate associated accounts | Out of scope | Creation ID is currently the stable account label. |
-| Delete an associated account or reset the vault | Not available | The current app provides neither action. |
+| Key export/share workflow | Partial | Passphrase-gated export to installed notes-capable apps and clipboard copy are implemented for associated keys and for the Vault Key. File export, QR, and a complete share flow are not. |
+| Rename or rotate associated keys | Out of scope | Creation ID is currently the stable key label. |
+| Delete an associated key or reset the vault | Not available | The current app provides neither action. |
 | SSH agent, terminal, or Git client | Out of scope | ZenTen Vault manages credentials; it does not use them to log into servers. |
 | Recover a forgotten Vault Key passphrase | Out of scope | The passphrase is never stored and has no reset path; the user must be able to decrypt the key. |
 | Recover a lost Vault Key private key | Implemented, conditional | **Recover VaultKey** restores the key from an enabled relay or Brave Sync copy when the user still holds the 24 Secret Combinations and passphrase. Without those, the key cannot be recreated. |

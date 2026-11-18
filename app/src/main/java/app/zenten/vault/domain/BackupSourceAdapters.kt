@@ -7,13 +7,13 @@ import app.zenten.vault.crypto.Nip44
 import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrEventCodec
 import app.zenten.vault.network.nostr.NostrRelayGateway
 
 /**
- * Builds the [AccountBackupSource] implementations used by [AccountConsolidationEngine].
+ * Builds the [KeyBackupSource] implementations used by [KeyConsolidationEngine].
  *
  * Both source types need credentials derived from the Vault Key's SSH seed. Deriving them is
  * expensive (SSH decryption plus BIP-39 work), so one [BraveRunContext] is created per engine
@@ -32,20 +32,20 @@ class DefaultBackupSourceFactory(
      * that spans midnight cannot use two different sync codes.
      */
     override fun createRunContext(secrets: VaultKeyRunSecrets): BackupSourceRunContext {
-        val seed = SshKeyCodec.parse(secrets.vaultKey.zenTenKey, secrets.passphrase).seed
+        val seed = SshKeyCodec.parse(secrets.vaultKey.encryptedKey, secrets.passphrase).seed
         return BraveRunContext(
             syncCode = Seedify.toBraveSyncCode(seed),
             vaultKeyBackupIdentity = NostrKeyDerivation.fromVaultKeyBackupSeed(seed),
-            accountIdentity = NostrKeyDerivation.fromAccountSeed(seed),
+            keyIdentity = NostrKeyDerivation.fromKeySeed(seed),
         )
     }
 
-    override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): AccountBackupSource {
+    override fun create(config: BackupSourceConfig, context: BackupSourceRunContext?): KeyBackupSource {
         val vaultKeyBackupContext = context as? BraveRunContext
         return when (config.type) {
             // A standalone source without a run context has no decrypted seed to derive from, so
             // it refuses to guess: both identities are required for a relay so that a Vault Key
-            // record can never be published under the associated-account identity.
+            // record can never be published under the associated-key identity.
             BackupSourceType.NOSTR_RELAY -> NostrBackupSource(
                 config = config,
                 gateway = relayGateway,
@@ -68,21 +68,21 @@ class DefaultBackupSourceFactory(
  *
  * Every member is derived from the Vault Key seed and exists only for the life of the run:
  *
- * - [syncCode] and [vaultKeyBackupIdentity] come from the `vkbckp` associated account, which is
+ * - [syncCode] and [vaultKeyBackupIdentity] come from the `vkbckp` associated key, which is
  *   what makes the Vault Key backup recoverable from the 24 words the user writes down.
- * - [accountIdentity] is the Vault Key's own Nostr identity, which owns associated-account records.
+ * - [keyIdentity] is the Vault Key's own Nostr identity, which owns associated-key records.
  */
 private data class BraveRunContext(
     val syncCode: String,
     val vaultKeyBackupIdentity: NostrKeyDerivation.NostrKeys,
-    val accountIdentity: NostrKeyDerivation.NostrKeys,
+    val keyIdentity: NostrKeyDerivation.NostrKeys,
 ) : BackupSourceRunContext
 
 data class NostrCandidate(
-    override val id: BackupAccountId,
+    override val id: BackupKeyId,
     override val sortOrder: Long,
     val event: NostrEvent,
-) : RemoteAccountCandidate
+) : RemoteKeyCandidate
 
 /**
  * Stores backups as replaceable Nostr events on one relay.
@@ -91,20 +91,20 @@ data class NostrCandidate(
  *
  * - **Vault Key records** (`kind` [BackupService.VAULT_KEY_BACKUP_KIND]) use
  *   [NostrKeyDerivation.fromVaultKeyBackupSeed], the identity derived from the Vault Key backup
- *   (`vkbckp`) associated account mnemonic, so they can be recovered from the 24 words alone.
- * - **Associated-account records** (`kind` [BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND]) use
+ *   (`vkbckp`) associated key mnemonic, so they can be recovered from the 24 words alone.
+ * - **Associated-key records** (`kind` [BackupService.ASSOCIATED_KEY_BACKUP_KIND]) use
  *   the Vault Key's own identity, which requires the Vault Key itself to recover.
  *
  * Both are passed in from the run context because they are derived from the decrypted seed;
- * neither is stored on the [Account]. The relay record for each account is addressed by a `d`
- * tag holding its [BackupAccountId].
+ * neither is stored on the [Key]. The relay record for each key is addressed by a `d`
+ * tag holding its [BackupKeyId].
  */
 class NostrBackupSource(
     override val config: BackupSourceConfig,
     private val gateway: NostrRelayGateway,
     private val backupService: BackupService,
     private val identities: BackupSourceRunContext?,
-) : AccountBackupSource {
+) : KeyBackupSource {
     /**
      * The two identities for this run, or a failure when the source was created standalone.
      *
@@ -119,11 +119,11 @@ class NostrBackupSource(
         val runIdentities = identities()
         // Each kind is queried under the identity that is allowed to publish it.
         val vaultKeyEvents = fetchEvents(runIdentities.vaultKeyBackupIdentity, BackupService.VAULT_KEY_BACKUP_KIND)
-        val accountEvents = fetchEvents(runIdentities.accountIdentity, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
+        val keyEvents = fetchEvents(runIdentities.keyIdentity, BackupService.ASSOCIATED_KEY_BACKUP_KIND)
 
         val builder = SourceIndexBuilder()
         builder.addAll(vaultKeyEvents, BackupService.VAULT_KEY_BACKUP_KIND)
-        builder.addAll(accountEvents, BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND)
+        builder.addAll(keyEvents, BackupService.ASSOCIATED_KEY_BACKUP_KIND)
         builder.build()
     }
 
@@ -137,40 +137,40 @@ class NostrBackupSource(
             if (id == null) addInvalid() else add(NostrCandidate(id, event.createdAt, event))
         }
 
-    override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
+    override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteKeyCandidate): Result<Key> = runCatching {
         val event = (candidate as NostrCandidate).event
-        val identity = identities().accountIdentity
-        // Only associated accounts are restorable: the Vault Key re-enters the app through
+        val identity = identities().keyIdentity
+        // Only associated keys are restorable: the Vault Key re-enters the app through
         // onboarding, because its passphrase is never stored remotely.
         require(NostrEventCodec.isValid(event))
-        require(event.kind == BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND && event.pubkey == identity.pubkey)
+        require(event.kind == BackupService.ASSOCIATED_KEY_BACKUP_KIND && event.pubkey == identity.pubkey)
         val createdAt = requireNotNull(candidate.id.createdAt)
         // The NIP-44 plaintext is the passphrase-encrypted OpenSSH key, so the session
-        // passphrase is still required to make the restored account usable.
+        // passphrase is still required to make the restored key usable.
         val decrypted = Nip44.decryptSelf(event.content, identity.privateKey, identity.publicKey)
-        // The `label` tag is the only place the account name survives a device change.
-        accountFromSshKey(createdAt, decrypted, event.accountLabel())
+        // The `label` tag is the only place the key name survives a device change.
+        keyFromSshKey(createdAt, decrypted, event.keyLabel())
     }
 
     /**
-     * Reads the optional `label` tag on an associated-account event.
+     * Reads the optional `label` tag on an associated-key event.
      *
      * The first label wins when an event carries more than one, and a blank value is treated as
-     * absent so the restored account keeps an empty name.
+     * absent so the restored key keeps an empty name.
      */
-    private fun NostrEvent.accountLabel(): String? =
-        tags.firstOrNull { it.firstOrNull() == BackupService.ACCOUNT_LABEL_TAG }
+    private fun NostrEvent.keyLabel(): String? =
+        tags.firstOrNull { it.firstOrNull() == BackupService.KEY_LABEL_TAG }
             ?.getOrNull(1)
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
 
-    override suspend fun write(secrets: VaultKeyRunSecrets, accountId: BackupAccountId, account: Account): Result<Unit> {
+    override suspend fun write(secrets: VaultKeyRunSecrets, keyId: BackupKeyId, key: Key): Result<Unit> {
         val vaultKey = secrets.vaultKey
         val runIdentities = identities()
         // The publishing identity depends on the record class: Vault Key records must stay under
-        // the recoverable identity, associated-account records under the Vault Key's own.
-        val identity = if (accountId.isVaultKey) runIdentities.vaultKeyBackupIdentity else runIdentities.accountIdentity
-        val event = if (accountId.isVaultKey) {
+        // the recoverable identity, associated-key records under the Vault Key's own.
+        val identity = if (keyId.isVaultKey) runIdentities.vaultKeyBackupIdentity else runIdentities.keyIdentity
+        val event = if (keyId.isVaultKey) {
             backupService.buildBackupEvent(
                 vaultKey,
                 vaultKey,
@@ -181,9 +181,9 @@ class NostrBackupSource(
         } else {
             backupService.buildBackupEvent(
                 vaultKey,
-                account,
-                accountId.value,
-                BackupService.ASSOCIATED_ACCOUNT_BACKUP_KIND,
+                key,
+                keyId.value,
+                BackupService.ASSOCIATED_KEY_BACKUP_KIND,
                 identity,
             )
         }
@@ -194,56 +194,56 @@ class NostrBackupSource(
      * Reads the backup ID from the event's single `d` tag.
      *
      * Returns `null` for anything that does not match the backup contract, including a Vault Key
-     * ID published under an account kind or vice versa, so cross-kind records are never trusted.
+     * ID published under a key kind or vice versa, so cross-kind records are never trusted.
      */
-    private fun NostrEvent.canonicalId(expectedKind: Int): BackupAccountId? {
+    private fun NostrEvent.canonicalId(expectedKind: Int): BackupKeyId? {
         if (kind != expectedKind) return null
         val tag = tags.singleOrNull { it.firstOrNull() == "d" }?.getOrNull(1) ?: return null
-        val id = BackupAccountId.parse(tag) ?: return null
+        val id = BackupKeyId.parse(tag) ?: return null
         return id.takeIf { (expectedKind == BackupService.VAULT_KEY_BACKUP_KIND) == it.isVaultKey }
     }
 }
 
 data class BraveCandidate(
-    override val id: BackupAccountId,
+    override val id: BackupKeyId,
     override val sortOrder: Long,
     val entry: BravePasswordService.Password,
-) : RemoteAccountCandidate
+) : RemoteKeyCandidate
 
 /**
  * Stores backups as Brave Sync password records on one sync server.
  *
  * All record encoding, decoding, and sync-code handling lives in [BraveSyncBackupService]; this
- * adapter only maps that service onto the [AccountBackupSource] contract. Brave Sync needs no
+ * adapter only maps that service onto the [KeyBackupSource] contract. Brave Sync needs no
  * identity switch because its sync code is already derived from the Vault Key backup (`vkbckp`)
- * associated account seed.
+ * associated key seed.
  */
 class BraveBackupSource(
     override val config: BackupSourceConfig,
     private val service: BraveSyncBackupService,
-) : AccountBackupSource {
+) : KeyBackupSource {
     override suspend fun index(secrets: VaultKeyRunSecrets): Result<SourceIndex> = service.listRecords(secrets.vaultKey, secrets.passphrase).map { result ->
         // Records that failed to decrypt are already counted as invalid by the service.
         val builder = SourceIndexBuilder(invalidRecordCount = result.decryptionFailures)
         result.passwords.forEach { entry ->
-            val id = service.accountId(entry)?.let(BackupAccountId::parse)
+            val id = service.keyId(entry)?.let(BackupKeyId::parse)
             if (id == null) builder.addInvalid() else builder.add(BraveCandidate(id, entry.version, entry))
         }
         builder.build()
     }
 
-    override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteAccountCandidate): Result<Account> = runCatching {
-        // `decodeAssociatedAccount` returns null for a record that fails intake, which also covers
+    override suspend fun restoreCandidate(secrets: VaultKeyRunSecrets, candidate: RemoteKeyCandidate): Result<Key> = runCatching {
+        // `decodeAssociatedKey` returns null for a record that fails intake, which also covers
         // a key whose declared work factor is outside the accepted band and a record whose key
         // does not open with the session passphrase.
-        requireNotNull(service.decodeAssociatedAccount((candidate as BraveCandidate).entry, secrets.passphrase)) {
+        requireNotNull(service.decodeAssociatedKey((candidate as BraveCandidate).entry, secrets.passphrase)) {
             "Invalid Brave Sync backup record"
         }
     }
 
-    override suspend fun write(secrets: VaultKeyRunSecrets, accountId: BackupAccountId, account: Account): Result<Unit> =
-        if (accountId.isVaultKey) service.backupVaultKey(secrets.vaultKey, secrets.passphrase)
-        else service.backupAssociatedAccount(secrets.vaultKey, account, secrets.passphrase)
+    override suspend fun write(secrets: VaultKeyRunSecrets, keyId: BackupKeyId, key: Key): Result<Unit> =
+        if (keyId.isVaultKey) service.backupVaultKey(secrets.vaultKey, secrets.passphrase)
+        else service.backupAssociatedKey(secrets.vaultKey, key, secrets.passphrase)
 }
 
 /**
@@ -253,9 +253,9 @@ class BraveBackupSource(
  * most recent copy before older ones.
  */
 private class SourceIndexBuilder(private var invalidRecordCount: Int = 0) {
-    private val candidates = mutableMapOf<BackupAccountId, MutableList<RemoteAccountCandidate>>()
+    private val candidates = mutableMapOf<BackupKeyId, MutableList<RemoteKeyCandidate>>()
 
-    fun add(candidate: RemoteAccountCandidate) {
+    fun add(candidate: RemoteKeyCandidate) {
         candidates.getOrPut(candidate.id) { mutableListOf() } += candidate
     }
 
@@ -271,22 +271,22 @@ private class SourceIndexBuilder(private var invalidRecordCount: Int = 0) {
 }
 
 /**
- * Rebuilds an [Account] from a restored OpenSSH private key.
+ * Rebuilds an [Key] from a restored OpenSSH private key.
  *
  * The key is normalized to the canonical single-line Base64 form that every source stores. Intake
  * is deliberately routed through [SshKeyCodec.validateAndNormalizeEncryptedPrivateKey] rather than
  * the plain normalizer: that reader enforces the supported structure and the accepted
  * `bcrypt_pbkdf` work-factor band without needing the passphrase. A record outside the band is
- * therefore rejected here, before it can be stored, instead of becoming an account the app would
+ * therefore rejected here, before it can be stored, instead of becoming a key the app would
  * later refuse to unlock or export. Nothing derived from the key is persisted: every consumer
  * re-derives what it needs from this container.
  *
  * @param sshPrivateKey the passphrase-encrypted OpenSSH key read from the backup record.
- * @param accountName the label carried by the record, or `null` when it carried none.
+ * @param keyName the label carried by the record, or `null` when it carried none.
  */
-internal fun accountFromSshKey(createdAt: Long, sshPrivateKey: String, accountName: String? = null): Account =
-    Account(
+internal fun keyFromSshKey(createdAt: Long, sshPrivateKey: String, keyName: String? = null): Key =
+    Key(
         createdAt = createdAt,
-        zenTenKey = SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(sshPrivateKey),
-        accountName = accountName,
+        encryptedKey = SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(sshPrivateKey),
+        keyName = keyName,
     )

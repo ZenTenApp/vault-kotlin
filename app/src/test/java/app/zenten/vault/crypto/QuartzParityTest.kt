@@ -54,7 +54,7 @@ class QuartzParityTest {
         val nip06 = Nip06()
         assertTrue(nip06.isValidMnemonic(mnemonic), "golden mnemonic must pass BIP39 checksum")
 
-        // account 0 -> m/44'/1237'/0'/0/0 (standard NIP-06)
+        // key 0 -> m/44'/1237'/0'/0/0 (standard NIP-06)
         val privKey = nip06.privateKeyFromMnemonic(mnemonic, 0L)
         val keyPair = KeyPair(privKey = privKey)
 

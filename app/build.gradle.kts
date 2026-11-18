@@ -180,7 +180,7 @@ dependencies {
     // The passphrase is the only secret protecting a VaultKey backup that may already be
     // published to public relays, so strength is measured rather than pattern-matched.
     implementation(libs.zxcvbn)
-    // ZXing core encodes the account-key QR code shown on account and VaultKey detail screens.
+    // ZXing core encodes the key QR code shown on key and VaultKey detail screens.
     // Only the encoder is used; no camera or scanner dependency is pulled in.
     implementation(libs.zxing.core)
     // Unit tests

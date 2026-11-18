@@ -10,13 +10,13 @@ import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateVaultKeyStep
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
-import app.zenten.vault.domain.AccountConsolidationEngine
+import app.zenten.vault.domain.KeyConsolidationEngine
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeySession
-import app.zenten.vault.domain.newAccountCreatedAt
-import app.zenten.vault.ui.accounts.LocalAccountBackupShare
+import app.zenten.vault.domain.newKeyCreatedAt
+import app.zenten.vault.ui.keys.LocalKeyBackupShare
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,7 +42,7 @@ import javax.inject.Inject
  * the passphrase on disk.
  *
  * The passphrase lives in memory only until verification. After generation, the
- * complete account is committed to keystore-backed storage before navigation and
+ * complete key is committed to keystore-backed storage before navigation and
  * backup is attempted on every enabled source. Durable wizard progress then lets
  * app launch resume at the first unfinished post-generation step.
  */
@@ -202,8 +202,8 @@ class CreateVaultKeyViewModel @Inject constructor(
                 val key = withContext(Dispatchers.Default) {
                     SshKeyCodec.generateEncrypted(
                         // Microsecond-resolution id with a random sub-millisecond tail, matching
-                        // the convention used for every other account created by the app.
-                        createdAt = newAccountCreatedAt(clock.millis()),
+                        // the convention used for every other key created by the app.
+                        createdAt = newKeyCreatedAt(clock.millis()),
                         passphrase = passphrase.toCharArray(),
                         rounds = rounds,
                     )
@@ -213,14 +213,14 @@ class CreateVaultKeyViewModel @Inject constructor(
                     // Parsing is another bcrypt operation, so it must remain on the worker
                     // dispatcher along with the seed-derived values read from it.
                     val parsed = SshKeyCodec.parse(key.privateKeyPem, passphrase.toCharArray())
-                    val vaultKey = Account(
+                    val vaultKey = Key(
                         createdAt = key.createdAt,
-                        // Associated-account exports use canonical base64 without PEM wrappers
+                        // Associated-key exports use canonical base64 without PEM wrappers
                         // or line breaks; store generated Vault Keys in that same format.
-                        zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
+                        encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
                     )
                     // The seed is used only to compute the secret-combination indices below; no
-                    // identity derived from it is stored on the account.
+                    // identity derived from it is stored on the key.
                     vaultKey to parsed.seed
                 }
                 _state.value = _state.value.copy(progressStage = VaultKeyCreationStage.DERIVING_SYNC_CODE)
@@ -294,7 +294,7 @@ class CreateVaultKeyViewModel @Inject constructor(
     fun canExportVaultKey(): Boolean = secureStorage.getVaultKey() != null
 
     /**
-     * Builds the Vault Key's self-describing export text. It shares the associated-account
+     * Builds the Vault Key's self-describing export text. It shares the associated-key
      * local-backup format so exported copies read the same way, but uses the fixed "VaultKey"
      * display name because the Vault Key has none.
      *
@@ -307,7 +307,7 @@ class CreateVaultKeyViewModel @Inject constructor(
         secureStorage.getVaultKey()?.let { vaultKey ->
             val passphrase = vaultKeySession.snapshot() ?: return@let null
             try {
-                runCatching { LocalAccountBackupShare.vaultKeyExportText(vaultKey, passphrase) }.getOrNull()
+                runCatching { LocalKeyBackupShare.vaultKeyExportText(vaultKey, passphrase) }.getOrNull()
             } finally {
                 passphrase.fill('\u0000')
             }
@@ -338,12 +338,12 @@ class CreateVaultKeyViewModel @Inject constructor(
     }
 
     /**
-     * Finishes onboarding before opening Accounts so app restart follows the same destination.
+     * Finishes onboarding before opening Keys so app restart follows the same destination.
      *
      * Completion requires a remote Vault Key backup quorum. The wizard's earlier steps only
      * proved the key was stored locally, exported, and transcribed, so this is the last point at
      * which the documented invariant can be enforced; when it is missing, [setupBlocked] stays
-     * true and the screen offers [retryGeneratedVaultKeyBackup] instead of opening Accounts.
+     * true and the screen offers [retryGeneratedVaultKeyBackup] instead of opening Keys.
      */
     fun completeGeneratedVaultKeySetup(onCompleted: () -> Unit) {
         if (_state.value.advancing) return
@@ -400,7 +400,7 @@ class CreateVaultKeyViewModel @Inject constructor(
                     runCatching {
                         val passphrase = vaultKeySession.snapshot() ?: return@let null
                         try {
-                            val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
+                            val seed = SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed
                             Seedify.toVaultKeyBackupWordIndices(seed)
                         } finally {
                             passphrase.fill('\u0000')
@@ -425,7 +425,7 @@ class CreateVaultKeyViewModel @Inject constructor(
                 ?.let { BackupConfirmationResult.UnsupportedKdfRounds(it.declaredRounds) }
                 ?: BackupConfirmationResult.INVALID
         }
-        val stored = secureStorage.getVaultKey()?.zenTenKey
+        val stored = secureStorage.getVaultKey()?.encryptedKey
             ?.let { runCatching { SshKeyCodec.normalizeToSingleLineBase64(it) }.getOrNull() }
             ?: return BackupConfirmationResult.UNAVAILABLE
         // Constant-time equality keeps this key-material comparison consistent with MAC checks.
@@ -521,8 +521,8 @@ data class CreateVaultKeyState(
     val generating: Boolean = false,
     /** Current non-secret operation shown on the dedicated creation screen. */
     val progressStage: VaultKeyCreationStage? = null,
-    /** Source-level progress while the generated account is synchronized. */
-    val backupProgress: AccountConsolidationEngine.VaultKeyBackupProgress? = null,
+    /** Source-level progress while the generated key is synchronized. */
+    val backupProgress: KeyConsolidationEngine.VaultKeyBackupProgress? = null,
     /** True when the two passphrase entries differed. */
     val mismatch: Boolean = false,
     /** True when key generation failed and the user can retry. */

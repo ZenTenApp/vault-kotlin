@@ -34,7 +34,7 @@ import javax.inject.Singleton
  *   inconsistent with it.
  * - Storage moved, flags not yet cleared (the opposite order): the gate no longer sees an
  *   unreadable record, so it reports a fresh install while `setup_complete` still says otherwise.
- *   The router then sends the user to an empty account list — the silent-loss presentation this
+ *   The router then sends the user to an empty key list — the silent-loss presentation this
  *   whole feature exists to prevent.
  *
  * The gate outranks the router, so clearing flags early cannot expose a half-reset device; the

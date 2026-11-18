@@ -2,7 +2,7 @@
 
 ## What backup means
 
-ZenTen Vault stores protected copies of the Vault Key and generated associated accounts at four independent default sources: two Nostr relays and two Brave Sync-compatible `litesync` servers. A newly generated associated account is always saved on the device first, so it remains visible and usable even if every remote write fails.
+ZenTen Vault stores protected copies of the Vault Key and generated associated keys at four independent default sources: two Nostr relays and two Brave Sync-compatible `litesync` servers. A newly generated associated key is always saved on the device first, so it remains visible and usable even if every remote write fails.
 
 Remote work is sequential rather than simultaneous. One unavailable service does not stop the app from trying later sources.
 
@@ -33,34 +33,34 @@ If that minimum is unavailable, the app keeps the validated Vault Key securely o
 
 ## Recovery expectation
 
-On a new device, the user either re-imports the same Vault Key and passphrase or recovers the Vault Key from the eight saved Secret Combinations plus its passphrase — the two rows of the [retention matrix](#what-users-must-retain) that lead to a working vault. Nothing is transferred between the phones: the app declares no cloud backup and no device-to-device transfer of its data, because the local records are sealed with a Keystore key that stays on the old device and could not be opened on the new one. A fresh install is therefore the expected starting point, and — if local records somehow arrive anyway — the app explains that they cannot be opened on this device instead of showing an emptied vault. See [Device migration and backup](device-migration-and-backup.md). **Recover VaultKey** derives the Vault Key's two recovery addresses from the 24 saved words and checks every enabled Nostr relay and Brave Sync source for the `vaultkey` record, accepting the first copy the passphrase decrypts. After the Vault Key is available, the app checks every source and automatically restores valid associated accounts that are absent locally. It completes all source checks/restoration before copying local accounts into confirmed remote gaps.
+On a new device, the user either re-imports the same Vault Key and passphrase or recovers the Vault Key from the eight saved Secret Combinations plus its passphrase — the two rows of the [retention matrix](#what-users-must-retain) that lead to a working vault. Nothing is transferred between the phones: the app declares no cloud backup and no device-to-device transfer of its data, because the local records are sealed with a Keystore key that stays on the old device and could not be opened on the new one. A fresh install is therefore the expected starting point, and — if local records somehow arrive anyway — the app explains that they cannot be opened on this device instead of showing an emptied vault. See [Device migration and backup](device-migration-and-backup.md). **Recover VaultKey** derives the Vault Key's two recovery addresses from the 24 saved words and checks every enabled Nostr relay and Brave Sync source for the `vaultkey` record, accepting the first copy the passphrase decrypts. After the Vault Key is available, the app checks every source and automatically restores valid associated keys that are absent locally. It completes all source checks/restoration before copying local keys into confirmed remote gaps.
 
 Recovery availability depends on network and service availability and whether at least one valid copy was previously created. It is not an unconditional guarantee.
 
 ## Understanding source status
 
-Status appears per source in associated-account details and on a dedicated Vault Key screen. There is no global Backup Status screen.
+Status appears per source in associated-key details and on a dedicated Vault Key screen. There is no global Backup Status screen.
 
 | Status | Meaning | Suggested action |
 | --- | --- | --- |
 | Backed up | The source acknowledged the write. The app may separately perform an internal read-back without presenting the backup as incomplete. | None. |
-| Missing | A successful check did not find this account ID. | Retry/consolidate. |
+| Missing | A successful check did not find this key ID. | Retry/consolidate. |
 | Checking / Backing up | Work is currently in progress. | Wait. |
 | Backup failed | The latest write failed. | Check connectivity and retry. |
 | Unknown | The source could not be checked conclusively. | Refresh; do not assume the copy is absent. |
 
-Consolidation is enqueued after each passphrase-unlocked launch, subject to network availability, and avoids unnecessary rechecks when fresh and no writes are pending. It requires the in-memory VaultKey passphrase, so it does not run while the app is locked. General consolidation processes associated accounts only: it uses the Vault Key Nostr identity on relays and the Vault Key backup seed on Brave Sync. Vault Key consolidation is separate and uses the `vkbckp` (Vault Key BacKup)-derived Nostr identity on relays plus the same Vault Key backup seed on Brave Sync. Such consolidation only repairs an already-set-up device; a lost Vault Key is regained through **Recover VaultKey** using the saved Secret Combinations and passphrase, which is the only path that reads those relay and Brave copies back into the app.
+Consolidation is enqueued after each passphrase-unlocked launch, subject to network availability, and avoids unnecessary rechecks when fresh and no writes are pending. It requires the in-memory VaultKey passphrase, so it does not run while the app is locked. General consolidation processes associated keys only: it uses the Vault Key Nostr identity on relays and the Vault Key backup seed on Brave Sync. Vault Key consolidation is separate and uses the `vkbckp` (Vault Key BacKup)-derived Nostr identity on relays plus the same Vault Key backup seed on Brave Sync. Such consolidation only repairs an already-set-up device; a lost Vault Key is regained through **Recover VaultKey** using the saved Secret Combinations and passphrase, which is the only path that reads those relay and Brave copies back into the app.
 
 ## Privacy expectations
 
-Operational status records contain source/account identifiers, state, coarse error categories, and timestamps—not private keys, passphrases, backup payloads, sync codes, authentication tokens, or relay challenges. User-facing and support diagnostics must preserve this boundary.
+Operational status records contain source/key identifiers, state, coarse error categories, and timestamps—not private keys, passphrases, backup payloads, sync codes, authentication tokens, or relay challenges. User-facing and support diagnostics must preserve this boundary.
 
-The account's backup records are readable in part. Each associated account's kind-37802 relay event carries its creation ID in the `d` tag and its account name in a plain `label` tag, and its Brave Sync record carries the name as a `label:<name>` note; neither field is encrypted, so anyone who can list that account's records can read the name and creation ID. Nothing else is published: there is no kind-0 profile or kind-10050 DM relay list. Relays, Brave Sync servers, and other clients can copy or re-publish these records, so the app cannot delete them or guarantee they are forgotten. The creation screen intentionally does not repeat this warning, to keep the flow minimal; see [Security model](../technical/security-model.md) for the exact fields.
+The key's backup records are readable in part. Each associated key's kind-37802 relay event carries its creation ID in the `d` tag and its key name in a plain `label` tag, and its Brave Sync record carries the name as a `label:<name>` note; neither field is encrypted, so anyone who can list that key's records can read the name and creation ID. Nothing else is published: there is no kind-0 profile or kind-10050 DM relay list. Relays, Brave Sync servers, and other clients can copy or re-publish these records, so the app cannot delete them or guarantee they are forgotten. The creation screen intentionally does not repeat this warning, to keep the flow minimal; see [Security model](../technical/security-model.md) for the exact fields.
 
 ## Current limitations
 
 - Default sources cannot be removed or disabled.
 - The current app exposes no custom backup-source management UI. The underlying source configuration and processing capability is retained for future use.
-- The app does not currently provide account deletion or vault reset; remote deletion/retention is therefore not a user-facing flow.
+- The app does not currently provide key deletion or vault reset; remote deletion/retention is therefore not a user-facing flow.
 - Remote backup cannot recover lost Vault Key material on its own. A remote copy only helps when the user still holds the Secret Combinations and the passphrase; without those, the stored copy is unreadable.
 - Local records that cannot be decrypted on a device (a wrapping key that did not arrive, or damaged bytes) are retained but not recoverable there. Only a VaultKey backup or the Secret Combinations plus passphrase can rebuild a working vault, and nothing restores the unreadable local copies. If the device could not read its own key store, the app says so and offers a re-check rather than treating the records as lost. The recovery screen deliberately does not delete those bytes even though deleting them would reach the same recovery path: the action is triggered by the app's own detection, so a wrong detection would destroy a working vault. See [why this is not simply a reset](../features/device-migration-and-backup.md#why-this-is-not-simply-reset-the-vault).

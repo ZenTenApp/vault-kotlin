@@ -4,9 +4,9 @@ import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.SecretCombinationsViewStep
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
-import app.zenten.vault.domain.AccountService
+import app.zenten.vault.domain.KeyService
 import app.zenten.vault.domain.VaultKeySession
 import io.mockk.coEvery
 import io.mockk.coJustRun
@@ -41,7 +41,7 @@ class SecretCombinationsViewModelTest {
     private val passphrase = "Correct1 horse!"
     private lateinit var secureStorage: SecureStorageService
     private lateinit var appStorage: AppStorageService
-    private lateinit var accountService: AccountService
+    private lateinit var keyService: KeyService
     private lateinit var vaultKeySession: VaultKeySession
     private lateinit var expectedIndices: List<Int>
 
@@ -56,16 +56,16 @@ class SecretCombinationsViewModelTest {
         val seed = SshKeyCodec.parse(generated.privateKeyPem, passphrase.toCharArray()).seed
         expectedIndices = Seedify.toVaultKeyBackupWordIndices(seed)
         secureStorage = mockk()
-        every { secureStorage.getVaultKey() } returns Account(
+        every { secureStorage.getVaultKey() } returns Key(
             createdAt = generated.createdAt,
-            zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
+            encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
         )
         appStorage = mockk()
         coJustRun { appStorage.setSecretCombinationsViewStep(any()) }
         coJustRun { appStorage.clearSecretCombinationsViewStep() }
-        accountService = mockk()
+        keyService = mockk()
         // The verifier is suspend now: it dispatches bcrypt to Dispatchers.Default internally.
-        coEvery { accountService.verifyVaultKeyPassphrase(any()) } answers {
+        coEvery { keyService.verifyVaultKeyPassphrase(any()) } answers {
             if (firstArg<String>() == passphrase) Result.success(Unit)
             else Result.failure(IllegalArgumentException())
         }
@@ -75,7 +75,7 @@ class SecretCombinationsViewModelTest {
     @AfterEach
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = SecretCombinationsViewModel(secureStorage, appStorage, accountService, vaultKeySession)
+    private fun viewModel() = SecretCombinationsViewModel(secureStorage, appStorage, keyService, vaultKeySession)
 
     @Test
     fun wrongPassphrase_reportsAnErrorWithoutEnteringTheFlow() = runTest(dispatcher) {

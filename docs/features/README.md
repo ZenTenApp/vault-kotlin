@@ -7,11 +7,11 @@ This directory describes each feature currently available in the ZenTen Vault An
 1. [Device authentication](device-authentication.md)
 2. [Vault Key setup](vault-key-setup.md)
 3. [Secret Combinations review](secret-combinations-review.md)
-4. [Associated account management](associated-account-management.md)
+4. [Associated key management](associated-key-management.md)
 5. [Sensitive key access](sensitive-key-access.md)
 6. [Encrypted backup](encrypted-backup.md) — detailed write contract, target behavior, and retries.
 7. [Backup status and reconciliation](backup-status-and-reconciliation.md) — detailed discovery, coverage, and repair algorithm.
-8. [Automatic account recovery](automatic-account-recovery.md) — detailed validation and automatic-restore behavior.
+8. [Automatic key recovery](automatic-key-recovery.md) — detailed validation and automatic-restore behavior.
 9. [Backup source management](backup-source-management.md) — currently hidden UI; retained custom-source domain capability.
 10. [Device migration and backup](device-migration-and-backup.md) — why no app data is transferred between devices, the declared backup/D2D exclusions, and the fail-closed recovery screen.
 

@@ -1,6 +1,6 @@
 package app.zenten.vault.ui.onboarding.createvaultkey
 
-import app.zenten.vault.domain.AccountConsolidationEngine
+import app.zenten.vault.domain.KeyConsolidationEngine
 import app.zenten.vault.domain.BackupSourceType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -57,7 +57,7 @@ class CreateVaultKeyCreatingScreenTest {
 
     private fun linesFor(
         stage: VaultKeyCreationStage,
-        progress: AccountConsolidationEngine.VaultKeyBackupProgress? = null,
+        progress: KeyConsolidationEngine.VaultKeyBackupProgress? = null,
     ) = vaultKeyCreationTerminalLines(
         stage = stage,
         progress = progress,
@@ -69,13 +69,13 @@ class CreateVaultKeyCreatingScreenTest {
     )
 
     private fun progress(activeSourceIndex: Int, completedSources: Int) =
-        AccountConsolidationEngine.VaultKeyBackupProgress(
+        KeyConsolidationEngine.VaultKeyBackupProgress(
             sources = listOf(
-                AccountConsolidationEngine.VaultKeyBackupSource("kbckp1", BackupSourceType.NOSTR_RELAY),
-                AccountConsolidationEngine.VaultKeyBackupSource("kbckp2", BackupSourceType.NOSTR_RELAY),
-                AccountConsolidationEngine.VaultKeyBackupSource("litesync1", BackupSourceType.BRAVE_SYNC),
-                AccountConsolidationEngine.VaultKeyBackupSource("litesync2", BackupSourceType.BRAVE_SYNC),
-                AccountConsolidationEngine.VaultKeyBackupSource("brave sync", BackupSourceType.BRAVE_SYNC),
+                KeyConsolidationEngine.VaultKeyBackupSource("kbckp1", BackupSourceType.NOSTR_RELAY),
+                KeyConsolidationEngine.VaultKeyBackupSource("kbckp2", BackupSourceType.NOSTR_RELAY),
+                KeyConsolidationEngine.VaultKeyBackupSource("litesync1", BackupSourceType.BRAVE_SYNC),
+                KeyConsolidationEngine.VaultKeyBackupSource("litesync2", BackupSourceType.BRAVE_SYNC),
+                KeyConsolidationEngine.VaultKeyBackupSource("brave sync", BackupSourceType.BRAVE_SYNC),
             ),
             activeSourceIndex = activeSourceIndex,
             completedSources = completedSources,

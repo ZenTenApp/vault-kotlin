@@ -1,8 +1,8 @@
 package app.zenten.vault.ui.onboarding.createvaultkey
 
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
-import app.zenten.vault.domain.AccountConsolidationEngine
+import app.zenten.vault.domain.KeyConsolidationEngine
 import app.zenten.vault.domain.SetupService
 import app.zenten.vault.domain.VaultKeySession
 import app.zenten.vault.data.kv.AppStorageService
@@ -70,7 +70,7 @@ class CreateVaultKeyViewModelTest {
 
     private fun viewModel(
         secureStorage: SecureStorageService = mockk(),
-        engine: AccountConsolidationEngine = mockk(),
+        engine: KeyConsolidationEngine = mockk(),
         clockOverride: Clock = clock,
         passphraseStrengthChecker: PassphraseStrengthChecker = FakePassphraseStrengthChecker(),
     ): CreateVaultKeyViewModel {
@@ -88,7 +88,7 @@ class CreateVaultKeyViewModelTest {
         coJustRun { appStorage.setVaultKeyQuorumReached(any()) }
         // A generated backup that reached quorum is the default; individual tests override it.
         every { appStorage.vaultKeyQuorumReached } returns flowOf(true)
-        coEvery { engine.backupVaultKey(any(), any(), any()) } returns AccountConsolidationEngine.VaultKeyBackupResult(
+        coEvery { engine.backupVaultKey(any(), any(), any()) } returns KeyConsolidationEngine.VaultKeyBackupResult(
             relayQuorum = true, braveQuorum = true, successfulSourceIds = emptySet(), failedSourceIds = emptySet(),
         )
         val vaultKeySession = VaultKeySession(secureStorage)
@@ -241,7 +241,7 @@ class CreateVaultKeyViewModelTest {
 
     @Test
     fun reuses_secret_combination_indices_derived_during_key_generation() = runTest(dispatcher) {
-        val storedVaultKey = slot<Account>()
+        val storedVaultKey = slot<Key>()
         val secureStorage = mockk<SecureStorageService>()
         val viewModel = viewModel(secureStorage)
         val passphrase = "Correct1 horse!"
@@ -251,14 +251,14 @@ class CreateVaultKeyViewModelTest {
         viewModel.awaitVerificationResult()
         io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        val seed = SshKeyCodec.parse(storedVaultKey.captured.zenTenKey, passphrase.toCharArray()).seed
+        val seed = SshKeyCodec.parse(storedVaultKey.captured.encryptedKey, passphrase.toCharArray()).seed
         assertEquals(Seedify.toVaultKeyBackupWordIndices(seed), viewModel.state.value.secretCombinationIndices)
         assertFalse(viewModel.state.value.secretCombinationsLoading)
     }
 
     @Test
-    fun stores_the_vault_key_in_the_same_single_line_format_used_by_associated_account_exports() = runTest(dispatcher) {
-        val storedVaultKey = slot<Account>()
+    fun stores_the_vault_key_in_the_same_single_line_format_used_by_associated_key_exports() = runTest(dispatcher) {
+        val storedVaultKey = slot<Key>()
         val secureStorage = mockk<SecureStorageService>()
         val viewModel = viewModel(secureStorage)
         val passphrase = "Correct1 horse!"
@@ -268,21 +268,21 @@ class CreateVaultKeyViewModelTest {
         viewModel.awaitVerificationResult()
         io.mockk.verify(exactly = 1) { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        assertFalse(storedVaultKey.captured.zenTenKey.contains("-----BEGIN OPENSSH PRIVATE KEY-----"))
-        assertFalse(storedVaultKey.captured.zenTenKey.contains('\n'))
+        assertFalse(storedVaultKey.captured.encryptedKey.contains("-----BEGIN OPENSSH PRIVATE KEY-----"))
+        assertFalse(storedVaultKey.captured.encryptedKey.contains('\n'))
         assertEquals(
-            storedVaultKey.captured.zenTenKey,
-            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedVaultKey.captured.zenTenKey),
+            storedVaultKey.captured.encryptedKey,
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedVaultKey.captured.encryptedKey),
         )
     }
 
     /**
-     * The Vault Key's creation ID uses the same scheme as associated accounts: the injected clock
+     * The Vault Key's creation ID uses the same scheme as associated keys: the injected clock
      * supplies the base time and the sub-millisecond digits are random, never three zeros.
      */
     @Test
     fun generated_vault_key_uses_a_created_at_with_a_random_tail_under_the_injected_clock() = runTest(dispatcher) {
-        val storedVaultKey = slot<Account>()
+        val storedVaultKey = slot<Key>()
         val secureStorage = mockk<SecureStorageService>()
         val viewModel = viewModel(secureStorage)
         val passphrase = "Correct1 horse!"
@@ -298,18 +298,18 @@ class CreateVaultKeyViewModelTest {
 
     /**
      * The create flow no longer derives an identity of its own: the engine derives both the
-     * Vault Key backup (`vkbckp`) and associated-account identities from the stored key's seed.
+     * Vault Key backup (`vkbckp`) and associated-key identities from the stored key's seed.
      */
     @Test
     fun initial_relay_backup_is_handed_only_the_stored_key_material() = runTest(dispatcher) {
-        val storedVaultKey = slot<Account>()
-        val backedUpVaultKey = slot<Account>()
+        val storedVaultKey = slot<Key>()
+        val backedUpVaultKey = slot<Key>()
         val secureStorage = mockk<SecureStorageService>()
-        val engine = mockk<AccountConsolidationEngine>()
+        val engine = mockk<KeyConsolidationEngine>()
         val viewModel = viewModel(secureStorage, engine)
         val passphrase = "Correct1 horse!"
         coEvery { engine.backupVaultKey(capture(backedUpVaultKey), any(), any()) } returns
-            AccountConsolidationEngine.VaultKeyBackupResult(true, true, emptySet(), emptySet())
+            KeyConsolidationEngine.VaultKeyBackupResult(true, true, emptySet(), emptySet())
 
         viewModel.choosePassphrase(passphrase)
         viewModel.verifyAndGenerate(passphrase)
@@ -324,7 +324,7 @@ class CreateVaultKeyViewModelTest {
     fun completing_setup_requires_a_reached_backup_quorum() = runTest(dispatcher) {
         val appStorage = mockk<AppStorageService>(relaxed = false)
         val secureStorage = mockk<SecureStorageService>()
-        val engine = mockk<AccountConsolidationEngine>()
+        val engine = mockk<KeyConsolidationEngine>()
         val remoteOperationPrecondition = mockk<RemoteOperationPrecondition>()
         coEvery { remoteOperationPrecondition.check() } returns RemoteOperationReadiness.READY
         every { appStorage.sshKdfRounds } returns flowOf(SshKeyCodec.DEFAULT_BCRYPT_PBKDF_ROUNDS)
@@ -337,7 +337,7 @@ class CreateVaultKeyViewModelTest {
         // The create-flow backup never landed, so setup completion must be refused.
         every { appStorage.vaultKeyQuorumReached } returns flowOf(false)
         coEvery { engine.backupVaultKey(any(), any(), any()) } returns
-            AccountConsolidationEngine.VaultKeyBackupResult(true, true, emptySet(), emptySet())
+            KeyConsolidationEngine.VaultKeyBackupResult(true, true, emptySet(), emptySet())
         val vaultKeySession = VaultKeySession(secureStorage)
         val viewModel = CreateVaultKeyViewModel(
             clock,
@@ -359,7 +359,7 @@ class CreateVaultKeyViewModelTest {
     }
 
     @Test
-    fun completing_setup_after_a_recorded_quorum_opens_the_accounts_step() = runTest(dispatcher) {
+    fun completing_setup_after_a_recorded_quorum_opens_the_keys_step() = runTest(dispatcher) {
         val viewModel = viewModel()
         var completed = false
 

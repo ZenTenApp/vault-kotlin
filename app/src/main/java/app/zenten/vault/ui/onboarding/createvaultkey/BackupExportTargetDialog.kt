@@ -21,14 +21,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.zenten.vault.R
-import app.zenten.vault.ui.accounts.LocalAccountBackupShare
+import app.zenten.vault.ui.keys.LocalKeyBackupShare
 
-/** Direct target picker shared in behavior with associated-account local backup export. */
+/** Direct target picker shared in behavior with associated-key local backup export. */
 @Composable
 internal fun BackupExportTargetDialog(
-    targets: List<LocalAccountBackupShare.ShareTarget>,
+    targets: List<LocalKeyBackupShare.ShareTarget>,
     onDismiss: () -> Unit,
-    onTargetSelected: (LocalAccountBackupShare.ShareTarget) -> Unit,
+    onTargetSelected: (LocalKeyBackupShare.ShareTarget) -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,

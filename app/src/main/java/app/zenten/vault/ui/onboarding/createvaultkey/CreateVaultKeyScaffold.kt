@@ -41,7 +41,7 @@ internal val HeroIconSize = 132.dp
  * All wizard steps use the same skeleton: a header row with an icon-only back
  * arrow beside the centered title, a hero illustration, step-specific content,
  * and finally a bottom-anchored action area. The layout itself lives in
- * [VaultScreenScaffold] so account creation and account export can reuse exactly
+ * [VaultScreenScaffold] so key creation and key export can reuse exactly
  * the same frame; this wrapper only supplies the wizard's hero artwork.
  *
  * Supporting copy is intentionally not part of this frame: each step owns its

@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
-import app.zenten.vault.ui.accounts.LocalAccountBackupShare
+import app.zenten.vault.ui.keys.LocalKeyBackupShare
 import app.zenten.vault.ui.components.VaultPillButton
 import kotlinx.coroutines.launch
 
@@ -34,7 +34,7 @@ fun CreateVaultKeyBackupIntroScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
-    var targets by remember { mutableStateOf<List<LocalAccountBackupShare.ShareTarget>?>(null) }
+    var targets by remember { mutableStateOf<List<LocalKeyBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<Int?>(null) }
     // Building the export decrypts the VaultKey with the session passphrase, which is
     // suspending work (bcrypt decryption), so the click handlers run on a coroutine scope.
@@ -80,7 +80,7 @@ fun CreateVaultKeyBackupIntroScreen(
                     if (!viewModel.canExportVaultKey()) {
                         exportError = R.string.create_vault_key_backup_unavailable
                     } else {
-                        targets = LocalAccountBackupShare.availableTargets(context.packageManager)
+                        targets = LocalKeyBackupShare.availableTargets(context.packageManager)
                     }
                 },
             )
@@ -100,7 +100,7 @@ fun CreateVaultKeyBackupIntroScreen(
                         return@launch
                     }
                     try {
-                        context.startActivity(LocalAccountBackupShare.targetedSendIntent(vaultKey, target))
+                        context.startActivity(LocalKeyBackupShare.targetedSendIntent(vaultKey, target))
                         targets = null
                         viewModel.recordExportStarted()
                     } catch (_: ActivityNotFoundException) {

@@ -103,7 +103,7 @@ fun VaultScreenHeader(
  *
  * Every screen uses the same skeleton: a [VaultScreenHeader] row holding the back arrow and
  * the title, an optional hero illustration, step-specific content, and a bottom-anchored
- * action area. Centralizing it here keeps account creation, account export, settings, and
+ * action area. Centralizing it here keeps key creation, key export, settings, and
  * the VaultKey wizard screens visually identical.
  *
  * Screens that supply a [hero] are the exception to the header title: the title moves below

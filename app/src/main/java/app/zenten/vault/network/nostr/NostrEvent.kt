@@ -1,6 +1,6 @@
 package app.zenten.vault.network.nostr
 
-/** App-owned Nostr event boundary. Timestamps are Nostr epoch seconds, not account IDs. */
+/** App-owned Nostr event boundary. Timestamps are Nostr epoch seconds, not key IDs. */
 data class NostrEvent(
     val id: String,
     val pubkey: String,

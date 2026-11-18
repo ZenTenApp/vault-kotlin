@@ -2,8 +2,8 @@ package app.zenten.vault.di
 
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.secure.SecureStorageService
-import app.zenten.vault.domain.AccountConsolidationEngine
-import app.zenten.vault.domain.AccountService
+import app.zenten.vault.domain.KeyConsolidationEngine
+import app.zenten.vault.domain.KeyService
 import app.zenten.vault.domain.BackupService
 import app.zenten.vault.domain.BackupSourceFactory
 import app.zenten.vault.domain.BackupSourceRepository
@@ -43,13 +43,13 @@ object DomainModule {
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
         clock: Clock,
-    ) = AccountConsolidationEngine(repository, factory, secureStorage, appStorage, clock)
+    ) = KeyConsolidationEngine(repository, factory, secureStorage, appStorage, clock)
 
     @Provides @Singleton
     fun setupService(
         secureStorage: SecureStorageService,
         appStorage: AppStorageService,
-        engine: AccountConsolidationEngine,
+        engine: KeyConsolidationEngine,
         remoteOperationPrecondition: RemoteOperationPrecondition,
         vaultKeySession: VaultKeySession,
         scheduler: BackupWorkScheduler,
@@ -67,6 +67,6 @@ object DomainModule {
     ) = VaultKeyRecoveryService(repository, secureStorage, appStorage, scheduler, gateway, vaultKeySession, clock)
 
     @Provides @Singleton
-    fun accountService(secureStorage: SecureStorageService, setupService: SetupService, appStorage: AppStorageService) =
-        AccountService(secureStorage, setupService, appStorage)
+    fun keyService(secureStorage: SecureStorageService, setupService: SetupService, appStorage: AppStorageService) =
+        KeyService(secureStorage, setupService, appStorage)
 }

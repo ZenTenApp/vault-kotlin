@@ -36,7 +36,7 @@ fun RootScreen(navController: NavHostController, viewModel: RootViewModel = hilt
 class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewModel() {
     val destination = combine(
         appStorage.setupComplete,
-        appStorage.pendingLocalBackupAccountIds,
+        appStorage.pendingLocalBackupKeyIds,
         appStorage.createVaultKeyStep,
         appStorage.secretCombinationsViewStep,
         appStorage.importedVaultKeySetupPending,
@@ -48,8 +48,8 @@ class RootViewModel @Inject constructor(appStorage: AppStorageService) : ViewMod
                 VaultDestinations.VIEW_SECRET_COMBINATIONS_SHOW
             secretCombinationsStep == SecretCombinationsViewStep.CONFIRM ->
                 VaultDestinations.VIEW_SECRET_COMBINATIONS_CONFIRM
-            complete && pending.isNotEmpty() -> VaultDestinations.localAccountBackupExport(pending.first().toLong())
-            complete -> VaultDestinations.ACCOUNTS
+            complete && pending.isNotEmpty() -> VaultDestinations.localKeyBackupExport(pending.first().toLong())
+            complete -> VaultDestinations.KEYS
             createStep == CreateVaultKeyStep.BACKUP_INTRO -> VaultDestinations.CREATE_VAULT_KEY_BACKUP_INTRO
             createStep == CreateVaultKeyStep.CONFIRM_BACKUP -> VaultDestinations.CREATE_VAULT_KEY_CONFIRM_BACKUP
             createStep == CreateVaultKeyStep.SECRET_COMBINATIONS -> VaultDestinations.CREATE_VAULT_KEY_SECRET_COMBINATIONS

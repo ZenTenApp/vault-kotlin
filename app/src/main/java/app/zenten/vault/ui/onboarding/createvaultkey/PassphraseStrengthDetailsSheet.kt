@@ -136,7 +136,7 @@ internal fun PassphraseStrengthDetailsContent(
                 SheetBodyText(stringResource(R.string.create_vault_key_passphrase_details_nothing_noticed))
             } else {
                 // Every entry the estimator found, in passphrase order, including the stretch it
-                // could not explain — so the list accounts for the whole passphrase.
+                // could not explain — so the list keys for the whole passphrase.
                 strength.findings.forEach { finding -> FindingItem(finding) }
             }
         }

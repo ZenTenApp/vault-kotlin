@@ -7,12 +7,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
-import app.zenten.vault.ui.accounts.AccountDetailScreen
-import app.zenten.vault.ui.accounts.AccountsListScreen
-import app.zenten.vault.ui.accounts.LocalAccountBackupConfirmScreen
-import app.zenten.vault.ui.accounts.LocalAccountBackupExportScreen
+import app.zenten.vault.ui.keys.KeyDetailScreen
+import app.zenten.vault.ui.keys.KeysListScreen
+import app.zenten.vault.ui.keys.LocalKeyBackupConfirmScreen
+import app.zenten.vault.ui.keys.LocalKeyBackupExportScreen
 import app.zenten.vault.ui.vaultKey.VaultKeyDetailScreen
-import app.zenten.vault.ui.newaccount.NewAccountScreen
+import app.zenten.vault.ui.newkey.NewKeyScreen
 import app.zenten.vault.ui.onboarding.GetStartedScreen
 import app.zenten.vault.ui.onboarding.SshSetupScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyBackupIntroScreen
@@ -130,36 +130,36 @@ fun VaultNavGraph(
             }
         }
 
-        composable(VaultDestinations.ACCOUNTS) {
-            AccountsListScreen(navController)
+        composable(VaultDestinations.KEYS) {
+            KeysListScreen(navController)
         }
 
         composable(
-            route = VaultDestinations.ACCOUNT_DETAIL,
+            route = VaultDestinations.KEY_DETAIL,
             arguments = listOf(navArgument("id") { type = NavType.LongType }),
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getLong("id") ?: 0L
-            AccountDetailScreen(navController, id)
+            KeyDetailScreen(navController, id)
         }
 
-        composable(VaultDestinations.NEW_ACCOUNT) {
-            NewAccountScreen(navController)
-        }
-
-        composable(
-            route = VaultDestinations.LOCAL_ACCOUNT_BACKUP_EXPORT,
-            arguments = listOf(navArgument("id") { type = NavType.LongType }),
-        ) { backStackEntry ->
-            val id = backStackEntry.arguments?.getLong("id") ?: 0L
-            LocalAccountBackupExportScreen(navController, id)
+        composable(VaultDestinations.NEW_KEY) {
+            NewKeyScreen(navController)
         }
 
         composable(
-            route = VaultDestinations.LOCAL_ACCOUNT_BACKUP_CONFIRM,
+            route = VaultDestinations.LOCAL_KEY_BACKUP_EXPORT,
             arguments = listOf(navArgument("id") { type = NavType.LongType }),
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getLong("id") ?: 0L
-            LocalAccountBackupConfirmScreen(navController, id)
+            LocalKeyBackupExportScreen(navController, id)
+        }
+
+        composable(
+            route = VaultDestinations.LOCAL_KEY_BACKUP_CONFIRM,
+            arguments = listOf(navArgument("id") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getLong("id") ?: 0L
+            LocalKeyBackupConfirmScreen(navController, id)
         }
 
         composable(VaultDestinations.VAULT_KEY) {

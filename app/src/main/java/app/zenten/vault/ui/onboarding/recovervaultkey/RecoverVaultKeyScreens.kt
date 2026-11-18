@@ -290,7 +290,7 @@ fun RecoverVaultKeyPassphraseScreen(
     val state by viewModel.state.collectAsState()
     val passphraseFeedback by viewModel.passphraseFeedback.collectAsState()
     LaunchedEffect(state.completed) {
-        if (state.completed) navController.navigate(VaultDestinations.ACCOUNTS) {
+        if (state.completed) navController.navigate(VaultDestinations.KEYS) {
             popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }
         }
     }

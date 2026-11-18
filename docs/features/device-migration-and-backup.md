@@ -8,7 +8,7 @@ and then re-establishes the vault from material they deliberately kept:
 - the exported **VaultKey** (or the 24 **Secret Combinations**), plus
 - the **VaultKey passphrase**,
 
-after which consolidation restores associated accounts from their relay and Brave Sync backups.
+after which consolidation restores associated keys from their relay and Brave Sync backups.
 See [Backup and recovery](../stakeholder/backup-and-recovery.md) for the retention matrix.
 
 ## Why no app data is migrated
@@ -17,7 +17,7 @@ Vault's local state is not portable, and copying it would produce damage rather 
 
 | Layer | Portable to another device? | Why |
 | --- | --- | --- |
-| `sharedprefs/vault_secure_accounts_v2.xml` (VaultKey + every account record) | No | Each value is AES-256-GCM ciphertext under an Android Keystore key. Keystore keys are hardware-bound and are never transferred by cloud backup or device-to-device (D2D) transfer. |
+| `sharedprefs/vault_secure_keys_v2.xml` (VaultKey + every key record) | No | Each value is AES-256-GCM ciphertext under an Android Keystore key. Keystore keys are hardware-bound and are never transferred by cloud backup or device-to-device (D2D) transfer. |
 | `files/datastore/vault_app.preferences_pb` (setup, quorum, and export flags) | Yes, but must not be | Plaintext, so it *would* arrive — leaving the app claiming a completed setup over records no screen can open. |
 | `AndroidKeyStore` alias `vault_secure_storage_key_v1` | Never | Never included in any backup or transfer path. |
 
@@ -64,7 +64,7 @@ backup-tool file restore, or damaged bytes.
   permanent, the second may clear on retry.
 - `SecureStorageService.getVaultKeyState()` reports the VaultKey's state and why it is unavailable;
   `unreadableRecords` publishes the most consequential reason found across **any** VaultKey or
-  account record. Checking only the VaultKey would misreport a partial transfer as a fresh install.
+  key record. Checking only the VaultKey would misreport a partial transfer as a fresh install.
 - `VaultUnlockGateViewModel` reports `VaultUnreadable` instead of `Onboarding` in that state, and
   carries the scan's reason rather than assuming a missing key, so the screen describes the actual
   cause.
@@ -74,7 +74,7 @@ backup-tool file restore, or damaged bytes.
 - `StrandedVaultResetService` clears the routing flags first and then moves unreadable ciphertext
   under the `quarantined_` prefix. Flags cleared: `setup_complete`, quorum, pending-import, wizard
   step, Secret Combinations review step, the Confirm Backup paste guard, and the pending/local-
-  backed-up account IDs. The review step matters because the launch router checks it *before*
+  backed-up key IDs. The review step matters because the launch router checks it *before*
   setup completion, so leaving it set would reopen the review flow ahead of onboarding with no
   readable VaultKey to review.
 
@@ -85,7 +85,7 @@ dies between them. The launch gate is evaluated **before** the router, so:
 - flags cleared but storage not yet moved → the gate still finds the unreadable record and keeps
   showing the recovery screen; the user retries and nothing is orphaned;
 - storage moved but flags not yet cleared → the gate no longer sees an unreadable record, reports a
-  fresh install while `setup_complete` still says otherwise, and the router opens an empty account
+  fresh install while `setup_complete` still says otherwise, and the router opens an empty key
   list — the silent-loss presentation this feature exists to prevent.
 
 Quarantine is a single generation: a previous reset's parked records are dropped in the same
@@ -118,7 +118,7 @@ What a reset could change is only the third row here; the user's recovery outcom
 | Local ciphertext | deleted | re-keyed to `quarantined_*` |
 | Remote relay and Brave Sync backups | untouched | untouched |
 
-Remote backups are the only thing that actually restores the user's accounts, and they live off the
+Remote backups are the only thing that actually restores the user's keys, and they live off the
 device: no local action, reset or otherwise, can affect them. So this is not a recovery mechanism
 versus a reset — both land the user on the same recovery path. The difference is only what happens
 to the unreadable local bytes.

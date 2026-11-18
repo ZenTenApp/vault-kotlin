@@ -3,9 +3,9 @@
 This document describes the current implementation for two distinct flows:
 
 1. importing a **Vault Key** OpenSSH Ed25519 private key and deriving its 24-word recovery mnemonic; and
-2. generating a fresh OpenSSH Ed25519 key for an **associated account**.
+2. generating a fresh OpenSSH Ed25519 key for an **associated key**.
 
-Both flows derive a mnemonic from the SSH seed when they need the account's Nostr identity. Neither the mnemonic nor any key derived from it is persisted: `NostrKeyDerivation.fromAccountSeed` and `fromVaultKeyBackupSeed` rebuild the identity on demand from the encrypted container plus the passphrase.
+Both flows derive a mnemonic from the SSH seed when they need the key's Nostr identity. Neither the mnemonic nor any key derived from it is persisted: `NostrKeyDerivation.fromKeySeed` and `fromVaultKeyBackupSeed` rebuild the identity on demand from the encrypted container plus the passphrase.
 
 ## Vault Key: OpenSSH key to 24-word mnemonic
 
@@ -25,10 +25,10 @@ Pasted passphrase-protected OpenSSH private key + passphrase
 val key = SshKeyCodec.normalizeToSingleLineBase64(keyInput)
 // Parsing proves the passphrase before anything is persisted.
 SshKeyCodec.parse(key, passphrase.toCharArray())
-val account = Account(createdAt = createdAt, zenTenKey = key)
+val key = Key(createdAt = createdAt, encryptedKey = key)
 ```
 
-The resulting `Account` holds only the normalized private key; the identity used to sign and encrypt its relay records is derived later from that key's seed by `DefaultBackupSourceFactory`, so nothing derived is persisted. The passphrase is moved to the in-memory session and is never persisted. The SSH public key is not stored either: it is derived on demand from the key container's unencrypted header.
+The resulting `Key` holds only the normalized private key; the identity used to sign and encrypt its relay records is derived later from that key's seed by `DefaultBackupSourceFactory`, so nothing derived is persisted. The passphrase is moved to the in-memory session and is never persisted. The SSH public key is not stored either: it is derived on demand from the key container's unencrypted header.
 
 ### Accepted input and OpenSSH-v1 parsing
 
@@ -38,7 +38,7 @@ The resulting `Account` holds only the normalized private key; the identity used
 openssh-key-v1\0
 ```
 
-The parser reads the cipher name, KDF name and options, key count, outer public-key blob, and private-key blob. It permits one key only and accepts only passphrase-protected keys with `ciphername = aes256-ctr` and `kdfname = bcrypt`. Unencrypted (`ciphername = none`) OpenSSH private keys are rejected. The declared bcrypt work factor must also be inside the accepted band of 128–8192; the check runs while only metadata has been read, so a key outside it is rejected before the KDF runs. Because the outer public-key blob is unencrypted, `SshKeyCodec.publicKeyFromEncryptedPrivateKey` and `fingerprintFromEncryptedPrivateKey` extract the public key and SHA-256 fingerprint without the passphrase — the same public-key wire blob OpenSSH fingerprints. Both still read through the same container reader, so an out-of-band key is not reported on Account Details either.
+The parser reads the cipher name, KDF name and options, key count, outer public-key blob, and private-key blob. It permits one key only and accepts only passphrase-protected keys with `ciphername = aes256-ctr` and `kdfname = bcrypt`. Unencrypted (`ciphername = none`) OpenSSH private keys are rejected. The declared bcrypt work factor must also be inside the accepted band of 128–8192; the check runs while only metadata has been read, so a key outside it is rejected before the KDF runs. Because the outer public-key blob is unencrypted, `SshKeyCodec.publicKeyFromEncryptedPrivateKey` and `fingerprintFromEncryptedPrivateKey` extract the public key and SHA-256 fingerprint without the passphrase — the same public-key wire blob OpenSSH fingerprints. Both still read through the same container reader, so an out-of-band key is not reported on Key Details either.
 
 The bcrypt options provide a salt and round count. The parser derives 48 bytes with `bcrypt_pbkdf`: the first 32 bytes are the AES-256 key and the remaining 16 bytes are the AES-CTR IV. It decrypts the private blob before parsing it.
 
@@ -97,23 +97,23 @@ The 32-byte seed supplies 256 bits of entropy. BIP-39 adds an 8-bit checksum, yi
 
 No prefix, hash, or extra passphrase is applied before mnemonic encoding. The mnemonic is subsequently used as the input to NIP-06 Nostr derivation (default path `m/44'/1237'/0'/0/0`), which uses secp256k1. This Nostr identity is separate from the SSH Ed25519 key pair.
 
-## Associated account: generating a new SSH key
+## Associated key: generating a new SSH key
 
-`domain/AccountService.kt` creates an associated account as follows:
+`domain/KeyService.kt` creates an associated key as follows:
 
 1. Allocate a unique, microsecond-style `createdAt` identifier.
 2. Call `SshKeyCodec.generateEncrypted(createdAt, vaultKeyPassphrase)`.
 3. Normalize and store the generated OpenSSH private key as single-line Base64.
-4. Persist locally, then start backup coordination through `SetupService.addAccount`.
+4. Persist locally, then start backup coordination through `SetupService.addKey`.
 
-`createdAt` is an identifier and sort key, not a precise timestamp. `domain/AccountId.kt` derives it everywhere an account is created, imported, or recovered:
+`createdAt` is an identifier and sort key, not a precise timestamp. `domain/KeyId.kt` derives it everywhere a key is created, imported, or recovered:
 
 ```kotlin
-internal fun newAccountCreatedAt(nowMillis: Long = System.currentTimeMillis()): Long =
+internal fun newKeyCreatedAt(nowMillis: Long = System.currentTimeMillis()): Long =
     nowMillis * 1_000L + ThreadLocalRandom.current().nextLong(1, 1_000)
 ```
 
-The wall-clock milliseconds are shifted into the microsecond range and the sub-millisecond digits are filled with a random `1`–`999` rather than left as `000`, so two records created in the same millisecond are distinguishable and a stored ID does not reveal that it came from whole-millisecond arithmetic. The random tail is uniqueness jitter, not a security control: only 999 values exist per millisecond and the helper does not consult already-stored IDs. `AccountService` additionally wraps it in a compare-and-set counter so two concurrent associated-account creations cannot receive the same ID and an ID never regresses when the wall clock moves backwards. Vault Key creation, import, and recovery use the helper without that guard because the Vault Key is a single record stored under the fixed `vault_key` key.
+The wall-clock milliseconds are shifted into the microsecond range and the sub-millisecond digits are filled with a random `1`–`999` rather than left as `000`, so two records created in the same millisecond are distinguishable and a stored ID does not reveal that it came from whole-millisecond arithmetic. The random tail is uniqueness jitter, not a security control: only 999 values exist per millisecond and the helper does not consult already-stored IDs. `KeyService` additionally wraps it in a compare-and-set counter so two concurrent associated-key creations cannot receive the same ID and an ID never regresses when the wall clock moves backwards. Vault Key creation, import, and recovery use the helper without that guard because the Vault Key is a single record stored under the fixed `vault_key` key.
 
 `SshKeyCodec.generateEncrypted` creates a new Ed25519 key with `SecureRandom` through Bouncy Castle:
 
@@ -123,22 +123,22 @@ val seed = private.encoded
 val public = private.generatePublicKey().encoded
 ```
 
-It serializes the generated material into an OpenSSH-v1 container encrypted with the vault-key passphrase (`aes256-ctr` and `bcrypt_pbkdf`), which is held only in memory for the session. The Settings screen stores a non-secret work factor selected from `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`; the default is 128. The selected value applies to newly generated Vault Keys and associated accounts only. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding, with `createdAt` as its comment. The outer public-key blob is written unencrypted, so the public key and its SHA-256 fingerprint are derived on demand without the passphrase rather than stored.
+It serializes the generated material into an OpenSSH-v1 container encrypted with the vault-key passphrase (`aes256-ctr` and `bcrypt_pbkdf`), which is held only in memory for the session. The Settings screen stores a non-secret work factor selected from `128`, `256`, `512`, `1024`, `2048`, `4096`, or `8192`; the default is 128. The selected value applies to newly generated Vault Keys and associated keys only. Its private blob includes random duplicate check integers, `ssh-ed25519`, the public key, `seed || public`, a comment containing `createdAt`, and standard OpenSSH sequential padding, with `createdAt` as its comment. The outer public-key blob is written unencrypted, so the public key and its SHA-256 fingerprint are derived on demand without the passphrase rather than stored.
 
 The work factor is bounded to `128`–`8192` on every path, and the bounds are enforced in two places:
 
 - **Generation.** `generateEncrypted` accepts only the powers of two in `SshKeyCodec.SUPPORTED_BCRYPT_PBKDF_ROUNDS` (128, 256, 512, 1024, 2048, 4096, 8192). Each `bcrypt_pbkdf` round costs a full Blowfish key schedule — roughly 8 ms on a desktop CPU — so 128 is about one second and 8192 is over a minute; the floor keeps generated keys expensive enough that an exported container is not cheap to attack offline, and the ceiling keeps the top of the menu from being a multi-minute unlock.
 - **Storage.** `AppStorageService.setSshKdfRounds` rejects anything outside the offered list. `sshKdfRounds` additionally clamps an unrecognised stored value back to the default, so a setting persisted before the floor existed (for example `64`) reads as `128` rather than crashing.
-- **Every read of a container.** `SshKeyCodec.readEncryptedContainer` requires the declared work factor to be within `128`–`8192` inclusive, checking both ends while only metadata has been read. Every intake and use path goes through that reader, so the band applies to **Paste VaultKey**, **Recover VaultKey**, associated-account restore from relay or Brave Sync, the subsequent unlock, Account Details, and export alike. Unlike generation, parsing is a range check rather than a menu lookup: a key declaring any count in the band, such as `200`, is accepted.
+- **Every read of a container.** `SshKeyCodec.readEncryptedContainer` requires the declared work factor to be within `128`–`8192` inclusive, checking both ends while only metadata has been read. Every intake and use path goes through that reader, so the band applies to **Paste VaultKey**, **Recover VaultKey**, associated-key restore from relay or Brave Sync, the subsequent unlock, Key Details, and export alike. Unlike generation, parsing is a range check rather than a menu lookup: a key declaring any count in the band, such as `200`, is accepted.
   - The floor is a strength policy. A container that leaves the device is protected only by its passphrase under this KDF, so a weaker declared factor is cheap to attack offline.
   - The ceiling is both a policy limit and a hostile-input control. The declared value is attacker-controlled metadata trusted before any passphrase is checked, and `bcrypt_pbkdf` cost grows linearly with it, so a container declaring `2,147,483,647` rounds would otherwise block every unlock and recovery attempt inside the KDF.
   - Parsing is no longer more permissive than generation below the floor. It used to accept weaker foreign keys because `ssh-keygen` defaults to 16 rounds; that compatibility carve-out was removed because Vault is pre-release and holds no older keys, so every container it can encounter was either generated inside the band or is rejected at intake (D12, revised 2026-11-09).
 
-The practical consequence for import: an out-of-band key is refused at the **Paste VaultKey** step, before the passphrase is requested, and a recovery or restore attempt skips that copy and continues with the remaining candidates. `readEncryptedContainer` throws the typed `SshKeyCodec.UnsupportedKdfRoundsException`, carrying the declared count (public header metadata), rather than a plain `IllegalArgumentException`: the paste screens use that distinction to explain an out-of-band work factor on its own terms instead of reporting a generic unsupported-key error. **Paste VaultKey**, **Confirm Backup** in the creation wizard, and **Confirm Backup** of the associated-account export each render a message naming the declared count and the accepted band, with both band bounds substituted from `SshKeyCodec` so the wording cannot drift from the enforced range. An out-of-band paste during **Confirm Backup** still counts as a failed attempt and feeds the escalating lockout. When every recovered copy is out of band, **Recover VaultKey** surfaces the parser's message, which names the accepted band but contains no key material. A key already stored locally with an out-of-band count would be refused on its next read; that is acceptable only while Vault is pre-release and no such keys exist in the field.
+The practical consequence for import: an out-of-band key is refused at the **Paste VaultKey** step, before the passphrase is requested, and a recovery or restore attempt skips that copy and continues with the remaining candidates. `readEncryptedContainer` throws the typed `SshKeyCodec.UnsupportedKdfRoundsException`, carrying the declared count (public header metadata), rather than a plain `IllegalArgumentException`: the paste screens use that distinction to explain an out-of-band work factor on its own terms instead of reporting a generic unsupported-key error. **Paste VaultKey**, **Confirm Backup** in the creation wizard, and **Confirm Backup** of the associated-key export each render a message naming the declared count and the accepted band, with both band bounds substituted from `SshKeyCodec` so the wording cannot drift from the enforced range. An out-of-band paste during **Confirm Backup** still counts as a failed attempt and feeds the escalating lockout. When every recovered copy is out of band, **Recover VaultKey** surfaces the parser's message, which names the accepted band but contains no key material. A key already stored locally with an out-of-band count would be refused on its next read; that is acceptable only while Vault is pre-release and no such keys exist in the field.
 
 ### Important distinction
 
-A generated associated key has the same Ed25519 `seed || public` representation, so it *could* be parsed and passed through `Seedify.toMnemonic` later. Associated-account creation does not derive anything but the key container; its Nostr identity is rebuilt on demand whenever a backup record needs to be signed.
+A generated associated key has the same Ed25519 `seed || public` representation, so it *could* be parsed and passed through `Seedify.toMnemonic` later. Associated-key creation does not derive anything but the key container; its Nostr identity is rebuilt on demand whenever a backup record needs to be signed.
 
 ```text
 Imported vault key:
@@ -152,7 +152,7 @@ Vault Key backup identity (relays, kind 37801):
   decrypt stored seed -> vkbckp mnemonic -> derive NIP-06 identity -> use for the run, discard
 ```
 
-A mnemonic is an intermediate representation of an account's SSH seed, not a persisted account field. The generated-Vault Key flow also derives Seedify's deterministic Vault Key backup (`vkbckp`) associated-account seed as `SHA-256(SHA-256(UTF-8("vkbckp")) || originalVaultKeySeed)` and encodes it as a 24-word BIP-39 mnemonic. `vkbckp` is the "Vault Key BacKup" acronym; it is an arbitrary but fixed sub-account label whose exact spelling is part of the derivation, so changing it would produce different words, a different Brave Sync code, and a different relay identity for new Vault Keys. Those 24 words serve two purposes: Brave Sync appends its daily 25th word, while NIP-06 derives the Nostr identity used to back up the original VaultKey on relays. The app presents the 24 words as recovery indices but does not persist the mnemonic or indices separately. The stored Vault Key is only its encrypted container: its original-seed Nostr identity, used for associated-account records (`kind` 37802), is re-derived per engine run, and every Vault Key record (`kind` 37801) operation, including later consolidation, uses the `vkbckp`-derived identity instead. **Recover VaultKey** reverses the same two derivations from the 24 words the user saved: it rebuilds the NIP-06 Vault Key backup identity to read the `vaultkey` record from relays and rebuilds the sync code (including the date-derived 25th word) to read the Brave Sync record, then tries every copy those sources hold, newest first. A copy is accepted only when the passphrase decrypts it **and** its `vkbckp` backup mnemonic re-derives to the exact 24 words the user entered; decryption alone proves the passphrase, not ownership. Copies that decrypt but re-derive to other words are skipped rather than persisted, and a misbound copy is reported distinctly from an absent one.
+A mnemonic is an intermediate representation of a key's SSH seed, not a persisted key field. The generated-Vault Key flow also derives Seedify's deterministic Vault Key backup (`vkbckp`) associated-key seed as `SHA-256(SHA-256(UTF-8("vkbckp")) || originalVaultKeySeed)` and encodes it as a 24-word BIP-39 mnemonic. `vkbckp` is the "Vault Key BacKup" acronym; it is an arbitrary but fixed sub-account label whose exact spelling is part of the derivation, so changing it would produce different words, a different Brave Sync code, and a different relay identity for new Vault Keys. Those 24 words serve two purposes: Brave Sync appends its daily 25th word, while NIP-06 derives the Nostr identity used to back up the original VaultKey on relays. The app presents the 24 words as recovery indices but does not persist the mnemonic or indices separately. The stored Vault Key is only its encrypted container: its original-seed Nostr identity, used for associated-key records (`kind` 37802), is re-derived per engine run, and every Vault Key record (`kind` 37801) operation, including later consolidation, uses the `vkbckp`-derived identity instead. **Recover VaultKey** reverses the same two derivations from the 24 words the user saved: it rebuilds the NIP-06 Vault Key backup identity to read the `vaultkey` record from relays and rebuilds the sync code (including the date-derived 25th word) to read the Brave Sync record, then tries every copy those sources hold, newest first. A copy is accepted only when the passphrase decrypts it **and** its `vkbckp` backup mnemonic re-derives to the exact 24 words the user entered; decryption alone proves the passphrase, not ownership. Copies that decrypt but re-derive to other words are skipped rather than persisted, and a misbound copy is reported distinctly from an absent one.
 
 ## Verification
 
@@ -173,5 +173,5 @@ Compatibility vectors are in `app/src/test/resources/golden/crypto-vectors.json`
 - OpenSSH parsing and generation: `app/src/main/java/app/zenten/vault/crypto/SshKeyCodec.kt`
 - BIP-39 mnemonic conversion: `app/src/main/java/app/zenten/vault/crypto/Seedify.kt`
 - Nostr derivation: `app/src/main/java/app/zenten/vault/crypto/NostrKeyDerivation.kt`
-- Associated-account lifecycle: `app/src/main/java/app/zenten/vault/domain/AccountService.kt`
+- Associated-key lifecycle: `app/src/main/java/app/zenten/vault/domain/KeyService.kt`
 - Vault Key setup and backup handoff: `app/src/main/java/app/zenten/vault/domain/SetupService.kt`

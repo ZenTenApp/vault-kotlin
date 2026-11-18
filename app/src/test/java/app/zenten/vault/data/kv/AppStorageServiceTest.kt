@@ -65,8 +65,8 @@ class AppStorageServiceTest {
             service.setCreateVaultKeyStep(CreateVaultKeyStep.CONFIRM_BACKUP)
             service.setSecretCombinationsViewStep(SecretCombinationsViewStep.SHOW)
             service.setVaultKeyPasteGuard(attempts = 2, blockedUntilMillis = 99_000L)
-            service.requireAccountLocalBackup(10L)
-            service.markAccountLocallyBackedUp(20L)
+            service.requireKeyLocalBackup(10L)
+            service.markKeyLocallyBackedUp(20L)
 
             // Device-local history that must survive: it stays valid after recovery.
             val source = BackupSourceConfig(
@@ -74,8 +74,8 @@ class AppStorageServiceTest {
                 authentication = SourceAuthentication.NIP42_OPTIONAL,
             )
             service.setCustomBackupSources(listOf(source))
-            service.upsertAccountSourceStatus(
-                AccountSourceStatus("10", "custom", AccountSourceBackupState.BACKUP_FAILED),
+            service.upsertKeySourceStatus(
+                KeySourceStatus("10", "custom", KeySourceBackupState.BACKUP_FAILED),
             )
             service.markConsolidationCompleted(42L)
 
@@ -90,12 +90,12 @@ class AppStorageServiceTest {
             assertNull(service.secretCombinationsViewStep.first())
             assertEquals(0, service.vaultKeyPasteAttempts.first())
             assertNull(service.vaultKeyPasteBlockedUntilMillis.first())
-            assertTrue(service.pendingLocalBackupAccountIds.first().isEmpty())
-            assertTrue(service.locallyBackedUpAccountIds.first().isEmpty())
+            assertTrue(service.pendingLocalBackupKeyIds.first().isEmpty())
+            assertTrue(service.locallyBackedUpKeyIds.first().isEmpty())
 
             // Device-local configuration and history stay valid after recovery, so they are kept.
             assertEquals(listOf(source), service.customBackupSources.first())
-            assertEquals(1, service.accountSourceStatuses.first().size)
+            assertEquals(1, service.keySourceStatuses.first().size)
             assertEquals(42L, service.lastConsolidationCompletedAtMillis.first())
         } finally {
             directory.deleteRecursively()
@@ -133,20 +133,20 @@ class AppStorageServiceTest {
             service.setSetupComplete()
             service.setCustomBackupSources(listOf(source))
             service.upsertPendingSourceWrite(PendingSourceWrite("10", "custom", PendingWriteReason.DIRECT_BACKUP))
-            service.upsertAccountSourceStatus(AccountSourceStatus("10", "custom", AccountSourceBackupState.BACKUP_FAILED))
-            service.markAccountLocallyBackedUp(10L)
-            service.requireAccountLocalBackup(20L)
+            service.upsertKeySourceStatus(KeySourceStatus("10", "custom", KeySourceBackupState.BACKUP_FAILED))
+            service.markKeyLocallyBackedUp(10L)
+            service.requireKeyLocalBackup(20L)
 
             assertTrue(service.setupComplete.first())
             assertTrue(service.vaultKeyQuorumReached.first())
             assertEquals(null, service.createVaultKeyStep.first())
             assertEquals(listOf(source), service.customBackupSources.first())
             assertEquals(1, service.pendingSourceWrites.first().size)
-            assertEquals(AccountSourceBackupState.BACKUP_FAILED, service.accountSourceStatuses.first().single().state)
-            assertEquals(setOf("10"), service.locallyBackedUpAccountIds.first())
-            assertEquals(setOf("20"), service.pendingLocalBackupAccountIds.first())
-            service.markAccountLocallyBackedUp(20L)
-            assertTrue(service.pendingLocalBackupAccountIds.first().isEmpty())
+            assertEquals(KeySourceBackupState.BACKUP_FAILED, service.keySourceStatuses.first().single().state)
+            assertEquals(setOf("10"), service.locallyBackedUpKeyIds.first())
+            assertEquals(setOf("20"), service.pendingLocalBackupKeyIds.first())
+            service.markKeyLocallyBackedUp(20L)
+            assertTrue(service.pendingLocalBackupKeyIds.first().isEmpty())
 
             service.clearPendingSourceWrite("10", "custom")
             assertTrue(service.pendingSourceWrites.first().isEmpty())

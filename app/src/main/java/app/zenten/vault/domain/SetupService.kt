@@ -2,23 +2,23 @@ package app.zenten.vault.domain
 
 import app.zenten.vault.data.kv.AppStorageService
 import app.zenten.vault.data.kv.CreateVaultKeyStep
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.ui.availability.RemoteOperationPrecondition
 import app.zenten.vault.ui.availability.RemoteOperationReadiness
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
-/** VaultKey onboarding and local-first associated-account persistence. */
+/** VaultKey onboarding and local-first associated-key persistence. */
 class SetupService(
     private val secureStorage: SecureStorageService,
     private val appStorage: AppStorageService,
-    private val consolidationEngine: AccountConsolidationEngine,
+    private val consolidationEngine: KeyConsolidationEngine,
     private val remoteOperationPrecondition: RemoteOperationPrecondition,
     private val vaultKeySession: VaultKeySession,
     private val workScheduler: BackupWorkScheduler? = null,
 ) {
-    suspend fun performSetup(vaultKey: Account): Result<Unit> = runCatching {
+    suspend fun performSetup(vaultKey: Key): Result<Unit> = runCatching {
         persistVaultKey(vaultKey)
         // Durable before any remote work so the launch router and the onboarding screen agree,
         // even after a process death, that an imported key is stored and only its backup is
@@ -60,8 +60,8 @@ class SetupService(
      * [completeGeneratedVaultKeySetup] step turns a reached quorum into completed setup.
      */
     suspend fun persistGeneratedVaultKeyAndBackup(
-        vaultKey: Account,
-        onProgress: suspend (AccountConsolidationEngine.VaultKeyBackupProgress) -> Unit = {},
+        vaultKey: Key,
+        onProgress: suspend (KeyConsolidationEngine.VaultKeyBackupProgress) -> Unit = {},
     ): Result<VaultKeySetupState> = runCatching {
         persistVaultKey(vaultKey)
         appStorage.setCreateVaultKeyStep(CreateVaultKeyStep.BACKUP_INTRO)
@@ -85,7 +85,7 @@ class SetupService(
     }
 
     suspend fun retryVaultKeyBackup(): Result<Unit> = runCatching {
-        val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
+        val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey is unavailable" }
         throwIfRemoteOperationBlocked()
         val result = withVaultPassphrase { passphrase ->
             consolidationEngine.backupVaultKey(vaultKey, passphrase)
@@ -125,7 +125,7 @@ class SetupService(
 
     /** Re-attempts the Vault Key backup and records whether it now satisfies quorum. */
     suspend fun retryGeneratedVaultKeyBackup(): Result<Unit> = runCatching {
-        val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey account is unavailable" }
+        val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey is unavailable" }
         throwIfRemoteOperationBlocked()
         val result = withVaultPassphrase { passphrase ->
             consolidationEngine.backupVaultKey(vaultKey, passphrase)
@@ -134,18 +134,18 @@ class SetupService(
         check(result.quorumReached) { result.quorumFailureMessage() }
     }
 
-    suspend fun addAccount(vaultKey: Account, account: Account): Result<Unit> = runCatching {
+    suspend fun addKey(vaultKey: Key, key: Key): Result<Unit> = runCatching {
         check(appStorage.setupComplete.first()) {
-            "VaultKey backup quorum must be satisfied before creating an associated account"
+            "VaultKey backup quorum must be satisfied before creating an associated key"
         }
         require(secureStorage.getVaultKey() != null && vaultKey.createdAt == secureStorage.getVaultKey()?.createdAt)
-        secureStorage.addAccount(account)
+        secureStorage.addKey(key)
         // Targeted consolidation indexes every source before writing, so an existing canonical
-        // account ID is never blindly pushed again and unrelated accounts are not processed.
-        workScheduler?.scheduleAccountConsolidation(account.createdAt)
+        // key ID is never blindly pushed again and unrelated keys are not processed.
+        workScheduler?.scheduleKeyConsolidation(key.createdAt)
     }
 
-    private suspend fun persistVaultKey(vaultKey: Account) {
+    private suspend fun persistVaultKey(vaultKey: Key) {
         // Keep the vaultKey on backup failure so setup can resume without generating another key.
         secureStorage.addVaultKey(vaultKey)
         appStorage.clearSetupComplete()
@@ -170,7 +170,7 @@ class SetupService(
     /**
      * Returns the blocking prerequisite, or null when timestamped remote work is allowed.
      *
-     * Mirrors [app.zenten.vault.background.AccountConsolidationWorker]: a time-source outage is
+     * Mirrors [app.zenten.vault.background.KeyConsolidationWorker]: a time-source outage is
      * not evidence that the device clock is wrong, so only proven internet/clock failures block.
      */
     private suspend fun blockedRemoteOperation(): RemoteOperationReadiness? =
@@ -207,14 +207,14 @@ class SetupService(
 class VaultKeyPersistedException(message: String, cause: Throwable) : Exception(message, cause)
 
 interface BackupWorkScheduler {
-    /** Enqueues the post-unlock Vault Key and account cycles; the engine still applies freshness. */
+    /** Enqueues the post-unlock Vault Key and key cycles; the engine still applies freshness. */
     fun scheduleStartupConsolidation()
 
-    /** Enqueues a full associated-account consolidation cycle. */
+    /** Enqueues a full associated-key consolidation cycle. */
     fun scheduleConsolidation()
 
-    /** Enqueues a cycle for one associated account only. */
-    fun scheduleAccountConsolidation(accountId: Long)
+    /** Enqueues a cycle for one associated key only. */
+    fun scheduleKeyConsolidation(keyId: Long)
 
     /** Enqueues a Vault Key-only cycle, which uses its own Nostr identity. */
     fun scheduleVaultKeyConsolidation()
@@ -234,7 +234,7 @@ data class VaultKeySetupState(
 ) {
     companion object {
         /** A blocked prerequisite or thrown source error reports no coverage at all. */
-        fun of(result: AccountConsolidationEngine.VaultKeyBackupResult?): VaultKeySetupState =
+        fun of(result: KeyConsolidationEngine.VaultKeyBackupResult?): VaultKeySetupState =
             VaultKeySetupState(
                 quorumReached = result?.quorumReached == true,
                 relayQuorum = result?.relayQuorum == true,
@@ -247,7 +247,7 @@ data class VaultKeySetupState(
  * Explains which part of the two-type Vault Key quorum is missing, without naming a source
  * credential or implying that a partially successful backup is a usable one.
  */
-internal fun AccountConsolidationEngine.VaultKeyBackupResult.quorumFailureMessage(): String = when {
+internal fun KeyConsolidationEngine.VaultKeyBackupResult.quorumFailureMessage(): String = when {
     !relayQuorum && !braveQuorum -> "VaultKey backup needs at least one relay and one Brave Sync server"
     !relayQuorum -> "VaultKey backup did not reach relay quorum"
     else -> "VaultKey backup did not reach Brave Sync quorum"

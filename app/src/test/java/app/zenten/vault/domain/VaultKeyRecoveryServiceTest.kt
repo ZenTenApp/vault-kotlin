@@ -4,7 +4,7 @@ import app.zenten.vault.crypto.NostrKeyDerivation
 import app.zenten.vault.crypto.Seedify
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.AppStorageService
-import app.zenten.vault.data.model.Account
+import app.zenten.vault.data.model.Key
 import app.zenten.vault.data.secure.SecureStorageService
 import app.zenten.vault.network.nostr.NostrEvent
 import app.zenten.vault.network.nostr.NostrRelayGateway
@@ -54,7 +54,7 @@ class VaultKeyRecoveryServiceTest {
 
         // Publish the Vault Key relay record exactly as the backup path would, under the
         // Vault Key backup (`vkbckp`)-derived identity that the 24 words can reconstruct.
-        val publisher = Account(1, normalized)
+        val publisher = Key(1, normalized)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
@@ -67,13 +67,13 @@ class VaultKeyRecoveryServiceTest {
         } returns Result.success(listOf(event))
         every { fixture.repository.sources } returns flowOf(listOf(relaySource))
 
-        val stored = slot<Account>()
+        val stored = slot<Key>()
         every { fixture.secureStorage.addVaultKey(capture(stored)) } just runs
 
         val result = fixture.service.recover(indices, passphrase)
 
         assertTrue(result.isSuccess)
-        assertEquals(normalized, stored.captured.zenTenKey)
+        assertEquals(normalized, stored.captured.encryptedKey)
         // The recovered record uses the shared ID scheme: clock-based base time, random tail.
         assertEquals(serviceClock.millis(), stored.captured.createdAt / 1_000L)
         assertTrue(stored.captured.createdAt % 1_000L in 1L..999L)
@@ -109,7 +109,7 @@ class VaultKeyRecoveryServiceTest {
         val generated = SshKeyCodec.generateEncrypted(clock.millis(), passphrase.toCharArray())
         val normalized = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem)
         val seed = SshKeyCodec.parse(normalized, passphrase.toCharArray()).seed
-        val publisher = Account(1, normalized)
+        val publisher = Key(1, normalized)
         val event = BackupService(fixture.gateway, clock).buildBackupEvent(
             publisher,
             publisher,
@@ -232,7 +232,7 @@ class VaultKeyRecoveryServiceTest {
          * `createdAt` afterwards invalidates the signature.
          */
         fun eventFor(words: String, key: GeneratedKey, atSeconds: Long = clock.instant().epochSecond): NostrEvent {
-            val publisher = Account(1, key.normalized)
+            val publisher = Key(1, key.normalized)
             val eventClock = Clock.fixed(Instant.ofEpochSecond(atSeconds), ZoneOffset.UTC)
             return BackupService(gateway, eventClock).buildBackupEvent(
                 publisher,
