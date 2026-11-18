@@ -88,8 +88,6 @@ flowchart TD
     CreateQuorumMissing -->|"Retry fails"| CreateQuorumMissing
     CreateQuorum -->|Yes| MarkComplete["Mark generated VaultKey setup complete"]
     MarkComplete --> Keys
-    Welcome -->|"Google / Apple / Microsoft"| ComingSoon["Coming soon message"]
-    ComingSoon --> Welcome
     Setup -->|Yes| PendingExport{"Pending local key export?"}
     PendingExport -->|Yes| Export["Export Key"]
     PendingExport -->|No| Keys["Keys"]
