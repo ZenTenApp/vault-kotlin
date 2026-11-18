@@ -67,7 +67,7 @@ class VaultKeyDetailViewModelTest {
                 every { getVaultKey() } returns Key(
                     createdAt = 1_700_000_000_000_000L,
                     // Passphrase-protected golden container; its seed derives the npub below.
-                    encryptedKey = goldenEncryptedKey(),
+                    zenTenKey = goldenEncryptedKey(),
                 )
             },
         )

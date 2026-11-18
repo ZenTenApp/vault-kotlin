@@ -73,7 +73,7 @@ class VaultKeyRecoveryServiceTest {
         val result = fixture.service.recover(indices, passphrase)
 
         assertTrue(result.isSuccess)
-        assertEquals(normalized, stored.captured.encryptedKey)
+        assertEquals(normalized, stored.captured.zenTenKey)
         // The recovered record uses the shared ID scheme: clock-based base time, random tail.
         assertEquals(serviceClock.millis(), stored.captured.createdAt / 1_000L)
         assertTrue(stored.captured.createdAt % 1_000L in 1L..999L)

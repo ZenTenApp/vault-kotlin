@@ -25,7 +25,7 @@ class AssociatedKeysProviderContractTest {
         val privkeyHex = "01".repeat(32)
         val key = Key(
             createdAt = 1720000000000123,
-            encryptedKey = "passphrase-protected-openssh-key",
+            zenTenKey = "passphrase-protected-openssh-key",
             keyName = "  Work key  ",
         )
 
@@ -43,7 +43,7 @@ class AssociatedKeysProviderContractTest {
     fun restored_key_without_a_label_shares_an_empty_name() {
         val key = Key(
             createdAt = 1720000000000123,
-            encryptedKey = "passphrase-protected-openssh-key",
+            zenTenKey = "passphrase-protected-openssh-key",
         )
 
         val fields = Json.parseToJsonElement(Json.encodeToString(key.toSharedAssociatedKey())).jsonObject

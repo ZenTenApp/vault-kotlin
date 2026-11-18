@@ -25,7 +25,7 @@ Pasted passphrase-protected OpenSSH private key + passphrase
 val key = SshKeyCodec.normalizeToSingleLineBase64(keyInput)
 // Parsing proves the passphrase before anything is persisted.
 SshKeyCodec.parse(key, passphrase.toCharArray())
-val key = Key(createdAt = createdAt, encryptedKey = key)
+val key = Key(createdAt = createdAt, zenTenKey = key)
 ```
 
 The resulting `Key` holds only the normalized private key; the identity used to sign and encrypt its relay records is derived later from that key's seed by `DefaultBackupSourceFactory`, so nothing derived is persisted. The passphrase is moved to the in-memory session and is never persisted. The SSH public key is not stored either: it is derived on demand from the key container's unencrypted header.

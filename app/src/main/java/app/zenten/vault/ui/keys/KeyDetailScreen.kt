@@ -104,10 +104,10 @@ fun KeyDetailScreen(navController: NavHostController, keyId: Long, viewModel: Ke
             )
             // The associated key's Nostr key pair stays internal: no npub is shown, and the
             // SSH public-key line carries no comment instead of linking to that identity.
-            SshPublicKeyCard(publicKey = formatSshPublicKey(key.encryptedKey, comment = ""))
+            SshPublicKeyCard(publicKey = formatSshPublicKey(key.zenTenKey, comment = ""))
             SshKeyCard(
-                fingerprint = formatSshFingerprint(key.encryptedKey),
-                kdfRounds = formatKdfRounds(key.encryptedKey),
+                fingerprint = formatSshFingerprint(key.zenTenKey),
+                kdfRounds = formatKdfRounds(key.zenTenKey),
             )
             Button(
                 onClick = {

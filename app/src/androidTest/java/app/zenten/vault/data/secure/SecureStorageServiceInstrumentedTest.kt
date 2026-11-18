@@ -68,6 +68,6 @@ class SecureStorageServiceInstrumentedTest {
 
     private fun key(id: Long, key: String = "private-key-$id") = Key(
         createdAt = id,
-        encryptedKey = key,
+        zenTenKey = key,
     )
 }

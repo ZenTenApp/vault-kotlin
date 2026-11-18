@@ -31,13 +31,13 @@ class AssociatedKeyLabelTest {
     private val clock = Clock.fixed(Instant.ofEpochSecond(1_700_000_000L), ZoneOffset.UTC)
     private val vaultKey = Key(
         createdAt = 1L,
-        encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(
+        zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(
             SshKeyCodec.generateEncrypted(1L, PASSPHRASE).privateKeyPem,
         ),
     )
     // The identities used to sign records are derived from the key's own seed, exactly as the
     // backup sources do; neither is stored on the key.
-    private val seed: ByteArray get() = SshKeyCodec.parse(vaultKey.encryptedKey, PASSPHRASE).seed
+    private val seed: ByteArray get() = SshKeyCodec.parse(vaultKey.zenTenKey, PASSPHRASE).seed
     private val keyIdentity: NostrKeyDerivation.NostrKeys get() = NostrKeyDerivation.fromKeySeed(seed)
     private val vaultKeyBackupIdentity: NostrKeyDerivation.NostrKeys get() = NostrKeyDerivation.fromVaultKeyBackupSeed(seed)
 
@@ -166,7 +166,7 @@ class AssociatedKeyLabelTest {
     private fun key(createdAt: Long): Key = Key(
         createdAt = createdAt,
         // Each key needs its own key material so decryption and derivation succeed.
-        encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(
+        zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(
             SshKeyCodec.generateEncrypted(createdAt, PASSPHRASE).privateKeyPem,
         ),
     )

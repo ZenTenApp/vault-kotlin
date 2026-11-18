@@ -217,7 +217,7 @@ class CreateVaultKeyViewModel @Inject constructor(
                         createdAt = key.createdAt,
                         // Associated-key exports use canonical base64 without PEM wrappers
                         // or line breaks; store generated Vault Keys in that same format.
-                        encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
+                        zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(key.privateKeyPem),
                     )
                     // The seed is used only to compute the secret-combination indices below; no
                     // identity derived from it is stored on the key.
@@ -400,7 +400,7 @@ class CreateVaultKeyViewModel @Inject constructor(
                     runCatching {
                         val passphrase = vaultKeySession.snapshot() ?: return@let null
                         try {
-                            val seed = SshKeyCodec.parse(vaultKey.encryptedKey, passphrase).seed
+                            val seed = SshKeyCodec.parse(vaultKey.zenTenKey, passphrase).seed
                             Seedify.toVaultKeyBackupWordIndices(seed)
                         } finally {
                             passphrase.fill('\u0000')
@@ -425,7 +425,7 @@ class CreateVaultKeyViewModel @Inject constructor(
                 ?.let { BackupConfirmationResult.UnsupportedKdfRounds(it.declaredRounds) }
                 ?: BackupConfirmationResult.INVALID
         }
-        val stored = secureStorage.getVaultKey()?.encryptedKey
+        val stored = secureStorage.getVaultKey()?.zenTenKey
             ?.let { runCatching { SshKeyCodec.normalizeToSingleLineBase64(it) }.getOrNull() }
             ?: return BackupConfirmationResult.UNAVAILABLE
         // Constant-time equality keeps this key-material comparison consistent with MAC checks.

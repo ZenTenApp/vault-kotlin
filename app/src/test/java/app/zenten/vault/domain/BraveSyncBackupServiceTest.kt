@@ -238,7 +238,7 @@ class BraveSyncBackupServiceTest {
 
         assertEquals("Work key", restored.keyName)
         assertEquals(KEY_ID, restored.createdAt)
-        assertEquals(ENCRYPTED_KEY, restored.encryptedKey)
+        assertEquals(ENCRYPTED_KEY, restored.zenTenKey)
     }
 
     @Test
@@ -264,7 +264,7 @@ class BraveSyncBackupServiceTest {
             clientTagHash = "vault-tag",
             url = "https://vaultkey.zenten/",
             username = BraveSyncBackupService.VAULT_KEY_ID,
-            password = VAULT_KEY.encryptedKey,
+            password = VAULT_KEY.zenTenKey,
             notes = emptyList(),
         )
 
@@ -305,7 +305,7 @@ class BraveSyncBackupServiceTest {
         )
 
     private fun key(keyName: String?): Key =
-        Key(createdAt = KEY_ID, encryptedKey = ENCRYPTED_KEY, keyName = keyName)
+        Key(createdAt = KEY_ID, zenTenKey = ENCRYPTED_KEY, keyName = keyName)
 
     private companion object {
         // One passphrase for the whole suite: the service decrypts the Vault Key to derive the Sync
@@ -325,11 +325,11 @@ class BraveSyncBackupServiceTest {
         // Keys are costly to generate, and JUnit creates a fresh test instance for each method, so
         // they live in the companion and are computed once when the class loads. Key and String
         // are immutable, so sharing them across tests is safe.
-        val VAULT_KEY = Key(createdAt = 1L, encryptedKey = encryptedKey(1L, PASSPHRASE))
+        val VAULT_KEY = Key(createdAt = 1L, zenTenKey = encryptedKey(1L, PASSPHRASE))
         val ENCRYPTED_KEY = encryptedKey(KEY_ID, PASSPHRASE)
         // Any other key that opens under PASSPHRASE will do; reusing the Vault Key avoids another
         // expensive bcrypt generation and is still distinct from ENCRYPTED_KEY.
-        val DIFFERENT_KEY = VAULT_KEY.encryptedKey
+        val DIFFERENT_KEY = VAULT_KEY.zenTenKey
         val WRONG_PASSPHRASE_KEY = encryptedKey(KEY_ID, WRONG_PASSPHRASE)
     }
 }

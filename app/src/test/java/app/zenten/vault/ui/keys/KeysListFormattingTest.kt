@@ -97,8 +97,8 @@ class KeysListFormattingTest {
     @Test
     fun `keys created on different days in a month share a group`() {
         val keys = listOf(
-            Key(createdAt = 1_700_444_800_000_000L, encryptedKey = "older"),
-            Key(createdAt = 1_700_876_800_000_000L, encryptedKey = "newer"),
+            Key(createdAt = 1_700_444_800_000_000L, zenTenKey = "older"),
+            Key(createdAt = 1_700_876_800_000_000L, zenTenKey = "newer"),
         )
 
         val grouped = keysByMonth(keys)
@@ -113,8 +113,8 @@ class KeysListFormattingTest {
     @Test
     fun `newest key is listed first`() {
         val keys = listOf(
-            Key(createdAt = 1_700_000_000_000_000L, encryptedKey = "older"),
-            Key(createdAt = 1_800_000_000_000_000L, encryptedKey = "newer"),
+            Key(createdAt = 1_700_000_000_000_000L, zenTenKey = "older"),
+            Key(createdAt = 1_800_000_000_000_000L, zenTenKey = "newer"),
         )
 
         assertEquals(
@@ -125,7 +125,7 @@ class KeysListFormattingTest {
 
     private fun key(keyName: String?) = Key(
         createdAt = 1L,
-        encryptedKey = "key",
+        zenTenKey = "key",
         keyName = keyName,
     )
 }

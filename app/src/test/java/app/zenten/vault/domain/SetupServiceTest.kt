@@ -313,7 +313,7 @@ class SetupServiceTest {
     companion object {
         val vaultKey = Key(
             createdAt = 1,
-            encryptedKey = "vaultKey",
+            zenTenKey = "vaultKey",
         )
     }
 }

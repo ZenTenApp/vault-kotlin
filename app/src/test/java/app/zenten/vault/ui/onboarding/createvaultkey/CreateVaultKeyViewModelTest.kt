@@ -251,7 +251,7 @@ class CreateVaultKeyViewModelTest {
         viewModel.awaitVerificationResult()
         io.mockk.verify { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        val seed = SshKeyCodec.parse(storedVaultKey.captured.encryptedKey, passphrase.toCharArray()).seed
+        val seed = SshKeyCodec.parse(storedVaultKey.captured.zenTenKey, passphrase.toCharArray()).seed
         assertEquals(Seedify.toVaultKeyBackupWordIndices(seed), viewModel.state.value.secretCombinationIndices)
         assertFalse(viewModel.state.value.secretCombinationsLoading)
     }
@@ -268,11 +268,11 @@ class CreateVaultKeyViewModelTest {
         viewModel.awaitVerificationResult()
         io.mockk.verify(exactly = 1) { secureStorage.addVaultKey(capture(storedVaultKey)) }
 
-        assertFalse(storedVaultKey.captured.encryptedKey.contains("-----BEGIN OPENSSH PRIVATE KEY-----"))
-        assertFalse(storedVaultKey.captured.encryptedKey.contains('\n'))
+        assertFalse(storedVaultKey.captured.zenTenKey.contains("-----BEGIN OPENSSH PRIVATE KEY-----"))
+        assertFalse(storedVaultKey.captured.zenTenKey.contains('\n'))
         assertEquals(
-            storedVaultKey.captured.encryptedKey,
-            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedVaultKey.captured.encryptedKey),
+            storedVaultKey.captured.zenTenKey,
+            SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(storedVaultKey.captured.zenTenKey),
         )
     }
 

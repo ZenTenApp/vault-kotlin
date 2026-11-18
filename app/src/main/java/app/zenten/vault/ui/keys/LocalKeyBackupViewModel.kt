@@ -57,7 +57,7 @@ class LocalKeyBackupViewModel @Inject constructor(
                 ?: KeyBackupConfirmationResult.INVALID
         }
         val stored = runCatching {
-            SshKeyCodec.normalizeToSingleLineBase64(key.encryptedKey)
+            SshKeyCodec.normalizeToSingleLineBase64(key.zenTenKey)
         }.getOrNull() ?: return KeyBackupConfirmationResult.UNAVAILABLE
         // Compare with a constant-time equality check: both sides are key material, and the
         // same pattern is used for MAC verification elsewhere in the vault.

@@ -48,7 +48,7 @@ class VaultKeySession @Inject constructor(
         runCatching {
             val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey is unavailable" }
             // Throws when the passphrase does not decrypt the key.
-            SshKeyCodec.parse(vaultKey.encryptedKey, candidate)
+            SshKeyCodec.parse(vaultKey.zenTenKey, candidate)
         }.map { store(candidate) }
     }
 

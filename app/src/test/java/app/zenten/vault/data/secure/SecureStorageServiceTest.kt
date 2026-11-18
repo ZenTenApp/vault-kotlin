@@ -186,7 +186,7 @@ class SecureStorageServiceTest {
         storage.addVaultKey(key(1, key = "vault"))
 
         val state = newStorage().getVaultKeyState()
-        assertEquals("vault", (state as SecureRecordState.Readable).record.encryptedKey)
+        assertEquals("vault", (state as SecureRecordState.Readable).record.zenTenKey)
     }
 
     /**
@@ -300,7 +300,7 @@ class SecureStorageServiceTest {
 
         assertEquals(0, storage.quarantineUnreadableRecords())
 
-        assertEquals("vault", newStorage().getVaultKey()?.encryptedKey)
+        assertEquals("vault", newStorage().getVaultKey()?.zenTenKey)
         assertEquals(listOf(10L), newStorage().getKeys().map(Key::createdAt))
     }
 
@@ -478,7 +478,7 @@ class SecureStorageServiceTest {
 
     private fun key(id: Long, key: String = "private-key-$id") = Key(
         createdAt = id,
-        encryptedKey = key,
+        zenTenKey = key,
     )
 
     private companion object {

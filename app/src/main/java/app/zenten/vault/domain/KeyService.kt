@@ -40,7 +40,7 @@ class KeyService(
         withContext(Dispatchers.Default) { runCatching<Unit> {
             val vaultKey = requireNotNull(secureStorage.getVaultKey()) { "VaultKey is unavailable" }
             require(vaultKeyPassphrase.isNotBlank()) { "VaultKey passphrase is required to create an associated key" }
-            runCatching { SshKeyCodec.parse(vaultKey.encryptedKey, vaultKeyPassphrase.toCharArray()) }
+            runCatching { SshKeyCodec.parse(vaultKey.zenTenKey, vaultKeyPassphrase.toCharArray()) }
                 .getOrElse { throw IllegalArgumentException("The passphrase does not match the vaultKey") }
         } }
 
@@ -58,7 +58,7 @@ class KeyService(
         withContext(Dispatchers.Default) { runCatching<Unit> {
             val key = requireNotNull(secureStorage.getKeyById(keyId)) { "Key is unavailable" }
             require(passphrase.isNotBlank()) { "The key passphrase is required to export the key" }
-            runCatching { SshKeyCodec.parse(key.encryptedKey, passphrase.toCharArray()) }
+            runCatching { SshKeyCodec.parse(key.zenTenKey, passphrase.toCharArray()) }
                 .getOrElse { throw IllegalArgumentException("The passphrase does not match this key") }
         } }
 
@@ -86,7 +86,7 @@ class KeyService(
         )
         val key = Key(
             createdAt = createdAt,
-            encryptedKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
+            zenTenKey = SshKeyCodec.normalizeToSingleLineBase64(generated.privateKeyPem),
             keyName = normalizedKeyName,
         )
         setupService.addKey(vaultKey, key).getOrThrow()

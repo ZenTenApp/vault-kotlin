@@ -131,7 +131,7 @@ class VaultUnlockGateViewModelTest {
     @Test
     fun readable_vault_requires_the_passphrase() = runTest {
         val storage = healthyStorage()
-        storage.addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
+        storage.addVaultKey(Key(createdAt = 1, zenTenKey = "encrypted-vault-key"))
 
         assertEquals(VaultUnlockGateState.PassphraseRequired(), gate(storage = storage).settled())
     }
@@ -144,7 +144,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun vault_with_a_missing_keystore_key_reports_unreadable_not_onboarding() = runTest {
-        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, zenTenKey = "encrypted-vault-key"))
 
         // Same ciphertext, but the wrap key is now absent: the migration state.
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
@@ -192,7 +192,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun setting_the_stranded_vault_aside_returns_the_gate_to_onboarding() = runTest {
-        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, zenTenKey = "encrypted-vault-key"))
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
         assertEquals(
             VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreKeyMissing),
@@ -213,7 +213,7 @@ class VaultUnlockGateViewModelTest {
     @Test
     fun unreadable_key_records_without_a_vault_key_report_unreadable_not_onboarding() = runTest {
         val storage = healthyStorage()
-        storage.addKey(Key(createdAt = 10, encryptedKey = "encrypted-key"))
+        storage.addKey(Key(createdAt = 10, zenTenKey = "encrypted-key"))
 
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
 
@@ -229,7 +229,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun setting_aside_a_partial_transfer_returns_the_gate_to_onboarding() = runTest {
-        healthyStorage().addKey(Key(createdAt = 10, encryptedKey = "encrypted-key"))
+        healthyStorage().addKey(Key(createdAt = 10, zenTenKey = "encrypted-key"))
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
         assertEquals(
             VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreKeyMissing),
@@ -250,7 +250,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun setting_aside_a_mounted_gate_leaves_the_recovery_screen_without_recreating_it() = runTest {
-        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, zenTenKey = "encrypted-vault-key"))
         val stranded = SecureStorageService(context, cryptoWithKey(present = false))
         val mountedGate = gate(storage = stranded)
         mountedGate.awaitState(VaultUnlockGateState.VaultUnreadable(UnreadableReason.KeystoreKeyMissing))
@@ -269,7 +269,7 @@ class VaultUnlockGateViewModelTest {
     @Test
     fun a_readable_vault_with_a_corrupt_key_still_asks_for_the_passphrase() = runTest {
         val storage = healthyStorage()
-        storage.addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
+        storage.addVaultKey(Key(createdAt = 1, zenTenKey = "encrypted-vault-key"))
         context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString("keys_20", "not-a-valid-payload")
@@ -307,7 +307,7 @@ class VaultUnlockGateViewModelTest {
      */
     @Test
     fun an_unavailable_keystore_reports_keystore_unavailable_not_a_missing_key() = runTest {
-        healthyStorage().addVaultKey(Key(createdAt = 1, encryptedKey = "encrypted-vault-key"))
+        healthyStorage().addVaultKey(Key(createdAt = 1, zenTenKey = "encrypted-vault-key"))
 
         val unqueryable = SecureStorageService(context, cryptoWith(KeyPresence.Unavailable))
 

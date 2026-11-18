@@ -14,7 +14,7 @@ class KeyQrCodeTest {
     fun notes_export_text_round_trips_through_the_qr_code_unchanged() {
         val key = Key(
             createdAt = 1_700_000_000_000_000L,
-            encryptedKey = goldenEncryptedKey(),
+            zenTenKey = goldenEncryptedKey(),
             keyName = "Personal key",
         )
         val payload = LocalKeyBackupShare.keyExportText(key)

@@ -33,8 +33,8 @@ class KeyServiceTest {
 
         assertTrue(created.createdAt > 1_000_000_000_000_000L)
         assertTrue(created.createdAt % 1_000L in 1L..999L)
-        assertEquals(created.createdAt.toString(), SshKeyCodec.parse(created.encryptedKey, VAULT_PASSPHRASE.toCharArray()).comment)
-        assertTrue(SshKeyCodec.parse(created.encryptedKey, VAULT_PASSPHRASE.toCharArray()).encrypted)
+        assertEquals(created.createdAt.toString(), SshKeyCodec.parse(created.zenTenKey, VAULT_PASSPHRASE.toCharArray()).comment)
+        assertTrue(SshKeyCodec.parse(created.zenTenKey, VAULT_PASSPHRASE.toCharArray()).encrypted)
         assertEquals("Work key", created.keyName)
         coVerify(exactly = 1) { setup.addKey(any(), created) }
     }

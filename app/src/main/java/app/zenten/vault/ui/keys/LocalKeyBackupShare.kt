@@ -58,7 +58,7 @@ object LocalKeyBackupShare {
      */
     internal fun vaultKeyExportText(key: Key, passphrase: CharArray): String {
         // Decryption is the passphrase gate: it throws on a wrong passphrase before any text exists.
-        SshKeyCodec.parse(key.encryptedKey, passphrase)
+        SshKeyCodec.parse(key.zenTenKey, passphrase)
         return selfDescribingExportText(key, "VaultKey")
     }
 
@@ -68,7 +68,7 @@ object LocalKeyBackupShare {
      */
     private fun pemBlock(key: Key): String = listOf(
         "-----BEGIN OPENSSH PRIVATE KEY-----",
-        SshKeyCodec.normalizeToSingleLineBase64(key.encryptedKey),
+        SshKeyCodec.normalizeToSingleLineBase64(key.zenTenKey),
         "-----END OPENSSH PRIVATE KEY-----",
     ).joinToString("\n")
 
