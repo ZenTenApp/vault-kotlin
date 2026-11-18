@@ -329,13 +329,15 @@ fun RecoverVaultKeyPassphraseScreen(
         Spacer(Modifier.height(16.dp))
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
         Spacer(Modifier.height(16.dp))
-        Button(
+        VaultPillButton(
+            label = "Recover VaultKey",
             onClick = { viewModel.recover(passphrase) },
             enabled = passphrase.isNotBlank() && !state.inProgress,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (state.inProgress) CircularProgressIndicator() else Text("Recover VaultKey")
-        }
+            // Sized to the label: the default 40dp indicator would overflow the button.
+            icon = if (state.inProgress) ({
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            }) else null,
+        )
     }
 }
 
