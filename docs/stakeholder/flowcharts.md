@@ -106,7 +106,7 @@ flowchart TD
     Detail -->|"Show Key as QR Code"| DetailPassphrase
     DetailPassphrase -->|"No"| DetailPassphrase
     DetailPassphrase -->|"Yes, notes"| DetailExport["Choose an app to receive the self-describing export"]
-    DetailPassphrase -->|"Yes, clipboard"| DetailClipboard["Copy the self-describing export text to the clipboard"]
+    DetailPassphrase -->|"Yes, clipboard"| DetailClipboard["Copy the self-describing export text to the clipboard, marked sensitive; cleared after 60 s"]
     DetailPassphrase -->|"Yes, QR code"| DetailQr["Show the self-describing export text as a QR code in a dialog"]
     Vault Key -->|"Show VaultKey as QR Code"| VaultKeyPassphrase{"Passphrase matches VaultKey?"}
     VaultKeyPassphrase -->|"No"| VaultKeyPassphrase
@@ -249,7 +249,7 @@ flowchart LR
     ExportPassphrase --> ExportPick["Choose an app to receive the self-describing export"]
     Status --> ExportClipboard["Select Export Key to Clipboard"]
     ExportClipboard --> ExportPassphrase
-    ExportPassphrase --> Clipboard["Copy the self-describing export text to the clipboard"]
+    ExportPassphrase --> Clipboard["Copy the self-describing export text to the clipboard, marked sensitive; cleared after 60 s"]
     Keys --> Settings["Open Settings"]
     Settings --> VaultKey["Open Vault Key"]
     VaultKey --> VaultKeyState{"Vault Key quorum complete?"}
