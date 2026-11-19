@@ -37,6 +37,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.core.content.ContextCompat
 import app.zenten.vault.R
 import app.zenten.vault.ui.components.VaultPillButton
@@ -94,6 +96,16 @@ internal fun QrScanner(
         granted = it
         requestedOnce = true
     }
+    // Re-check on every resume: the Open Settings shortcut leaves the app, so the permission can
+    // change (granted, or revoked) while this composable stays alive and no launcher callback fires.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) granted = hasCameraPermission(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     // Ask as soon as the screen opens: the user already chose "Login with QR Code".
     DisposableEffect(Unit) {
         if (!granted) launcher.launch(Manifest.permission.CAMERA)
@@ -135,7 +147,25 @@ internal fun QrScanner(
         return
     }
 
-    CameraPreview(enabled = enabled, onScanned = onScanned, modifier = modifier)
+    // Set when the camera cannot be opened even though permission is granted (no back camera,
+    // camera held by another app, hardware error). The empty preview would otherwise give no hint.
+    var cameraUnavailable by remember { mutableStateOf(false) }
+    if (cameraUnavailable) {
+        Text(
+            text = stringResource(R.string.qr_scan_camera_unavailable),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+            modifier = modifier.fillMaxWidth(),
+        )
+        return
+    }
+    CameraPreview(
+        enabled = enabled,
+        onScanned = onScanned,
+        onCameraUnavailable = { cameraUnavailable = true },
+        modifier = modifier,
+    )
 }
 
 private fun hasCameraPermission(context: Context): Boolean =
@@ -145,6 +175,7 @@ private fun hasCameraPermission(context: Context): Boolean =
 private fun CameraPreview(
     enabled: Boolean,
     onScanned: (String) -> Unit,
+    onCameraUnavailable: () -> Unit,
     modifier: Modifier,
 ) {
     val context = LocalContext.current
@@ -152,6 +183,7 @@ private fun CameraPreview(
     // The analyzer outlives recompositions, so it must read the latest callback/flag.
     val currentOnScanned by rememberUpdatedState(onScanned)
     val currentEnabled by rememberUpdatedState(enabled)
+    val currentOnCameraUnavailable by rememberUpdatedState(onCameraUnavailable)
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
     val previewView = remember { PreviewView(context) }
 
@@ -160,26 +192,28 @@ private fun CameraPreview(
         var provider: ProcessCameraProvider? = null
         var lastDelivered = 0L
         providerFuture.addListener({
-            val cameraProvider = providerFuture.get()
-            provider = cameraProvider
-            val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-            val analysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-            analysis.setAnalyzer(analysisExecutor) { image ->
-                image.use { frame ->
-                    val now = System.currentTimeMillis()
-                    if (!currentEnabled || now - lastDelivered < ResultThrottleMillis) return@use
-                    val text = frame.decodeQr() ?: return@use
-                    lastDelivered = now
-                    // Hop to the main thread: the callback mutates Compose state.
-                    previewView.post { currentOnScanned(text) }
-                }
-            }
+            // Both obtaining the provider and binding can fail on real devices, so any failure
+            // is reported to the UI instead of leaving an empty square.
             runCatching {
+                val cameraProvider = providerFuture.get()
+                provider = cameraProvider
+                val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                analysis.setAnalyzer(analysisExecutor) { image ->
+                    image.use { frame ->
+                        val now = System.currentTimeMillis()
+                        if (!currentEnabled || now - lastDelivered < ResultThrottleMillis) return@use
+                        val text = frame.decodeQr() ?: return@use
+                        lastDelivered = now
+                        // Hop to the main thread: the callback mutates Compose state.
+                        previewView.post { currentOnScanned(text) }
+                    }
+                }
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
-            }
+            }.onFailure { currentOnCameraUnavailable() }
         }, ContextCompat.getMainExecutor(context))
         onDispose {
             // Releases the camera as soon as the scanner leaves the screen.
