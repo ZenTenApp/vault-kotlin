@@ -1,9 +1,7 @@
 package app.zenten.vault.ui.keys
 
 import android.content.ActivityNotFoundException
-import android.content.ClipData
 import android.content.ClipboardManager
-import android.os.Build
 import android.widget.ImageView
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
@@ -43,6 +41,7 @@ import androidx.navigation.NavHostController
 import app.zenten.vault.R
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PasteError
+import app.zenten.vault.ui.components.SensitiveClipboard
 import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.components.VaultScreenScaffold
 
@@ -188,11 +187,7 @@ fun LocalKeyBackupConfirmScreen(
                     }
                     // Clear the clipboard immediately so the sensitive export is not left behind.
                     val clipboardCleared = runCatching {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            clipboard.clearPrimaryClip()
-                        } else {
-                            clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
-                        }
+                        SensitiveClipboard.clear(clipboard)
                     }.isSuccess
                     if (!clipboardCleared) {
                         confirmError = PasteError(R.string.local_key_confirm_backup_clear_error)
