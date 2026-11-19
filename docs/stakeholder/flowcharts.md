@@ -33,6 +33,8 @@ flowchart TD
     GeneratedProgress -->|Confirm Backup pending| CreateConfirmBackup
     GeneratedProgress -->|Secret Combinations pending| CreateSecrets
     Welcome -->|"Login with VaultKey"| VaultKeySetup["Set up Vault Key"]
+    Welcome -->|"Login with QR Code"| VaultKeyScan["Scan VaultKey QR code (same checks as paste)"]
+    VaultKeyScan -->|Valid VaultKey| VaultKeySetup
     Welcome -->|"Recover VaultKey"| RecoverSecrets["Enter 8 saved Secret Combinations"]
     RecoverSecrets --> RecoverValid{"24 values in range with valid BIP-39 checksum?"}
     RecoverValid -->|No| RecoverSecrets

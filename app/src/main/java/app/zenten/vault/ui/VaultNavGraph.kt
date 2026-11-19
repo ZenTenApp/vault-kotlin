@@ -14,6 +14,7 @@ import app.zenten.vault.ui.keys.LocalKeyBackupExportScreen
 import app.zenten.vault.ui.vaultKey.VaultKeyDetailScreen
 import app.zenten.vault.ui.newkey.NewKeyScreen
 import app.zenten.vault.ui.onboarding.GetStartedScreen
+import app.zenten.vault.ui.onboarding.KeySource
 import app.zenten.vault.ui.onboarding.SshSetupScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyBackupIntroScreen
 import app.zenten.vault.ui.onboarding.createvaultkey.CreateVaultKeyConfirmBackupScreen
@@ -53,6 +54,10 @@ fun VaultNavGraph(
 
         composable(VaultDestinations.GET_STARTED_SSH) {
             SshSetupScreen(navController)
+        }
+
+        composable(VaultDestinations.GET_STARTED_QR) {
+            SshSetupScreen(navController, keySource = KeySource.QR_SCAN)
         }
 
         navigation(
