@@ -27,6 +27,7 @@ turbine = "1.2.0"
 mockk = "1.13.13"
 robolectric = "4.14.1"
 zxing = "3.5.3"
+camerax = "1.4.2" # in-app camera preview + frame analysis for the QR login scanner
 zxcvbn = "1.9.0" # Java port of Dropbox zxcvbn: passphrase guessability estimation, MIT licensed
 
 [libraries]
@@ -64,6 +65,10 @@ bouncycastle-prov = { group = "org.bouncycastle", name = "bcprov-jdk18on", versi
 sshd-common = { group = "org.apache.sshd", name = "sshd-common", version.ref = "sshd" }
 secp256k1-kmp-jni-android = { group = "fr.acinq.secp256k1", name = "secp256k1-kmp-jni-android", version.ref = "secp256k1" }
 secp256k1-kmp-jni-jvm = { group = "fr.acinq.secp256k1", name = "secp256k1-kmp-jni-jvm", version.ref = "secp256k1" }
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 zxcvbn = { group = "com.nulab-inc", name = "zxcvbn", version.ref = "zxcvbn" }
 

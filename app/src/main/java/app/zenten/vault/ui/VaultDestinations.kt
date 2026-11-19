@@ -15,6 +15,9 @@ object VaultDestinations {
     /** Secure SSH key paste + passphrase + setup progress. */
     const val GET_STARTED_SSH = "get-started/ssh"
 
+    /** Same import flow as [GET_STARTED_SSH], but the VaultKey is scanned from a QR code instead of pasted. */
+    const val GET_STARTED_QR = "get-started/qr"
+
     /** Recovery graph keeps Secret Combinations in memory until passphrase submission. */
     const val RECOVER_VAULT_KEY_GRAPH = "get-started/recover-vault-key"
     const val RECOVER_VAULT_KEY_COMBINATIONS = "get-started/recover-vault-key/combinations"

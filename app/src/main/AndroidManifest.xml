@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Only used by "Login with QR Code" to scan a VaultKey QR; frames never leave the device. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Optional so devices without a camera can still install and use paste-based login. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <queries>
         <intent>
             <action android:name="android.intent.action.SEND" />

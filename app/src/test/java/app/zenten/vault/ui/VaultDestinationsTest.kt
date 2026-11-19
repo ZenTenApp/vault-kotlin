@@ -11,6 +11,11 @@ class VaultDestinationsTest {
     }
 
     @Test
+    fun loginWithQrCode_hasStableRoute() {
+        assertEquals("get-started/qr", VaultDestinations.GET_STARTED_QR)
+    }
+
+    @Test
     fun recoverVaultKeySteps_haveStableRoutes() {
         assertEquals("get-started/recover-vault-key", VaultDestinations.RECOVER_VAULT_KEY_GRAPH)
         assertEquals("get-started/recover-vault-key/combinations", VaultDestinations.RECOVER_VAULT_KEY_COMBINATIONS)

@@ -180,9 +180,15 @@ dependencies {
     // The passphrase is the only secret protecting a VaultKey backup that may already be
     // published to public relays, so strength is measured rather than pattern-matched.
     implementation(libs.zxcvbn)
-    // ZXing core encodes the key QR code shown on key and VaultKey detail screens.
-    // Only the encoder is used; no camera or scanner dependency is pulled in.
+    // ZXing core encodes the key QR code shown on key and VaultKey detail screens and
+    // decodes the one scanned by "Login with QR Code".
     implementation(libs.zxing.core)
+    // CameraX supplies the preview and per-frame images for the QR login scanner. ZXing does
+    // the decoding on-device, so no Google Play Services scanner is involved.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
     // Unit tests
     // secp256k1 (Schnorr, NIP-44 ECDH) needs the JVM JNI artifact to run in host-side
     // (Robolectric/JUnit) tests; the -jni-android artifact only loads on a device/emulator.

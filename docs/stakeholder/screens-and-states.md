@@ -15,7 +15,7 @@ The palette also includes light, medium-contrast, and high-contrast variants. Th
 | Vault needs recovery | Explain that stored records exist but cannot be opened on this device, and open the path to **Recover VaultKey** | Continue to recovery; Check again when the device could not read its Keystore | Missing wrapping key, damaged records, Keystore unreadable (records may still be readable), working, failed |
 | Device lock required | Block use until a secure device lock is configured | Open security settings; check again | No accepted device credential configured |
 | App unavailable | Block vault navigation until safe remote-backup prerequisites are restored | Check again | No verified internet, device clock differs from HTTPS server time by over two minutes, or both |
-| Get started | Introduce the vault and offer first-run entry paths | Login with VaultKey | New installation; unimplemented action tapped ("coming soon") |
+| Get started | Introduce the vault and offer first-run entry paths | Login with VaultKey; Login with QR Code | New installation; unimplemented action tapped ("coming soon") |
 | Set up Vault Key | Import Vault Key private key/passphrase and establish quorum | Create or retry backup | Validating, quorum success, relay quorum missing, Brave quorum missing |
 | Keys | List associated keys and reach app settings | Create key; open key; open Settings | Loading, empty, recovering, populated |
 | Settings | Provide vault-management entry points and SSH key-generation controls | Open Vault Key; open Secret Combinations; choose KDF rounds | Ready |
@@ -87,9 +87,9 @@ flowchart TD
 
 - The screen shows the app icon (the vault shield mark on its `#121212` background, exactly as the launcher renders it; the asset is cropped to the shield, so it carries no transparent padding and the mark is sized to the shield's 0.8017 aspect ratio), a welcome title, and a short purpose description.
 - **Create VaultKey** opens the Create VaultKey wizard, whose implemented screens collect consent and a passphrase, verify the passphrase, generate the VaultKey, export it as the first local Vault Backup, and verify the exported copy by pasting it back.
-- **Login with VaultKey** is the only implemented action and opens **Set up Vault Key** to import an existing Ed25519 OpenSSH key. It uses a neutral raised surface rather than the primary action color to show its secondary visual priority.
+- **Login with VaultKey** opens **Set up Vault Key** to import an existing Ed25519 OpenSSH key by pasting it. **Login with QR Code**, the last button, opens the same screen but scans the key from the QR code shown on another device, after asking for camera permission. Both use a neutral raised surface rather than the primary action color to show their secondary visual priority.
 - All colors come from the app theme. The app's own shield mark is the exception: its colors live in its asset because it is not tinted.
-- The branding sits at the top and the three buttons are anchored to the bottom of the screen with 12dp spacing and at least 56dp height each. When the screen is too short (or fonts are large) the content scrolls vertically so the buttons are never clipped.
+- The branding sits at the top and the four buttons are anchored to the bottom of the screen with 12dp spacing and at least 56dp height each. When the screen is too short (or fonts are large) the content scrolls vertically so the buttons are never clipped.
 
 ### Create VaultKey wizard
 

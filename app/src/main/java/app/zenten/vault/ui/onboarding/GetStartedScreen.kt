@@ -49,7 +49,7 @@ private val BottomPadding = 24.dp
 
 /**
  * First-run entry screen offering the vault-key paths: create, recover, or
- * log in with an existing key. Federated sign-in (Google/Apple/Microsoft) is
+ * log in with an existing key (pasted or scanned as a QR code). Federated sign-in (Google/Apple/Microsoft) is
  * intentionally not shown until it is implemented.
  */
 @Composable
@@ -57,6 +57,7 @@ fun GetStartedScreen(navController: NavHostController) {
     val createLabel = stringResource(R.string.get_started_create_vault_key)
     val recoverLabel = stringResource(R.string.get_started_recover_vault_key)
     val loginLabel = stringResource(R.string.get_started_login_vault_key)
+    val loginQrLabel = stringResource(R.string.get_started_login_qr_code)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -133,6 +134,17 @@ fun GetStartedScreen(navController: NavHostController) {
                         style = VaultPillButtonStyle.Secondary,
                         modifier = Modifier.heightIn(min = ActionButtonMinHeight),
                         onClick = { navController.navigate(VaultDestinations.GET_STARTED_SSH) },
+                    )
+
+                    Spacer(Modifier.height(ButtonSpacing))
+
+                    // Same import as the paste path, but the VaultKey is scanned from the QR code
+                    // shown on another device's VaultKey detail screen.
+                    VaultPillButton(
+                        label = loginQrLabel,
+                        style = VaultPillButtonStyle.Secondary,
+                        modifier = Modifier.heightIn(min = ActionButtonMinHeight),
+                        onClick = { navController.navigate(VaultDestinations.GET_STARTED_QR) },
                     )
 
                     Spacer(Modifier.height(BottomPadding))

@@ -34,15 +34,22 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.R
-import app.zenten.vault.crypto.SshKeyCodec
-import app.zenten.vault.ui.keys.LocalKeyBackupShare
 import app.zenten.vault.ui.VaultDestinations
 import app.zenten.vault.ui.components.PasteError
 import app.zenten.vault.ui.components.VaultPillButton
 import app.zenten.vault.ui.components.VaultScreenScaffold
 
+/** Where the first step of the import flow obtains the VaultKey text. */
+enum class KeySource {
+    /** "Paste VaultKey": read (and clear) the clipboard. */
+    CLIPBOARD,
+
+    /** "Login with QR Code": scan the QR shown on another device's VaultKey detail screen. */
+    QR_SCAN,
+}
+
 /**
- * Imports an existing VaultKey in two steps: paste the encrypted private key from
+ * Imports an existing VaultKey in two steps: paste (or scan) the encrypted private key from
  * the clipboard, then enter the passphrase that protects it.
  *
  * The frame comes from [VaultScreenScaffold] so the header matches every other
@@ -51,7 +58,11 @@ import app.zenten.vault.ui.components.VaultScreenScaffold
  * on the key step it leaves the flow — so the arrow always means "go back one step".
  */
 @Composable
-fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewModel = hiltViewModel()) {
+fun SshSetupScreen(
+    navController: NavHostController,
+    viewModel: OnboardingViewModel = hiltViewModel(),
+    keySource: KeySource = KeySource.CLIPBOARD,
+) {
     var keyInput by remember { mutableStateOf("") }
     var passphrase by remember { mutableStateOf("") }
     var step by remember { mutableStateOf(SetupStep.PRIVATE_KEY) }
@@ -76,7 +87,10 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
             }.isSuccess
             navController.navigate(VaultDestinations.KEYS) {
                 if (hasGetStarted) popUpTo(VaultDestinations.GET_STARTED) { inclusive = true }
-                else popUpTo(VaultDestinations.GET_STARTED_SSH) { inclusive = true }
+                else popUpTo(
+                    if (keySource == KeySource.QR_SCAN) VaultDestinations.GET_STARTED_QR
+                    else VaultDestinations.GET_STARTED_SSH,
+                ) { inclusive = true }
             }
         }
     }
@@ -130,12 +144,32 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                 SetupStep.PRIVATE_KEY -> {
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        text = stringResource(R.string.ssh_setup_paste_body),
+                        text = stringResource(
+                            if (keySource == KeySource.QR_SCAN) R.string.qr_scan_body else R.string.ssh_setup_paste_body,
+                        ),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (keySource == KeySource.QR_SCAN) {
+                        Spacer(Modifier.height(16.dp))
+                        QrScanner(
+                            enabled = !state.inProgress,
+                            onScanned = { scanned ->
+                                // Same checks as a paste; an invalid code just shows the error
+                                // while the camera keeps looking for the right one.
+                                when (val result = ImportedKeyValidator.validate(scanned)) {
+                                    is ImportedKeyValidation.Invalid -> clipboardError = result.error
+                                    is ImportedKeyValidation.Valid -> {
+                                        clipboardError = null
+                                        keyInput = result.normalizedKey
+                                        step = SetupStep.PASSPHRASE
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
 
                 SetupStep.PASSPHRASE -> {
@@ -189,7 +223,8 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                         Text(it.render(), color = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.height(8.dp))
                     }
-                    VaultPillButton(
+                    // The QR flow has no button here: the live scanner above is the action.
+                    if (keySource == KeySource.CLIPBOARD) VaultPillButton(
                         label = stringResource(R.string.ssh_setup_paste_action),
                         enabled = !state.inProgress,
                         onClick = {
@@ -217,34 +252,16 @@ fun SshSetupScreen(navController: NavHostController, viewModel: OnboardingViewMo
                                 clipboardError = PasteError(R.string.ssh_setup_clipboard_clear_error)
                                 return@VaultPillButton
                             }
-                            if (pastedKey.isBlank()) {
-                                clipboardError = PasteError(R.string.ssh_setup_clipboard_empty_error)
-                                return@VaultPillButton
-                            }
-                            // A notes export of an associated key is a valid encrypted key too, so
-                            // the structural check below would accept it as the VaultKey. Its
-                            // metadata label gives it away, so refuse it up front.
-                            if (LocalKeyBackupShare.isAssociatedKeyExport(pastedKey)) {
-                                clipboardError = PasteError(R.string.ssh_setup_clipboard_associated_key_error)
-                                return@VaultPillButton
-                            }
-                            val validatedKey = runCatching {
-                                SshKeyCodec.validateAndNormalizeEncryptedPrivateKey(pastedKey)
-                            }.getOrElse { error ->
-                                // A well-formed key with an out-of-band work factor is explained
-                                // on its own terms: the generic "unsupported key" wording would
-                                // suggest the paste was malformed, when the real problem is the
-                                // key's declared KDF cost.
-                                clipboardError = when (error) {
-                                    is SshKeyCodec.UnsupportedKdfRoundsException ->
-                                        PasteError(R.string.ssh_setup_clipboard_kdf_rounds_error, error.declaredRounds)
-                                    else -> PasteError(R.string.ssh_setup_clipboard_invalid_error)
+                            when (val result = ImportedKeyValidator.validate(pastedKey)) {
+                                is ImportedKeyValidation.Invalid -> {
+                                    clipboardError = result.error
+                                    return@VaultPillButton
                                 }
-                                return@VaultPillButton
+                                is ImportedKeyValidation.Valid -> {
+                                    keyInput = result.normalizedKey
+                                    step = SetupStep.PASSPHRASE
+                                }
                             }
-
-                            keyInput = validatedKey
-                            step = SetupStep.PASSPHRASE
                         },
                     )
                 }
