@@ -144,6 +144,7 @@ GitHub's built-in code scanning (GitHub Code Security / CodeQL) and secret scann
 
 - **Dependabot** is enabled in repository settings for vulnerability alerts and security updates. In addition, `.github/dependabot.yml` opens weekly version-update pull requests: routine Gradle minor/patch bumps are grouped into one PR, while crypto/native/protocol dependencies (BouncyCastle, secp256k1-kmp, Quartz) are deliberately left ungrouped for individual review.
 - **Gitleaks** (MIT-licensed) scans the full git history for committed secrets. It runs as the `secret-scan` job in `.github/workflows/security.yml` and fails the run on any finding.
+- **Gitleaks pre-commit hook** (`.githooks/pre-commit`) scans the staged changes before each commit, so a secret is blocked before it enters local history rather than found later by CI. It uses `.gitleaks.toml` and the same pinned version as CI (set once in `.gitleaks-version`, read by both the hook and `security.yml`), running a local `gitleaks` binary if installed or else the pinned Docker image, and fails closed if neither exists. Enable it once per clone with `git config core.hooksPath .githooks`. It is client-side only: `git commit --no-verify` bypasses it, so the CI scan remains the enforced backstop.
 - **Semgrep** (OSS) scans Kotlin/Android sources for high-severity defects. It runs as the `code-scan` job and fails the run only on `ERROR`-severity findings; the SARIF report is uploaded as an artifact.
 
 Things the free substitutes do not provide:
@@ -164,7 +165,7 @@ Reproduce either scan locally with the same image, configuration, and gate used 
 ```bash
 # Secret scan (full history)
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" \
-  ghcr.io/gitleaks/gitleaks:v8.30.1 detect --source=/repo --redact --verbose
+  "ghcr.io/gitleaks/gitleaks:$(cat .gitleaks-version)" detect --source=/repo --redact --verbose
 
 # Code scan (fails on ERROR severity)
 docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.180.0 \
