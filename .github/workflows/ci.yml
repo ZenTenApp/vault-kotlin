@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Gradle runs on JDK 21 (satisfies the JDK 17+ requirement). The Android
       # app still compiles with Java/Kotlin target 17 (see app/build.gradle.kts),
