@@ -49,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import app.zenten.vault.crypto.SshKeyCodec
 import app.zenten.vault.data.kv.KeySourceBackupState
+import app.zenten.vault.ui.components.SensitiveClipboard
 import app.zenten.vault.ui.components.VaultCard
 import app.zenten.vault.ui.components.VaultScreenScaffold
 import app.zenten.vault.ui.theme.LocalExtendedColors
@@ -66,7 +67,6 @@ fun KeyDetailScreen(navController: NavHostController, keyId: Long, viewModel: Ke
     val state by viewModel.state.collectAsState()
     val key = state.key
     val context = LocalContext.current
-    val clipboard = LocalClipboard.current
     // Target picker shown while the user chooses where to send the key export.
     var exportTargets by remember { mutableStateOf<List<LocalKeyBackupShare.ShareTarget>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
@@ -139,7 +139,8 @@ fun KeyDetailScreen(navController: NavHostController, keyId: Long, viewModel: Ke
             exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (exportCopied) {
                 Text(
-                    text = "Encrypted key copied to the clipboard.",
+                    text = "Encrypted key copied. The clipboard will be cleared in " +
+                        "${SensitiveClipboard.CLEAR_DELAY_SECONDS} seconds.",
                     color = LocalExtendedColors.current.success.color,
                 )
             }
@@ -176,12 +177,13 @@ fun KeyDetailScreen(navController: NavHostController, keyId: Long, viewModel: Ke
                         KeyExportAction.NOTES ->
                             exportTargets = LocalKeyBackupShare.availableTargets(context.packageManager)
                         KeyExportAction.CLIPBOARD ->
+                            // Flagged as sensitive and cleared automatically after a short delay,
+                            // so the export does not linger on the clipboard.
                             runCatching {
-                                clipboard.setClipEntry(
-                                    ClipData.newPlainText(
-                                        "Encrypted key",
-                                        LocalKeyBackupShare.keyExportText(key),
-                                    ).toClipEntry(),
+                                SensitiveClipboard.copy(
+                                    context,
+                                    label = "Encrypted key",
+                                    text = LocalKeyBackupShare.keyExportText(key),
                                 )
                             }.onSuccess {
                                 exportCopied = true

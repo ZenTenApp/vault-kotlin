@@ -65,7 +65,7 @@ flowchart LR
 2. The app shows the key ID, creation time, SSH public-key line, SSH public-key fingerprint, and the bcrypt KDF round count stored in the encrypted SSH key. The user can copy any public identifier by tapping its text element, which includes an inline copy icon. The key's Nostr identity stays internal: its NIP-19 `npub` is not shown, copied, or exported, and the SSH public-key line carries no comment.
 3. The app lists each configured backup destination and its current status.
 4. The user can select **Consolidate backup** to reconcile that key.
-5. The user can also export the key's private key in its passphrase-encrypted form. **Export Key to Notes** asks the user to re-enter the passphrase that protects the key, then opens the in-app target picker and sends the same self-describing encrypted-key text used when the key was created. **Export Key to Clipboard** uses the same passphrase gate and copies the same self-describing encrypted-key text the notes export sends, and confirms with a status line.
+5. The user can also export the key's private key in its passphrase-encrypted form. **Export Key to Notes** asks the user to re-enter the passphrase that protects the key, then opens the in-app target picker and sends the same self-describing encrypted-key text used when the key was created. **Export Key to Clipboard** uses the same passphrase gate and copies the same self-describing encrypted-key text the notes export sends, and confirms with a status line saying the clipboard will be cleared in 60 seconds.
 
 **Success:** The user can review key identity, its public SSH key and fingerprint, and backup coverage without plaintext private-key material appearing on screen.
 
