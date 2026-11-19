@@ -17,6 +17,10 @@ sdk.dir=/absolute/path/to/Android/Sdk
 
 Do not commit `local.properties` or real private-key material.
 
+## Enable the secret-scan pre-commit hook
+
+Run `git config core.hooksPath .githooks` once per clone. The hook scans staged changes with Gitleaks (local binary or Docker) before each commit; see [Build and test](build-and-test.md#dependency-and-security-scanning).
+
 ## Open and verify
 
 1. Open the repository in Android Studio, or use the Gradle wrapper from a terminal.
