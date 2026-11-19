@@ -29,6 +29,7 @@
     <string name="qr_scan_body">On your other device, open your VaultKey, choose Show VaultKey as QR Code, then point this camera at it.</string>
     <string name="qr_scan_permission_rationale">Vault needs the camera to scan your VaultKey QR code. Images are analysed on this device and never saved or sent.</string>
     <string name="qr_scan_permission_denied">Camera access is off, so the QR code cannot be scanned. Allow camera access in Settings, or go back and paste your VaultKey instead.</string>
+    <string name="qr_scan_camera_unavailable">The camera could not be opened. Close other apps that may be using it and try again, or go back and use Login with VaultKey to paste your key instead.</string>
     <string name="qr_scan_grant_action">Allow camera</string>
     <string name="qr_scan_open_settings_action">Open Settings</string>
     <string name="ssh_setup_passphrase_body">Enter the passphrase that protects your VaultKey.</string>
