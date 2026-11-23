@@ -175,8 +175,8 @@ Per [Build and test](build-and-test.md#versioning-shared-apks):
 - `versionName` is the user-visible SemVer string. Reserve `1.0.0` for the first
   public production release; a closed-test milestone is `0.9.0-rc.1` or similar.
 
-At the revision this runbook was written, `app/build.gradle.kts` carries
-`versionName = "0.0.1"` with `versionCode = 1`. A bare `"1.0"` is not valid SemVer per
+At the time of writing, `app/build.gradle.kts` carries
+`versionName = "0.0.2"` with `versionCode = 2`. A bare `"1.0"` is not valid SemVer per
 that policy and must not be used for a public release; reserve `1.0.0` for the first public
 production release and bump `versionCode` for every upload.
 
